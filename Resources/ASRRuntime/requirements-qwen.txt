@@ -1,0 +1,3 @@
+# Installed package versions from the build 1200 runtime; macOS ARM64 / CPython 3.12.
+mlx-qwen3-asr==0.3.5
+pip==25.0.1

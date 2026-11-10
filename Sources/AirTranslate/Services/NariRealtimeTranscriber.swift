@@ -519,20 +519,20 @@ enum NariTranscriptionError: LocalizedError, Equatable, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .configuration: AppText.localized(english: "Check the Nari model and source language settings.", korean: "Nari 모델과 원문 언어 설정을 확인하세요.")
-        case .missingKey: AppText.localized(english: "Save your Nari API key in API Keys settings.", korean: "API 키 설정에서 Nari API 키를 저장하세요.")
-        case .audioFormat: AppText.localized(english: "Nari requires 16 kHz mono PCM audio.", korean: "Nari 입력은 16 kHz 모노 PCM 오디오여야 합니다.")
-        case .backlog: AppText.localized(english: "Nari transcription could not keep up. Capture stopped at the queue limit. Restart when ready.", korean: "Nari 전사가 입력보다 느려 대기열 한도에서 중지했습니다. 준비되면 다시 시작하세요.")
-        case .connection: AppText.localized(english: "Nari connection was interrupted. Check your network and API key, then restart.", korean: "Nari 연결이 끊겼습니다. 네트워크와 API 키를 확인하고 다시 시작하세요.")
-        case .invalidResponse: AppText.localized(english: "Nari returned an invalid transcription response. Restart the session.", korean: "Nari 전사 응답 형식이 올바르지 않습니다. 세션을 다시 시작하세요.")
-        case .setupTimeout: AppText.localized(english: "Nari session setup timed out. Check your connection and restart.", korean: "Nari 세션 준비 시간이 초과되었습니다. 연결을 확인하고 다시 시작하세요.")
-        case .finishTimeout: AppText.localized(english: "Nari did not confirm the last utterance in time. The final text may be incomplete.", korean: "Nari가 마지막 발화를 제한 시간 안에 확정하지 못했습니다. 마지막 텍스트가 누락될 수 있습니다.")
-        case .authentication: AppText.localized(english: "Nari rejected the API key. Check it in API Keys settings.", korean: "Nari API 키 인증에 실패했습니다. API 키 설정에서 확인하세요.")
-        case .quota: AppText.localized(english: "Nari usage or concurrency limit reached. Check your allowance before restarting.", korean: "Nari 사용량 또는 동시 연결 한도에 도달했습니다. 할당량을 확인한 뒤 다시 시작하세요.")
-        case .credits: AppText.localized(english: "Nari requires more credits for this GA model. Check your balance before restarting.", korean: "이 Nari GA 모델을 사용할 크레딧이 부족합니다. 잔액을 확인한 뒤 다시 시작하세요.")
-        case .partnerAccess: AppText.localized(english: "This Nari GA model is not available to the current organization. Check Nari account access.", korean: "현재 Nari 조직에서 이 GA 모델을 사용할 수 없습니다. Nari 계정 접근 권한을 확인하세요.")
-        case .sessionExpired: AppText.localized(english: "Nari closed the idle session. Restart when ready to send audio.", korean: "Nari가 오디오 입력이 없는 세션을 종료했습니다. 준비되면 다시 시작하세요.")
-        case .serviceUnavailable: AppText.localized(english: "Nari is temporarily unavailable. Try starting again later.", korean: "Nari 서비스를 사용할 수 없습니다. 잠시 후 다시 시작하세요.")
+        case .configuration: AppText.localized(english: "Check the Nari model and source language settings.", korean: "Nari 모델과 원문 언어 설정을 확인하세요.", chineseSimplified: "请检查 Nari 模型和源语言设置。")
+        case .missingKey: AppText.localized(english: "Save your Nari API key in API Keys settings.", korean: "API 키 설정에서 Nari API 키를 저장하세요.", chineseSimplified: "请在 API 密钥设置中保存 Nari API 密钥。")
+        case .audioFormat: AppText.localized(english: "Nari requires 16 kHz mono PCM audio.", korean: "Nari 입력은 16 kHz 모노 PCM 오디오여야 합니다.", chineseSimplified: "Nari 需要 16 kHz 单声道 PCM 音频。")
+        case .backlog: AppText.localized(english: "Nari transcription could not keep up. Capture stopped at the queue limit. Restart when ready.", korean: "Nari 전사가 입력보다 느려 대기열 한도에서 중지했습니다. 준비되면 다시 시작하세요.", chineseSimplified: "Nari 转写未能跟上音频速度，采集已在队列达到上限时停止。准备好后可重新开始。")
+        case .connection: AppText.localized(english: "Nari connection was interrupted. Check your network and API key, then restart.", korean: "Nari 연결이 끊겼습니다. 네트워크와 API 키를 확인하고 다시 시작하세요.", chineseSimplified: "Nari 连接中断，请检查网络和 API 密钥后重新开始。")
+        case .invalidResponse: AppText.localized(english: "Nari returned an invalid transcription response. Restart the session.", korean: "Nari 전사 응답 형식이 올바르지 않습니다. 세션을 다시 시작하세요.", chineseSimplified: "Nari 返回了无效的转写响应，请重新开始。")
+        case .setupTimeout: AppText.localized(english: "Nari session setup timed out. Check your connection and restart.", korean: "Nari 세션 준비 시간이 초과되었습니다. 연결을 확인하고 다시 시작하세요.", chineseSimplified: "Nari 会话建立超时，请检查连接后重新开始。")
+        case .finishTimeout: AppText.localized(english: "Nari did not confirm the last utterance in time. The final text may be incomplete.", korean: "Nari가 마지막 발화를 제한 시간 안에 확정하지 못했습니다. 마지막 텍스트가 누락될 수 있습니다.", chineseSimplified: "Nari 未及时确认最后一段语音，末尾文字可能不完整。")
+        case .authentication: AppText.localized(english: "Nari rejected the API key. Check it in API Keys settings.", korean: "Nari API 키 인증에 실패했습니다. API 키 설정에서 확인하세요.", chineseSimplified: "Nari 拒绝了 API 密钥，请在 API 密钥设置中检查。")
+        case .quota: AppText.localized(english: "Nari usage or concurrency limit reached. Check your allowance before restarting.", korean: "Nari 사용량 또는 동시 연결 한도에 도달했습니다. 할당량을 확인한 뒤 다시 시작하세요.", chineseSimplified: "已达到 Nari 用量或并发限制，请检查可用额度后重新开始。")
+        case .credits: AppText.localized(english: "Nari requires more credits for this GA model. Check your balance before restarting.", korean: "이 Nari GA 모델을 사용할 크레딧이 부족합니다. 잔액을 확인한 뒤 다시 시작하세요.", chineseSimplified: "此 Nari 正式版模型需要更多额度，请检查余额后重新开始。")
+        case .partnerAccess: AppText.localized(english: "This Nari GA model is not available to the current organization. Check Nari account access.", korean: "현재 Nari 조직에서 이 GA 모델을 사용할 수 없습니다. Nari 계정 접근 권한을 확인하세요.", chineseSimplified: "当前组织无法使用此 Nari 正式版模型，请检查账户权限。")
+        case .sessionExpired: AppText.localized(english: "Nari closed the idle session. Restart when ready to send audio.", korean: "Nari가 오디오 입력이 없는 세션을 종료했습니다. 준비되면 다시 시작하세요.", chineseSimplified: "Nari 已关闭空闲会话，准备好发送音频后可重新开始。")
+        case .serviceUnavailable: AppText.localized(english: "Nari is temporarily unavailable. Try starting again later.", korean: "Nari 서비스를 사용할 수 없습니다. 잠시 후 다시 시작하세요.", chineseSimplified: "Nari 暂时不可用，请稍后重试。")
         }
     }
 }

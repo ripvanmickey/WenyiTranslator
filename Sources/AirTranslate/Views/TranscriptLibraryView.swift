@@ -59,6 +59,7 @@ struct TranscriptLibraryView: View {
         .onAppear {
             ensureSelection()
         }
+        .onDisappear { session.cancelSavedTitleGeneration(); session.cancelTranscriptCleanup() }
         .onChange(of: session.savedTranscripts.count) { _, _ in
             ensureSelection()
         }
@@ -204,7 +205,7 @@ struct TranscriptLibraryView: View {
 
     private var transcriptList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
+            LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(session.savedTranscripts) { transcript in
                     Button {
                         session.selectSavedTranscript(transcript.id)
@@ -220,7 +221,7 @@ struct TranscriptLibraryView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(AirTranslateDesign.Spacing.xs)
+            .padding(12)
         }
         .background(AirTranslateDesign.Palette.canvas)
     }
@@ -237,20 +238,20 @@ struct TranscriptLibraryView: View {
                     Spacer(minLength: 0)
 
                     Button {
-                        session.polishSelectedTranscriptDraftWithFoundationModel()
+                        session.polishSelectedTranscriptDraftWithLocalModel()
                     } label: {
-                        if session.isFoundationTranscriptCleanupRunning {
+                        if session.isLocalTranscriptCleanupRunning {
                             ProgressView()
                                 .controlSize(.small)
                                 .frame(width: 28, height: 28)
                         } else {
-                            Label(AppText.foundationModelCleanupShort, systemImage: "sparkles")
+                            Label(AppText.localModelCleanupShort, systemImage: "sparkles")
                                 .font(AirTranslateDesign.Typography.meta.weight(.semibold))
                         }
                     }
-                    .disabled(!canCopyDraft || session.isFoundationTranscriptCleanupRunning)
-                    .help(AppText.foundationModelCleanupHelp)
-                    .accessibilityLabel(AppText.foundationModelCleanup)
+                    .disabled(!canCopyDraft || session.isLocalTranscriptCleanupRunning || session.isGeneratingSavedTitle || session.isRunning || session.isStarting)
+                    .help(AppText.localModelCleanupHelp)
+                    .accessibilityLabel(AppText.localModelCleanup)
 
                     Button {
                         if copyDraftText() {
@@ -269,6 +270,38 @@ struct TranscriptLibraryView: View {
                     .disabled(!canCopyDraft)
                 }
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(AppText.title).font(.headline)
+                    HStack(spacing: 12) {
+                        TextField("输入记录标题…", text: $session.savedDraftTitle)
+                            .textFieldStyle(.roundedBorder)
+                            .controlSize(.large)
+                            .accessibilityLabel(AppText.title)
+                        Button {
+                            session.generateSavedTranscriptTitle()
+                        } label: {
+                            if session.isGeneratingSavedTitle { ProgressView().controlSize(.small) }
+                            else { Label("AI 生成标题", systemImage: "sparkles") }
+                        }
+                        .disabled(session.isGeneratingSavedTitle || session.isRunning || session.isStarting)
+                        .help("使用已配置的本地模型生成标题，停止监听后可用。")
+                    }
+                    Text("保存修改时同步更新 TXT 文件名；原文和译文保留配对，重名时自动编号。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Text(selectedTranscript.sourceFileName)
+                            .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                            .help(selectedTranscript.sourceFileName)
+                        Button { session.revealSelectedTranscriptInFinder() } label: {
+                            Label("在访达中显示", systemImage: "folder")
+                        }
+                    }
+                    if let message = session.savedTitleMessage {
+                        Text(message).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 8)
+
                 draftEditor(for: selectedTranscript)
 
                 HStack {
@@ -280,6 +313,7 @@ struct TranscriptLibraryView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(AirTranslateDesign.Palette.accent)
                     .keyboardShortcut("s", modifiers: [.command])
+                    .disabled(session.isRunning || session.isStarting)
 
                     Spacer(minLength: 0)
 
@@ -387,6 +421,7 @@ struct TranscriptLibraryView: View {
                 .airTranslateInteractiveSurface()
         }
         .buttonStyle(AirTranslatePressButtonStyle())
+        .disabled(!PlatformSupport.supportsWritingTools)
         .help(AppText.appleIntelligenceWritingTools)
         .accessibilityLabel(AppText.appleIntelligenceWritingTools)
     }
@@ -428,7 +463,7 @@ struct TranscriptLibraryView: View {
         DispatchQueue.main.async {
             guard let textView = draftEditorTextViews[field] else { return }
             textView.window?.makeFirstResponder(textView)
-            NSApp.sendAction(#selector(NSResponder.showWritingTools(_:)), to: textView, from: nil)
+            if #available(macOS 15.2, *) { NSApp.sendAction(#selector(NSResponder.showWritingTools(_:)), to: textView, from: nil) }
         }
     }
 
@@ -493,7 +528,7 @@ private struct WritingToolsTextEditor: NSViewRepresentable {
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
-        textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.textContainerInset = NSSize(width: 14, height: 14)
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
@@ -501,8 +536,10 @@ private struct WritingToolsTextEditor: NSViewRepresentable {
         textView.autoresizingMask = [.width]
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.heightTracksTextView = false
-        textView.writingToolsBehavior = .complete
-        textView.allowedWritingToolsResultOptions = .plainText
+        if #available(macOS 15.0, *) {
+            textView.writingToolsBehavior = .complete
+            textView.allowedWritingToolsResultOptions = .plainText
+        }
 
         scrollView.documentView = textView
         context.coordinator.textView = textView
@@ -581,8 +618,9 @@ private struct TranscriptLibraryRow: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, AirTranslateDesign.Spacing.sm)
-        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
         .background(
             isSelected ? AirTranslateDesign.Palette.accentSoft : AirTranslateDesign.Palette.transparent,
             in: RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous)

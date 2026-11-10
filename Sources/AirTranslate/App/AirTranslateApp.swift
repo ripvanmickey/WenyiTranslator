@@ -12,7 +12,7 @@ struct AirTranslateApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("AirTranslate", id: AirTranslateWindowID.main) {
+        WindowGroup("文译", id: AirTranslateWindowID.main) {
             ContentView(session: session)
                 .frame(
                     minWidth: AirTranslateDesign.mainWindowMinimumWidth,
@@ -27,13 +27,10 @@ struct AirTranslateApp: App {
             CaptionCommands(session: session)
         }
 
-        Window(AppText.floatingCaptionModeChoiceTitle, id: AirTranslateWindowID.floatingCaptionModeChoice) {
+        WindowGroup(AppText.floatingCaptionModeChoiceTitle, id: AirTranslateWindowID.floatingCaptionModeChoice) {
             FloatingCaptionModeChoiceView(session: session)
-                .windowMinimizeBehavior(.disabled)
         }
         .windowResizability(.contentSize)
-        .restorationBehavior(.disabled)
-        .defaultLaunchBehavior(.suppressed)
 
         Settings {
             SettingsView(session: session)

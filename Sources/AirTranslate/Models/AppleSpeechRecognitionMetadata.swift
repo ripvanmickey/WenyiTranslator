@@ -9,6 +9,7 @@ struct AppleSpeechRecognitionMetadata: Equatable, @unchecked Sendable {
     let audioRange: CMTimeRange
     let sourceTextFingerprint: UInt64
     let emittedAt: Date
+    var audioEndUptime: TimeInterval? = nil
     let emittedAtUptime: TimeInterval
 
     init(

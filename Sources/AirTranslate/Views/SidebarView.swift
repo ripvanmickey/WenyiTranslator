@@ -161,7 +161,6 @@ struct ConsoleBarView: View {
     @Bindable var session: TranslationSessionStore
     let isCompact: Bool
     @Environment(\.openSettings) private var openSettings
-    @State private var showsVolume = false
     @FocusState private var isCaptureFocused: Bool
 
     var body: some View {
@@ -185,7 +184,6 @@ struct ConsoleBarView: View {
                 consoleDivider
                 languageControl
                 outputControl
-                voiceControl
             }
 
             Spacer(minLength: 0)
@@ -206,9 +204,6 @@ struct ConsoleBarView: View {
             if usesOpenAIAutoLanguageFlow {
                 session.usePreferredLanguageForOpenAIOutput()
             }
-        }
-        .popover(isPresented: $showsVolume, arrowEdge: .bottom) {
-            volumePopover
         }
     }
 
@@ -388,10 +383,8 @@ struct ConsoleBarView: View {
             OpenAIOutputPicker(session: session)
         } else if (session.isUsingNariSTT || session.isUsingGrokSTT) && segmentedControlPresentation != .lockedSummary {
             Menu {
-                Picker(AppText.model, selection: nariWorkflowBinding) {
-                    ForEach(IntelligenceModel.allCases) { model in
-                        Text(model.title).tag(model)
-                    }
+                Picker(AppText.outputMode, selection: liveOutputModeBinding) {
+                    ForEach(LiveOutputMode.allCases) { mode in Text(mode.title).tag(mode) }
                 }
             } label: {
                 AirChip(
@@ -404,7 +397,7 @@ struct ConsoleBarView: View {
             .airFocusRing(cornerRadius: 12)
             .accessibilityLabel(AppText.outputMode)
             .accessibilityValue(session.selectedModel.title)
-        } else if session.isTranscribeOnlyMode {
+        } else if session.isUsingProviderTranscriptionMode {
             AirChip(
                 text: sourceOnlyOutputTitle,
                 systemImage: "text.alignleft",
@@ -447,53 +440,6 @@ struct ConsoleBarView: View {
         }
     }
 
-    @ViewBuilder
-    private var voiceControl: some View {
-        if !session.isTranscribeOnlyMode {
-            if segmentedControlPresentation == .lockedSummary {
-                LockedConsoleSummary(
-                    title: AppText.voiceOutput,
-                    value: AppText.voiceShort,
-                    systemImage: session.isDubbingEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill",
-                    spokenValue: session.isDubbingEnabled
-                        ? AppText.floatingCaptionPowerOn
-                        : AppText.floatingCaptionPowerOff
-                )
-            } else {
-                HStack(spacing: AirTranslateDesign.Spacing.xxs) {
-                    Button {
-                        guard isConfigurationAvailable else { return }
-                        session.isDubbingEnabled.toggle()
-                    } label: {
-                        Image(systemName: session.isDubbingEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    }
-                    .buttonStyle(AirIconButton())
-                    .airFocusRing(cornerRadius: 18)
-                    .allowsHitTesting(isConfigurationAvailable)
-                    .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
-                    .accessibilityLabel(AppText.voiceOutput)
-                    .accessibilityValue(session.isDubbingEnabled ? AppText.floatingCaptionPowerOn : AppText.floatingCaptionPowerOff)
-
-                    if session.isDubbingEnabled {
-                        Button {
-                            showsVolume.toggle()
-                        } label: {
-                            Text(volumePercent)
-                                .font(AirTranslateDesign.Typography.meta.monospacedDigit())
-                                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                        }
-                        .buttonStyle(.plain)
-                        .airFocusRing(cornerRadius: AirTranslateDesign.Radius.control)
-                        .allowsHitTesting(isConfigurationAvailable)
-                        .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
-                        .accessibilityLabel(AppText.volume)
-                        .accessibilityValue(volumePercent)
-                    }
-                }
-            }
-        }
-    }
-
     private var compactMenu: some View {
         Menu {
             Section(AppText.languages) {
@@ -528,12 +474,10 @@ struct ConsoleBarView: View {
                     }
                     .disabled(!isConfigurationAvailable)
                 } else if (session.isUsingNariSTT || session.isUsingGrokSTT) && segmentedControlPresentation != .lockedSummary {
-                    Picker(AppText.model, selection: nariWorkflowBinding) {
-                        ForEach(IntelligenceModel.allCases) { model in
-                            Text(model.title).tag(model)
-                        }
+                    Picker(AppText.outputMode, selection: liveOutputModeBinding) {
+                        ForEach(LiveOutputMode.allCases) { mode in Text(mode.title).tag(mode) }
                     }
-                } else if session.isTranscribeOnlyMode {
+                } else if session.isUsingProviderTranscriptionMode {
                     Text(sourceOnlyOutputTitle)
                 } else if segmentedControlPresentation == .lockedSummary {
                     Text(session.liveOutputMode.title)
@@ -551,23 +495,6 @@ struct ConsoleBarView: View {
                 }
             }
 
-            if !session.isTranscribeOnlyMode {
-                Section(AppText.voiceOutput) {
-                    if segmentedControlPresentation == .lockedSummary {
-                        Text(session.isDubbingEnabled ? AppText.floatingCaptionPowerOn : AppText.floatingCaptionPowerOff)
-                    } else {
-                        Button(session.isDubbingEnabled ? AppText.turnVoiceOutputOff : AppText.turnVoiceOutputOn) {
-                            guard isConfigurationAvailable else { return }
-                            session.isDubbingEnabled.toggle()
-                        }
-                        if session.isDubbingEnabled {
-                            Button("\(AppText.volume) · \(volumePercent)") {
-                                showsVolume = true
-                            }
-                        }
-                    }
-                }
-            }
         } label: {
             Label(AppText.moreControls, systemImage: "ellipsis")
                 .font(AirTranslateDesign.Typography.label)
@@ -581,28 +508,6 @@ struct ConsoleBarView: View {
 
     private var engineButton: some View {
         ProcessingModePicker(session: session)
-    }
-
-    private var volumePopover: some View {
-        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.sm) {
-            Label(AppText.voiceOutput, systemImage: "speaker.wave.2.fill")
-                .font(AirTranslateDesign.Typography.label)
-                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
-            HStack {
-                Image(systemName: "speaker.fill")
-                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                Slider(value: translatedVoiceVolumeBinding, in: 0...1, step: 0.05)
-                    .frame(width: 180)
-                    .allowsHitTesting(isConfigurationAvailable)
-                    .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
-                Text(volumePercent)
-                    .font(AirTranslateDesign.Typography.meta.monospacedDigit())
-                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                    .frame(width: 38)
-            }
-        }
-        .padding(AirTranslateDesign.Spacing.md)
-        .background(AirTranslateDesign.Palette.raised)
     }
 
     private var consoleDivider: some View {
@@ -681,24 +586,6 @@ struct ConsoleBarView: View {
         )
     }
 
-    private var translatedVoiceVolumeBinding: Binding<Double> {
-        guardedBinding($session.translatedVoiceVolume)
-    }
-
-    private var nariWorkflowBinding: Binding<IntelligenceModel> {
-        Binding(
-            get: { session.isTranscribeOnlyMode ? .appleSpeechOnly : .appleSystem },
-            set: { model in
-                guard isConfigurationAvailable else { return }
-                if model == .appleSpeechOnly {
-                    session.useTranscribeOnlyMode()
-                } else {
-                    session.useTranslationMode()
-                }
-            }
-        )
-    }
-
     private func guardedBinding<Value>(_ binding: Binding<Value>) -> Binding<Value> {
         Binding(
             get: { binding.wrappedValue },
@@ -736,9 +623,7 @@ struct ConsoleBarView: View {
             ?? MicrophoneInputDevice.systemDefault.name
     }
 
-    private var volumePercent: String {
-        "\(Int((session.translatedVoiceVolume * 100).rounded()))%"
-    }
+
 }
 
 private struct SessionStatusPill: View {

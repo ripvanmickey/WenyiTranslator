@@ -9,11 +9,11 @@ enum LiveSpeechTranscriberError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .audioInputBackpressure:
-            "Apple Speech stopped because audio arrived faster than it could be transcribed. Restart transcription to continue."
+            "Apple Speech 未能跟上音频输入速度，已停止识别。请重新开始转写。"
         case .audioInputConversionFailed:
             AppText.localized(
                 english: "Apple Speech stopped because the audio format could not be converted. Restart transcription to continue.",
-                korean: "오디오 형식을 변환할 수 없어 Apple 전사를 중지했습니다. 전사를 다시 시작해 주세요."
+                korean: "오디오 형식을 변환할 수 없어 Apple 전사를 중지했습니다. 전사를 다시 시작해 주세요.", chineseSimplified: "Apple Speech 无法转换音频格式，已停止识别。请重新开始转写。"
             )
         }
     }
@@ -174,6 +174,77 @@ extension LiveSpeechTranscriberDelegate {
     ) {}
 }
 
+@available(macOS 26.0, *)
+protocol ModernLiveSpeechTranscriberDelegate: AnyObject {
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didRecognize text: String,
+        language: LanguageOption,
+        confidence: Double
+    )
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didRecognize text: String,
+        language: LanguageOption,
+        confidence: Double,
+        metadata: AppleSpeechRecognitionMetadata
+    )
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didTranslate text: String,
+        language: LanguageOption,
+        confidence: Double
+    )
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didRecognizeSourceTranscript text: String,
+        confidence: Double
+    )
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didOutputAudioPCM16Base64 audio: String,
+        sampleRate: Double
+    )
+    func liveSpeechTranscriber(_ transcriber: ModernLiveSpeechTranscriber, didFail error: Error)
+}
+
+@available(macOS 26.0, *)
+extension ModernLiveSpeechTranscriberDelegate {
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didRecognize text: String,
+        language: LanguageOption,
+        confidence: Double,
+        metadata _: AppleSpeechRecognitionMetadata
+    ) {
+        liveSpeechTranscriber(
+            transcriber,
+            didRecognize: text,
+            language: language,
+            confidence: confidence
+        )
+    }
+
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didTranslate text: String,
+        language: LanguageOption,
+        confidence: Double
+    ) {}
+
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didRecognizeSourceTranscript text: String,
+        confidence: Double
+    ) {}
+
+    func liveSpeechTranscriber(
+        _ transcriber: ModernLiveSpeechTranscriber,
+        didOutputAudioPCM16Base64 audio: String,
+        sampleRate: Double
+    ) {}
+}
+
 struct SpeechAssetReservation: Sendable {
     fileprivate let id: UInt64
     let locale: Locale
@@ -246,6 +317,7 @@ private final class LifecycleOneShotGate: @unchecked Sendable {
     }
 }
 
+@available(macOS 26.0, *)
 final class SpeechAssetReservationCoordinator: @unchecked Sendable {
     typealias ReserveLocale = @Sendable (Locale) async throws -> Bool
     typealias ReleaseLocale = @Sendable (Locale) async -> Bool
@@ -345,7 +417,10 @@ final class SpeechAssetReservationCoordinator: @unchecked Sendable {
     }
 }
 
-final class LiveSpeechTranscriber: @unchecked Sendable {
+@available(macOS 26.0, *)
+final class ModernLiveSpeechTranscriber: @unchecked Sendable {
+    private let audioInputTimeline = AudioInputTimeline()
+
     private struct LifecycleResources {
         let inputQueue: SpeechAnalyzerInputQueue<AnalyzerInput>?
         let inputAdapter: (any SpeechAnalyzerInputAdapting)?
@@ -366,7 +441,7 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
         let producerTeardownGate: LifecycleOneShotGate
     }
 
-    weak var delegate: LiveSpeechTranscriberDelegate?
+    weak var delegate: ModernLiveSpeechTranscriberDelegate?
 
     private static let reusablePCMBufferCount = 48
     private static let analyzerInputBufferLimit = 32
@@ -402,7 +477,7 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
 
     init(
         authorizationRequester: @escaping @Sendable () async -> Bool = {
-            await LiveSpeechTranscriber.requestAuthorization()
+            await ModernLiveSpeechTranscriber.requestAuthorization()
         },
         assetReservationCoordinator: SpeechAssetReservationCoordinator = .shared
     ) {
@@ -491,11 +566,16 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
                 lifecycleGeneration: lifecycleGeneration
             )
             let inputAdapter: (any SpeechAnalyzerInputAdapting)?
+#if compiler(>=6.4)
             if #available(macOS 27.0, *) {
                 inputAdapter = AppleSpeechInputAdapter(analyzerFormat: audioFormat)
             } else {
                 inputAdapter = nil
             }
+#else
+            // The macOS 26 capture path already supplies 16 kHz mono PCM.
+            inputAdapter = nil
+#endif
             let analyzer = SpeechAnalyzer(
                 modules: modules,
                 options: SpeechAnalyzer.Options(
@@ -523,6 +603,7 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
             }
 
             try Task.checkCancellation()
+            audioInputTimeline.reset()
             try await analyzer.prepareToAnalyze(in: audioFormat)
             try ensureLifecycleIsCurrent(lifecycleGeneration)
             try Task.checkCancellation()
@@ -578,7 +659,7 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
                                         metadata: previous.metadata
                                     )
                                 }
-                                let metadata = metadataBuilder.metadata(
+                                var metadata = metadataBuilder.metadata(
                                     sourceText: text,
                                     alternatives: includesAlternatives
                                         ? result.alternatives.prefix(3).map { String($0.characters).trimmingCharacters(in: .whitespacesAndNewlines) } : [],
@@ -588,6 +669,7 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
                                     emittedAt: emittedAt,
                                     emittedAtUptime: emittedAtUptime
                                 )
+                                metadata.audioEndUptime = self.audioInputTimeline.uptime(at: result.range.end.seconds)
                                 previousConfidence = Self.averageConfidence(in: result.text)
                                 self.delegate?.liveSpeechTranscriber(
                                     self,
@@ -688,20 +770,26 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
         stateLock.unlock()
 
         guard !isPaused, let inputQueue else { return }
+        if let description = CMSampleBufferGetFormatDescription(sampleBuffer),
+           let stream = CMAudioFormatDescriptionGetStreamBasicDescription(description), stream.pointee.mSampleRate > 0 {
+            audioInputTimeline.append(duration: Double(CMSampleBufferGetNumSamples(sampleBuffer)) / stream.pointee.mSampleRate)
+        }
 
         if let inputAdapter {
             do {
                 let inputs = try inputAdapter.convert(sampleBuffer) { [self] sampleBuffer in
-                    conversionLock.withLock { pcmBuffer(from: sampleBuffer) }
+                    conversionLock.withLock { self.pcmBuffer(from: sampleBuffer) }
                 }
                 guard acceptsAudioInput(inputQueue, generation: generation) else { return }
                 for input in inputs {
+#if compiler(>=6.4)
                     if #available(macOS 27.0, *), PipelineDiagnostics.isEnabled {
                         PipelineDiagnostics.record("speech.audio", values: [
                             "duration": input.bufferDuration.seconds,
                             "capture_time": CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
                         ])
                     }
+#endif
                     guard inputQueue.yield(input) == .enqueued else { break }
                 }
             } catch {
@@ -961,7 +1049,7 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
     }
 
     func makeInputQueueForTesting<Element: Sendable>(
-        bufferLimit: Int = LiveSpeechTranscriber.analyzerInputBufferLimit
+        bufferLimit: Int = ModernLiveSpeechTranscriber.analyzerInputBufferLimit
     ) -> SpeechAnalyzerInputQueue<Element> {
         makeInputQueue(bufferLimit: bufferLimit)
     }
@@ -1100,3 +1188,79 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
         conversionLock.unlock()
     }
 }
+
+/// Keeps macOS 26 Speech types out of storage and initialization on older systems.
+final class LiveSpeechTranscriber: @unchecked Sendable {
+    weak var delegate: LiveSpeechTranscriberDelegate?
+    private var storage: AnyObject?
+    init() {
+        if #available(macOS 26.0, *) {
+            let value = ModernLiveSpeechTranscriber()
+            storage = value
+            value.delegate = self
+        }
+    }
+    @available(macOS 26.0, *)
+    private var modern: ModernLiveSpeechTranscriber? { storage as? ModernLiveSpeechTranscriber }
+    static func installedSupportedLanguages(from languages: [LanguageOption]) async -> [LanguageOption] {
+        if #available(macOS 26.0, *) { return await ModernLiveSpeechTranscriber.installedSupportedLanguages(from: languages) }
+        return []
+    }
+    func start(languages: [LanguageOption], includesAlternatives: Bool = false) async throws {
+        if #available(macOS 26.0, *), let modern {
+            try await modern.start(languages: languages, includesAlternatives: includesAlternatives)
+        } else { throw PlatformSupport.appleFeatureUnavailable }
+    }
+    func append(_ buffer: CMSampleBuffer) { if #available(macOS 26.0, *) { modern?.append(buffer) } }
+    func setPaused(_ value: Bool) { if #available(macOS 26.0, *) { modern?.setPaused(value) } }
+    func stop() { if #available(macOS 26.0, *) { modern?.stop() } }
+    func stopAndWaitForCleanup() async { if #available(macOS 26.0, *) { await modern?.stopAndWaitForCleanup() } }
+}
+
+@available(macOS 26.0, *)
+extension LiveSpeechTranscriber: ModernLiveSpeechTranscriberDelegate {
+    func liveSpeechTranscriber(_ transcriber: ModernLiveSpeechTranscriber, didRecognize text: String, language: LanguageOption, confidence: Double) {
+        delegate?.liveSpeechTranscriber(self, didRecognize: text, language: language, confidence: confidence)
+    }
+    func liveSpeechTranscriber(_ transcriber: ModernLiveSpeechTranscriber, didRecognize text: String, language: LanguageOption, confidence: Double, metadata: AppleSpeechRecognitionMetadata) {
+        delegate?.liveSpeechTranscriber(self, didRecognize: text, language: language, confidence: confidence, metadata: metadata)
+    }
+    func liveSpeechTranscriber(_ transcriber: ModernLiveSpeechTranscriber, didTranslate text: String, language: LanguageOption, confidence: Double) {
+        delegate?.liveSpeechTranscriber(self, didTranslate: text, language: language, confidence: confidence)
+    }
+    func liveSpeechTranscriber(_ transcriber: ModernLiveSpeechTranscriber, didRecognizeSourceTranscript text: String, confidence: Double) {
+        delegate?.liveSpeechTranscriber(self, didRecognizeSourceTranscript: text, confidence: confidence)
+    }
+    func liveSpeechTranscriber(_ transcriber: ModernLiveSpeechTranscriber, didOutputAudioPCM16Base64 audio: String, sampleRate: Double) {
+        delegate?.liveSpeechTranscriber(self, didOutputAudioPCM16Base64: audio, sampleRate: sampleRate)
+    }
+    func liveSpeechTranscriber(_ transcriber: ModernLiveSpeechTranscriber, didFail error: Error) {
+        delegate?.liveSpeechTranscriber(self, didFail: error)
+    }
+}
+
+#if DEBUG
+@available(macOS 26.0, *)
+extension LiveSpeechTranscriber {
+    convenience init(authorizationRequester: @escaping @Sendable () async -> Bool,
+                     assetReservationCoordinator: SpeechAssetReservationCoordinator = .shared) {
+        self.init()
+        let value = ModernLiveSpeechTranscriber(authorizationRequester: authorizationRequester, assetReservationCoordinator: assetReservationCoordinator)
+        storage = value; value.delegate = self
+    }
+    convenience init(assetReservationCoordinator: SpeechAssetReservationCoordinator) {
+        self.init()
+        let value = ModernLiveSpeechTranscriber(assetReservationCoordinator: assetReservationCoordinator)
+        storage = value; value.delegate = self
+    }
+    var hasActiveResourcesForTesting: Bool { modern?.hasActiveResourcesForTesting ?? false }
+    var lifecycleGenerationForTesting: UInt64 { modern!.lifecycleGenerationForTesting }
+    func setCleanupCompletionHookForTesting(_ hook: (@Sendable () async -> Void)?) { modern?.setCleanupCompletionHookForTesting(hook) }
+    func installAnalyzeTaskCancellationLockProbeForTesting(_ probe: @escaping @Sendable (Bool) -> Void) { modern?.installAnalyzeTaskCancellationLockProbeForTesting(probe) }
+    func claimAssetReservationForTesting(_ reservation: SpeechAssetReservation, lifecycleGeneration: UInt64) -> Bool { modern!.claimAssetReservationForTesting(reservation, lifecycleGeneration: lifecycleGeneration) }
+    func setPostRunningTaskPublicationHookForTesting(_ hook: (@Sendable () -> Void)?) { modern?.setPostRunningTaskPublicationHookForTesting(hook) }
+    func publishCancellationProbeTasksForTesting(lifecycleGeneration: UInt64, onStarted: @escaping @Sendable (String) -> Void, onCancelled: @escaping @Sendable (String) -> Void) -> Bool { modern!.publishCancellationProbeTasksForTesting(lifecycleGeneration: lifecycleGeneration, onStarted: onStarted, onCancelled: onCancelled) }
+    func makeInputQueueForTesting<Element: Sendable>(bufferLimit: Int = 32) -> SpeechAnalyzerInputQueue<Element> { modern!.makeInputQueueForTesting(bufferLimit: bufferLimit) }
+    func installInputAdapterForTesting(_ adapter: any SpeechAnalyzerInputAdapting, queue: SpeechAnalyzerInputQueue<AnalyzerInput>) { modern?.installInputAdapterForTesting(adapter, queue: queue) }
+}
+#endif

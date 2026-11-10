@@ -8,7 +8,9 @@ enum CaptionControlActions {
         if FloatingCaptionWindowController.isOpen {
             FloatingCaptionWindowController.close()
         } else {
-            openWindow(id: AirTranslateWindowID.floatingCaptionModeChoice)
+            if let existing = NSApp.windows.first(where: { $0.identifier?.rawValue == AirTranslateWindowID.floatingCaptionModeChoice }) {
+                existing.makeKeyAndOrderFront(nil)
+            } else { openWindow(id: AirTranslateWindowID.floatingCaptionModeChoice) }
             NSApp.activate(ignoringOtherApps: true)
         }
     }

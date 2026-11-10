@@ -5,16 +5,17 @@ import PackageDescription
 let package = Package(
     name: "AirTranslate",
     platforms: [
-        .macOS(.v26)
+        .macOS(.v14)
     ],
     products: [
         .executable(name: "AirTranslate", targets: ["AirTranslate"])
     ],
+    dependencies: [.package(path: "Vendor/argmax-oss-swift-main"), .package(path: "Vendor/silero-vad-swift-main")],
     targets: [
         .target(name: "AirTranslateCore"),
         .executableTarget(
             name: "AirTranslate",
-            dependencies: ["AirTranslateCore"],
+            dependencies: ["AirTranslateCore", .product(name: "WhisperKit", package: "argmax-oss-swift-main"), .product(name: "SileroVAD", package: "silero-vad-swift-main")],
             linkerSettings: [
                 .linkedFramework("AVFAudio"),
                 .linkedFramework("AudioToolbox"),
@@ -22,7 +23,7 @@ let package = Package(
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("Security"),
                 .linkedFramework("Speech"),
-                .linkedFramework("Translation")
+                .unsafeFlags(["-Xlinker", "-weak_framework", "-Xlinker", "Translation"])
             ]
         ),
         .testTarget(

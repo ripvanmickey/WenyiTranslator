@@ -140,6 +140,9 @@ final class SystemAudioCapture: NSObject, @unchecked Sendable {
     private var operationGeneration: UInt64 = 0
     private var userStoppedGeneration: UInt64?
     private var activeStream: ActiveStream?
+    private var audioTap: CoreAudioTapCapture?
+    private var tapGeneration: UInt64?
+    private var tapSampleCount = 0
 
     init(screenRecordingAccessPolicy: ScreenRecordingAccessPolicy? = nil) {
         self.screenRecordingAccessPolicy = screenRecordingAccessPolicy
@@ -160,7 +163,7 @@ final class SystemAudioCapture: NSObject, @unchecked Sendable {
     }
 
     @MainActor
-    func start(sampleRate: Int = 16_000, generation: UInt64 = 0) async throws {
+    func start(sampleRate: Int = 16_000, generation: UInt64 = 0, audioOnly: Bool = false) async throws {
         let operation = beginOperation()
         await operationGate.enter()
 
@@ -168,7 +171,8 @@ final class SystemAudioCapture: NSObject, @unchecked Sendable {
             try await performStart(
                 sampleRate: sampleRate,
                 generation: generation,
-                operation: operation
+                operation: operation,
+                audioOnly: audioOnly
             )
             await operationGate.leave()
         } catch {
@@ -187,10 +191,25 @@ final class SystemAudioCapture: NSObject, @unchecked Sendable {
     private func performStart(
         sampleRate: Int,
         generation: UInt64,
-        operation: UInt64
+        operation: UInt64,
+        audioOnly: Bool
     ) async throws {
         await performStop()
         try ensureOperationIsCurrent(operation)
+
+        if audioOnly {
+            let tap = CoreAudioTapCapture()
+            withStateLock { audioTap = tap; tapGeneration = generation; tapSampleCount = 0 }
+            do {
+                try tap.start(sampleRate: sampleRate) { [weak self] sample in self?.deliverTapSample(sample, generation: generation) }
+                try ensureOperationIsCurrent(operation)
+            } catch {
+                withStateLock { audioTap = nil; tapGeneration = nil }
+                tap.stop()
+                throw error
+            }
+            return
+        }
 
         let content = try await SCShareableContent.excludingDesktopWindows(
             false,
@@ -264,6 +283,12 @@ final class SystemAudioCapture: NSObject, @unchecked Sendable {
     }
 
     private func performStop() async {
+        let tap = withStateLock {
+            let tap = audioTap
+            audioTap = nil; tapGeneration = nil
+            return tap
+        }
+        tap?.stop()
         let stream = withStateLock {
             let stream = activeStream?.stream
             activeStream = nil
@@ -288,6 +313,20 @@ final class SystemAudioCapture: NSObject, @unchecked Sendable {
     private func removeOutputs(from stream: SCStream) {
         try? stream.removeStreamOutput(self, type: .screen)
         try? stream.removeStreamOutput(self, type: .audio)
+    }
+
+    private func deliverTapSample(_ sample: CMSampleBuffer, generation: UInt64) {
+        let delivery = withStateLock { () -> (SystemAudioCaptureDelegate?, Int) in
+            guard tapGeneration == generation else { return (nil, 0) }
+            tapSampleCount += 1
+            return (delegateStorage, tapSampleCount)
+        }
+        guard let delegate = delivery.0 else { return }
+        delegate.systemAudioCapture(self, didOutput: sample, generation: generation)
+        if delivery.1 == 1 || delivery.1 % Self.audioLevelReportInterval == 0 {
+            delegate.systemAudioCapture(self, didReceiveAudioSampleCount: delivery.1,
+                level: audioLevel(from: sample), generation: generation)
+        }
     }
 
     private func beginOperation() -> UInt64 {

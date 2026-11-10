@@ -78,7 +78,9 @@ struct SettingsView: View {
         switch selectedCategory.wrappedValue {
         case .general:
             generalSettings
-            AppleTranslationSettingsView(session: session)
+            if PlatformSupport.supportsAppleSpeech && session.isUsingAppleTextTranslation {
+                AppleTranslationSettingsView(session: session)
+            }
         case .apiKeys:
             apiKeySettings
         case .audio:
@@ -130,6 +132,11 @@ struct SettingsView: View {
                 )
             }
 
+            if processingModeSelection.wrappedValue == .apple {
+                LocalTranslationSettingsView(session: session)
+            }
+
+            if processingModeSelection.wrappedValue != .apple || !session.localTranslation.enabled {
             SettingsToggleRow(
                 title: JevCopy.title,
                 detail: session.isJevSelectionAvailable ? JevCopy.detail : JevCopy.appleOnly,
@@ -137,7 +144,7 @@ struct SettingsView: View {
                 detailLineLimit: nil,
                 isOn: lockedSessionConfigurationBinding($session.isJevSelectionEnabled)
             )
-            .disabled(isSessionConfigurationLocked || !session.isJevSelectionAvailable)
+            .disabled(isSessionConfigurationLocked || !session.isJevSelectionAvailable || session.isUsingLocalTranslation)
             .accessibilityIdentifier("jevSelectionToggle")
 
             if session.isUsingJevSelection {
@@ -151,6 +158,8 @@ struct SettingsView: View {
                 Button(JevCopy.keySettings) { session.requestAPIKeySettings(provider: .jev) }
                     .disabled(isSessionConfigurationLocked)
                     .accessibilityIdentifier("jevAPIKeySettings")
+            }
+
             }
 
             if processingModeSelection.wrappedValue == .gemini {
@@ -268,21 +277,6 @@ struct SettingsView: View {
             }
 
             if !session.isUsingOpenAIRealtime {
-                SettingsControlRow(
-                    title: SettingsCopy.sessionWorkflow,
-                    detail: SettingsCopy.sessionWorkflowDetail,
-                    systemImage: "captions.bubble"
-                ) {
-                    Picker(AppText.model, selection: modelSelection) {
-                        ForEach(IntelligenceModel.allCases) { model in
-                            Text(model.title).tag(model)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 220)
-                    .disabled(isSessionConfigurationLocked || session.isUsingProviderRealtimeTranslation || session.isUsingProviderTranscriptionMode)
-                }
-
                 if session.isUsingProviderRealtimeTranslation {
                     SettingsNoticeRow(text: SettingsCopy.realtimeTranslationOutputOnly, systemImage: "waveform")
                 } else if session.isUsingProviderTranscriptionMode {
@@ -345,6 +339,17 @@ struct SettingsView: View {
             }
 
             SettingsControlRow(
+                title: "纯音频采集（实验）",
+                detail: PlatformSupport.supportsAudioTap ? "开启后仅采集 Mac 系统声音，不启动屏幕捕获。首次使用需允许系统音频录制；不保证受保护的视频可用。失败时不会自动切回屏幕捕获。停止采集后可更改。" : "纯音频采集需要 macOS 14.2或以上。当前可用麦克风或屏幕捕获兼容方式；兼容方式可能影响受保护视频的播放。",
+                systemImage: "waveform"
+            ) {
+                Toggle("纯音频采集", isOn: lockedSessionConfigurationBinding($session.audioOnlySystemCapture))
+                    .labelsHidden()
+                    .disabled(isSessionConfigurationLocked || session.audioInputSource != .systemAudio || !PlatformSupport.supportsAudioTap)
+                    .accessibilityLabel("纯音频采集（实验）")
+            }
+
+            SettingsControlRow(
                 title: AppText.microphoneInputDevice,
                 detail: session.audioInputSource == .microphone
                     ? SettingsCopy.microphoneDeviceDetail
@@ -371,7 +376,7 @@ struct SettingsView: View {
 
             if session.isUsingOpenAIRealtime {
                 openAIOutputControl
-            } else if session.isTranscribeOnlyMode {
+            } else if session.isUsingProviderTranscriptionMode {
                 SettingsValueRow(
                     title: AppText.outputMode,
                     detail: transcribeOnlyOutputDetail,
@@ -423,98 +428,6 @@ struct SettingsView: View {
                 SettingsNoticeRow(text: SettingsCopy.realtimeTranslationOutputOnly, systemImage: "waveform")
             }
 
-            if !session.isTranscribeOnlyMode {
-                SettingsToggleRow(
-                    title: AppText.voiceOutput,
-                    detail: SettingsCopy.dubbingDetail,
-                    systemImage: "speaker.wave.2",
-                    isOn: lockedSessionConfigurationBinding($session.isDubbingEnabled)
-                )
-                .disabled(isSessionConfigurationLocked)
-
-                SettingsControlRow(
-                    title: SettingsCopy.translatedSpeechModel,
-                    detail: SettingsCopy.translatedSpeechModelDetail,
-                    systemImage: "waveform"
-                ) {
-                    Picker(
-                        SettingsCopy.translatedSpeechModel,
-                        selection: lockedSessionConfigurationBinding($session.speechSynthesisModel)
-                    ) {
-                        ForEach(SpeechSynthesisModel.allCases) { model in
-                            Text(model.title).tag(model)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .frame(minWidth: 220, idealWidth: 260, maxWidth: 300)
-                    .disabled(isSessionConfigurationLocked)
-                    .accessibilityLabel(SettingsCopy.translatedSpeechModel)
-                    .accessibilityValue(session.speechSynthesisModel.title)
-                    .accessibilityHint(SettingsCopy.translatedSpeechModelDetail)
-                }
-                .disabled(isSessionConfigurationLocked)
-
-                if session.speechSynthesisModel.isMAIVoice {
-                    SettingsControlRow(title: MAIVoiceCopy.voice, detail: MAIVoiceCopy.detail, systemImage: "person.wave.2") {
-                        Picker(MAIVoiceCopy.voice, selection: lockedSessionConfigurationBinding($session.maiVoiceName)) {
-                            Text(MAIVoiceCopy.automaticVoice).tag("")
-                            if !session.maiVoiceName.isEmpty, !session.availableMAIVoices.contains(session.maiVoiceName) {
-                                Text(session.maiVoiceName).tag(session.maiVoiceName)
-                            }
-                            ForEach(session.availableMAIVoices, id: \.self) { voice in Text(voice).tag(voice) }
-                        }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
-                        .disabled(isSessionConfigurationLocked)
-                        .accessibilityLabel(MAIVoiceCopy.voice)
-                        .accessibilityIdentifier("maiVoicePicker")
-                    }
-                    .task(id: session.speechSynthesisModel.rawValue + session.targetLanguage.id) {
-                        await session.refreshMAIVoices()
-                    }
-                    if let message = session.maiVoiceCatalogMessage {
-                        SettingsNoticeRow(text: message, systemImage: "info.circle")
-                    }
-                    if !session.maiVoiceName.isEmpty, !session.availableMAIVoices.isEmpty,
-                       !session.availableMAIVoices.contains(session.maiVoiceName) {
-                        SettingsNoticeRow(text: MAIVoiceCopy.languageUnsupported, systemImage: "exclamationmark.circle")
-                    }
-                    if !session.hasOpenRouterAPIKey {
-                        SettingsNoticeActionRow(text: MAIVoiceCopy.keyRequired, systemImage: "key", actionTitle: MAIVoiceCopy.configure) {
-                            session.requestedAPIKeyProvider = .openRouter
-                            selectedCategory.wrappedValue = .apiKeys
-                        }
-                    }
-                }
-
-                if session.speechSynthesisModel.isGeminiTTS,
-                   !session.hasGeminiAPIKey,
-                   processingModeSelection.wrappedValue != .gemini {
-                    SettingsNoticeActionRow(
-                        text: AppText.geminiTTSAPIKeyMissing,
-                        systemImage: "key",
-                        actionTitle: SettingsCopy.enterGeminiAPIKey
-                    ) {
-                        selectedCategory.wrappedValue = .apiKeys
-                    }
-                }
-
-                SettingsControlRow(
-                    title: SettingsCopy.liveTranslationVolume,
-                    detail: session.isDubbingEnabled
-                        ? SettingsCopy.liveTranslationVolumeDetail
-                        : SettingsCopy.voiceOutputDisabledReason,
-                    systemImage: "speaker.wave.3"
-                ) {
-                    SettingsVolumeSlider(
-                        value: lockedSessionConfigurationBinding($session.translatedVoiceVolume),
-                        range: 0...1,
-                        accessibilityLabel: SettingsCopy.liveTranslationVolume
-                    )
-                }
-                .disabled(isSessionConfigurationLocked || !session.isDubbingEnabled)
-            }
         }
     }
 
@@ -633,6 +546,10 @@ struct SettingsView: View {
 
     private var assetSettings: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if !PlatformSupport.supportsAppleSpeech {
+                Text("Apple 语言资源需要 macOS 26。本地识别模型请在「通用 → 语音识别引擎」下载和管理。")
+                    .foregroundStyle(.secondary)
+            }
             SettingsGroup(title: AppText.requiredAssets) {
                 SettingsAssetAvailabilityRow(
                     title: AppText.speechLanguagePack,
@@ -648,7 +565,7 @@ struct SettingsView: View {
                     session.downloadModelAssets(for: .appleOnDevice)
                 }
             }
-            .disabled(session.isDownloadingModelAssets)
+            .disabled(session.isDownloadingModelAssets || !PlatformSupport.supportsAppleSpeech)
 
             Label(SettingsCopy.assetDownloadNotice, systemImage: "internaldrive")
                 .font(.caption)
@@ -979,20 +896,6 @@ struct SettingsView: View {
         }
     }
 
-    private var modelSelection: Binding<IntelligenceModel> {
-        Binding {
-            session.selectedModel
-        } set: { model in
-            guard !isSessionConfigurationLocked else { return }
-            switch model {
-            case .appleSpeechOnly:
-                session.useTranscribeOnlyMode()
-            case .appleSystem, .appleOnDevice:
-                session.useTranslationMode()
-            }
-        }
-    }
-
     private var appVersionSummary: String {
         RunningAppVersion.current().summary ?? SettingsCopy.versionUnavailable
     }
@@ -1052,7 +955,7 @@ private enum SettingsProcessingMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .apple:
-            "Apple"
+            AppText.appleProcessingMode
         case .openAI:
             AppText.openAIAudio
         case .gemini:
@@ -1165,74 +1068,74 @@ enum SettingsSegmentedControlAccess {
 }
 
 enum SettingsCopy {
-    static let general = AppText.localized(english: "General", korean: "일반")
-    static let apiKeys = AppText.localized(english: "API Keys", korean: "API 키")
-    static let audio = AppText.localized(english: "Audio", korean: "오디오")
-    static let assets = AppText.localized(english: "Assets", korean: "자산")
-    static let info = AppText.localized(english: "Info", korean: "정보")
+    static let general = AppText.localized(english: "General", korean: "일반", chineseSimplified: "通用")
+    static let apiKeys = AppText.localized(english: "API Keys", korean: "API 키", chineseSimplified: "API 密钥")
+    static let audio = AppText.localized(english: "Audio", korean: "오디오", chineseSimplified: "音频")
+    static let assets = AppText.localized(english: "Assets", korean: "자산", chineseSimplified: "资源")
+    static let info = AppText.localized(english: "Info", korean: "정보", chineseSimplified: "关于")
     static let generalDetail = AppText.localized(
         english: "Set the default translation mode and language behavior.",
-        korean: "기본 번역 방식과 언어 동작을 설정합니다."
+        korean: "기본 번역 방식과 언어 동작을 설정합니다.", chineseSimplified: "设置默认处理模式和语言行为。"
     )
     static let apiKeysDetail = CredentialsCopy.pageDetail
     static let audioDetail = AppText.localized(
-        english: "Choose where AirTranslate listens from.",
-        korean: "AirTranslate가 어떤 오디오를 들을지 선택합니다."
+        english: "Choose where 文译 listens from.",
+        korean: "文译가 어떤 오디오를 들을지 선택합니다.", chineseSimplified: "选择文译的音频来源。"
     )
     static let outputDetail = AppText.localized(
         english: "Control what appears and whether translated speech plays.",
-        korean: "표시할 결과와 번역 음성 출력을 조정합니다."
+        korean: "표시할 결과와 번역 음성 출력을 조정합니다.", chineseSimplified: "设置字幕输出内容。"
     )
     static let transcriptDetail = AppText.localized(
         english: "Tune paragraphing, long sessions, and optional transcript file saving.",
-        korean: "문단 나누기, 긴 세션, 선택적 기록 파일 저장을 조정합니다."
+        korean: "문단 나누기, 긴 세션, 선택적 기록 파일 저장을 조정합니다.", chineseSimplified: "设置段落、长时间监听和记录文件保存。"
     )
     static let floatingDetail = AppText.localized(
         english: "Configure the detachable floating caption window.",
-        korean: "별도 창으로 표시되는 플로팅 자막을 설정합니다."
+        korean: "별도 창으로 표시되는 플로팅 자막을 설정합니다.", chineseSimplified: "设置独立悬浮字幕窗口。"
     )
     static let assetsDetail = AppText.localized(
         english: "Check local speech and translation assets.",
-        korean: "로컬 음성 인식 및 번역 자산을 확인합니다."
+        korean: "로컬 음성 인식 및 번역 자산을 확인합니다.", chineseSimplified: "检查本地语音识别和翻译资源。"
     )
     static let permissionsDetail = AppText.localized(
         english: "Open macOS privacy controls required for capture.",
-        korean: "캡처에 필요한 macOS 개인정보 보호 권한을 엽니다."
+        korean: "캡처에 필요한 macOS 개인정보 보호 권한을 엽니다.", chineseSimplified: "打开音频采集所需的 macOS 隐私设置。"
     )
     static let infoDetail = AppText.localized(
         english: "Review local-first behavior and privacy notes.",
-        korean: "로컬 우선 동작과 개인정보 안내를 확인합니다."
+        korean: "로컬 우선 동작과 개인정보 안내를 확인합니다.", chineseSimplified: "查看本地处理方式和隐私说明。"
     )
-    static let modeSettings = AppText.localized(english: "Mode Settings", korean: "모드 설정")
-    static let processingEngine = AppText.localized(english: "Processing Mode", korean: "처리 방식")
+    static let modeSettings = AppText.localized(english: "Mode Settings", korean: "모드 설정", chineseSimplified: "模式设置")
+    static let processingEngine = AppText.localized(english: "Processing Mode", korean: "처리 방식", chineseSimplified: "处理模式")
     static let processingEngineDetail = AppText.localized(
         english: "Choose exactly one active engine: local Apple mode, OpenAI Audio, Gemini Live, Meta Scribe, Azure MAI, Nari STT, Grok STT, or Qwen LiveTranslate.",
         korean: "Apple 기본 모드, OpenAI 음성, Gemini Live, Meta 스크라이브, Azure MAI, Nari STT, Grok STT, Qwen LiveTranslate 중 하나만 활성화합니다.",
         japanese: "Appleローカルモード、OpenAI音声、Gemini Live、Meta Scribe、Azure MAI、Nari STT、Grok STT、Qwen LiveTranslateから1つだけ有効にします。",
-        chineseSimplified: "仅启用一种处理方式：Apple 本地模式、OpenAI 语音、Gemini Live、Meta Scribe、Azure MAI、Nari STT、Grok STT 或 Qwen LiveTranslate。"
+        chineseSimplified: "仅启用一种处理方式：本地模式、OpenAI 语音、Gemini Live、Meta Scribe、Azure MAI、Nari STT、Grok STT 或 Qwen LiveTranslate。"
     )
     static let enterOpenAIAPIKey = AppText.localized(
         english: "Enter OpenAI API key",
         korean: "OpenAI API 키 입력",
         japanese: "OpenAI APIキーを入力",
-        chineseSimplified: "输入 OpenAI API key"
+        chineseSimplified: "输入 OpenAI API 密钥"
     )
     static let enterGeminiAPIKey = AppText.localized(
         english: "Enter Gemini API key",
         korean: "Gemini API 키 입력",
         japanese: "Gemini APIキーを入力",
-        chineseSimplified: "输入 Gemini API key"
+        chineseSimplified: "输入 Gemini API 密钥"
     )
     static let enterMetaAPIKey = AppText.localized(
         english: "Enter Meta Model API key",
         korean: "Meta Model API 키 입력",
         japanese: "Meta Model APIキーを入力",
-        chineseSimplified: "输入 Meta Model API key"
+        chineseSimplified: "输入 Meta Model API 密钥"
     )
-    static let sessionWorkflow = AppText.localized(english: "Session Workflow", korean: "세션 처리 방식")
+    static let sessionWorkflow = AppText.localized(english: "Session Workflow", korean: "세션 처리 방식", chineseSimplified: "字幕处理方式")
     static let sessionWorkflowDetail = AppText.localized(
         english: "Choose translated captions or source-only transcription.",
-        korean: "번역 자막 또는 원문 전사만 중에서 선택합니다."
+        korean: "번역 자막 또는 원문 전사만 중에서 선택합니다.", chineseSimplified: "选择显示翻译字幕，或仅转写原文。"
     )
     static let realtimeTranslationOutputOnly = AppText.localized(
         english: "API live translation modes produce translated captions. For source-only captions, choose Apple transcription, OpenAI Audio → Transcribe, or Gemini Transcribe.",
@@ -1248,7 +1151,7 @@ enum SettingsCopy {
     )
     static let autoDetectDetail = AppText.localized(
         english: "Temporarily unavailable while automatic detection is improved.",
-        korean: "자동 감지 개선 중이라 잠시 비활성화되어 있습니다."
+        korean: "자동 감지 개선 중이라 잠시 비활성화되어 있습니다.", chineseSimplified: "自动检测功能正在改进，暂时不可用。"
     )
     static let geminiAutoDetectDetail = AppText.localized(
         english: "Gemini detects supported spoken languages automatically, including language changes within a session.",
@@ -1291,15 +1194,15 @@ enum SettingsCopy {
     )
     static let captureRunningDisabledReason = AppText.localized(
         english: "Stop capture before changing this setting.",
-        korean: "이 설정을 바꾸려면 먼저 캡처를 중지하세요."
+        korean: "이 설정을 바꾸려면 먼저 캡처를 중지하세요.", chineseSimplified: "请先停止监听，再修改此设置。"
     )
     static let openAIRealtimeDisabledReason = AppText.localized(
         english: "Transcript cleanup is disabled while OpenAI Realtime is active.",
-        korean: "OpenAI Realtime이 켜져 있을 때는 기록 다듬기를 사용할 수 없습니다."
+        korean: "OpenAI Realtime이 켜져 있을 때는 기록 다듬기를 사용할 수 없습니다.", chineseSimplified: "使用 OpenAI Realtime 时，不进行记录润色。"
     )
     static let gptRealtimeModel = AppText.localized(
         english: "GPT Realtime Model",
-        korean: "GPT Realtime 모델"
+        korean: "GPT Realtime 모델", chineseSimplified: "GPT Realtime 模型"
     )
     static let gptRealtimeModelDetail = AppText.localized(
         english: "Choose the translation-endpoint model used by GPT Realtime.",
@@ -1308,28 +1211,28 @@ enum SettingsCopy {
         chineseSimplified: "选择 GPT Realtime 使用的翻译端点模型。"
     )
     static let openAIVoiceAgentModelNotice = AppText.localized(
-        english: "gpt-realtime-2.1 and 2.1-mini are voice-agent models for /v1/realtime. AirTranslate live interpretation uses gpt-realtime-translate on the translation endpoint.",
-        korean: "gpt-realtime-2.1과 2.1-mini는 /v1/realtime용 보이스 에이전트 모델입니다. AirTranslate 실시간 통역은 번역 전용 엔드포인트의 gpt-realtime-translate를 사용합니다."
+        english: "gpt-realtime-2.1 and 2.1-mini are voice-agent models for /v1/realtime. 文译 live interpretation uses gpt-realtime-translate on the translation endpoint.",
+        korean: "gpt-realtime-2.1과 2.1-mini는 /v1/realtime용 보이스 에이전트 모델입니다. 文译 실시간 통역은 번역 전용 엔드포인트의 gpt-realtime-translate를 사용합니다.", chineseSimplified: "模型 gpt-realtime-2.1 和 2.1-mini 用于 /v1/realtime 语音交互；文译实时口译使用翻译接口的 gpt-realtime-translate。"
     )
     static let currentGPTRealtimeModel = AppText.localized(
         english: "Current GPT Realtime model",
-        korean: "현재 GPT Realtime 모델"
+        korean: "현재 GPT Realtime 모델", chineseSimplified: "当前 GPT Realtime 模型"
     )
     static let currentGPTRealtimeModelDetail = AppText.localized(
         english: "Change this from General after selecting GPT Realtime.",
-        korean: "GPT Realtime을 선택한 뒤 일반 설정에서 변경합니다."
+        korean: "GPT Realtime을 선택한 뒤 일반 설정에서 변경합니다.", chineseSimplified: "在通用设置中选择 GPT Realtime 后，可修改此项。"
     )
     static let openAIVoiceAgentModels = AppText.localized(
         english: "Voice-agent models",
-        korean: "보이스 에이전트 모델"
+        korean: "보이스 에이전트 모델", chineseSimplified: "语音交互模型"
     )
     static let openAIVoiceAgentModelsDetail = AppText.localized(
-        english: "Documented OpenAI Realtime voice-agent models. They are not used for AirTranslate's live interpreter path yet.",
-        korean: "공식 문서에 등록된 OpenAI Realtime 보이스 에이전트 모델입니다. 아직 AirTranslate의 실시간 통역 경로에는 사용하지 않습니다."
+        english: "Documented OpenAI Realtime voice-agent models. They are not used for 文译's live interpreter path yet.",
+        korean: "공식 문서에 등록된 OpenAI Realtime 보이스 에이전트 모델입니다. 아직 文译의 실시간 통역 경로에는 사용하지 않습니다.", chineseSimplified: "OpenAI 文档列出的实时语音交互模型，目前尚未用于文译的实时口译。"
     )
     static let geminiTranslationDetail = AppText.localized(
         english: "Use Gemini 3.5 Live Translate for direct audio-to-live-translation sessions.",
-        korean: "Gemini 3.5 Live Translate로 오디오를 직접 실시간 번역합니다."
+        korean: "Gemini 3.5 Live Translate로 오디오를 직접 실시간 번역합니다.", chineseSimplified: "使用 Gemini 3.5 Live Translate，直接将音频转换为实时翻译。"
     )
     static let geminiLiveMode = AppText.localized(
         english: "Gemini Live Mode",
@@ -1375,7 +1278,7 @@ enum SettingsCopy {
     )
     static let audioInputDetail = AppText.localized(
         english: "Mac audio captures system playback. Microphone captures the selected input device.",
-        korean: "PC 소리는 시스템 재생음을, 마이크는 선택한 입력 장치를 캡처합니다."
+        korean: "PC 소리는 시스템 재생음을, 마이크는 선택한 입력 장치를 캡처합니다.", chineseSimplified: "Mac 音频采集系统播放的声音，麦克风采集所选输入设备的声音。"
     )
     static let microphoneDeviceDetail = AppText.localized(
         english: "Available only when microphone input is selected.",
@@ -1391,31 +1294,31 @@ enum SettingsCopy {
     )
     static let outputModeDetail = AppText.localized(
         english: "Translation shows source and target text. Transcribe Only keeps the source text.",
-        korean: "번역은 원문과 번역을 표시하고, 전사만은 원문 기록만 유지합니다."
+        korean: "번역은 원문과 번역을 표시하고, 전사만은 원문 기록만 유지합니다.", chineseSimplified: "翻译模式显示原文和译文，仅转写模式只显示原文。"
     )
     static let dubbingDetail = AppText.localized(
         english: "Speak translated output when a stable translated segment is available.",
-        korean: "안정된 번역 문장이 생기면 번역 음성을 재생합니다."
+        korean: "안정된 번역 문장이 생기면 번역 음성을 재생합니다.", chineseSimplified: "有稳定译文时进行朗读。"
     )
     static let translatedSpeechModel = AppText.localized(
         english: "Translated Speech Model",
         korean: "번역 음성 모델",
         japanese: "翻訳音声モデル",
-        chineseSimplified: "译文语音模型"
+        chineseSimplified: "朗读引擎"
     )
     static let translatedSpeechModelDetail = AppText.localized(
-        english: "Choose how AirTranslate reads translated text in its Apple TranslationSession workflow, including text transcribed by STT providers: Apple system speech, Gemini 3.8 Flash / Flash-Lite TTS, or MAI Voice 2.1 / Flash through OpenRouter. Realtime speech-translation providers use their own audio output.",
+        english: "Choose how 文译 reads translated text in its Apple TranslationSession workflow, including text transcribed by STT providers: Apple system speech, Gemini 3.8 Flash / Flash-Lite TTS, or MAI Voice 2.1 / Flash through OpenRouter. Realtime speech-translation providers use their own audio output.",
         korean: "Apple TranslationSession으로 텍스트를 번역하는 흐름(전사 제공자의 결과를 번역하는 경우 포함)에서 번역문을 읽을 음성을 선택합니다(Apple 시스템 음성, Gemini 3.8 Flash·Flash-Lite TTS 또는 OpenRouter의 MAI Voice 2.1·Flash). 실시간 음성 번역 제공자는 자체 오디오 출력을 사용합니다.",
         japanese: "Apple TranslationSessionでテキストを翻訳するフロー（音声認識プロバイダーの文字起こし結果を翻訳する場合を含む）で読み上げる音声を選択します（Appleシステム音声、Gemini 3.8 Flash / Flash-Lite TTS または OpenRouter の MAI Voice 2.1 / Flash）。リアルタイム音声翻訳プロバイダーは独自の音声出力を使用します。",
-        chineseSimplified: "选择在 Apple TranslationSession 文本翻译流程中朗读译文的语音，也包括翻译语音识别提供方转写出的文本（Apple 系统语音、Gemini 3.8 Flash / Flash-Lite TTS 或 OpenRouter 的 MAI Voice 2.1 / Flash）。实时语音翻译提供方使用自己的音频输出。"
+        chineseSimplified: "选择朗读译文的语音引擎：Apple 系统语音、Gemini TTS 或 MAI Voice。实时语音翻译服务使用自身的语音输出。"
     )
     static let liveTranslationVolume = AppText.localized(
         english: "Volume",
-        korean: "음량"
+        korean: "음량", chineseSimplified: "音量"
     )
     static let liveTranslationVolumeDetail = AppText.localized(
-        english: "Controls the translated speech AirTranslate plays in live translation modes.",
-        korean: "실시간 번역 모드에서 AirTranslate가 재생하는 번역 음성 크기를 조절합니다."
+        english: "Controls the translated speech 文译 plays in live translation modes.",
+        korean: "실시간 번역 모드에서 文译가 재생하는 번역 음성 크기를 조절합니다.", chineseSimplified: "控制文译在实时翻译模式下朗读译文的音量。"
     )
     static let voiceOutputDisabledReason = AppText.localized(
         english: "Turn on Voice Output to adjust translated speech volume.",
@@ -1423,11 +1326,11 @@ enum SettingsCopy {
         japanese: "翻訳音声の音量を調整するには音声出力をオンにしてください。",
         chineseSimplified: "开启语音输出后才能调整译文语音音量。"
     )
-    static let displaySettings = AppText.localized(english: "Display Settings", korean: "표시 설정")
-    static let displayContent = AppText.localized(english: "Display Content", korean: "표시 내용")
+    static let displaySettings = AppText.localized(english: "Display Settings", korean: "표시 설정", chineseSimplified: "显示设置")
+    static let displayContent = AppText.localized(english: "Display Content", korean: "표시 내용", chineseSimplified: "显示内容")
     static let floatingTextSizeDetail = AppText.localized(
         english: "Controls the optical size used in the floating caption window.",
-        korean: "플로팅 자막 창에 쓰이는 글자 크기를 조정합니다."
+        korean: "플로팅 자막 창에 쓰이는 글자 크기를 조정합니다.", chineseSimplified: "调整悬浮字幕窗口中的文字大小。"
     )
     static let floatingCustomTextSizeDetail = AppText.localized(
         english: "Fine-tunes the caption point size without changing the saved preset.",
@@ -1437,7 +1340,7 @@ enum SettingsCopy {
     )
     static let floatingLineCountDetail = AppText.localized(
         english: "Limits how many wrapped lines stay visible at once.",
-        korean: "한 번에 표시되는 줄 수를 제한합니다."
+        korean: "한 번에 표시되는 줄 수를 제한합니다.", chineseSimplified: "限制同时可见的自动换行行数。"
     )
     static let floatingTextColorDetail = AppText.localized(
         english: "Uses one readable foreground color for source and translation text.",
@@ -1463,18 +1366,18 @@ enum SettingsCopy {
         japanese: "プリセットを使用",
         chineseSimplified: "使用预设"
     )
-    static let keepOnTop = AppText.localized(english: "Always On Top", korean: "항상 위에 표시")
+    static let keepOnTop = AppText.localized(english: "Always On Top", korean: "항상 위에 표시", chineseSimplified: "窗口置顶")
     static let keepOnTopDetail = AppText.localized(
         english: "Keep floating captions above other windows.",
-        korean: "다른 창 위에 플로팅 자막을 고정합니다."
+        korean: "다른 창 위에 플로팅 자막을 고정합니다.", chineseSimplified: "将悬浮字幕保持在其他窗口上方。"
     )
     static let floatingFooter = AppText.localized(
         english: "Floating captions appear in a separate movable window.",
-        korean: "플로팅 자막은 별도 창으로 표시되며 원하는 위치로 이동할 수 있습니다."
+        korean: "플로팅 자막은 별도 창으로 표시되며 원하는 위치로 이동할 수 있습니다.", chineseSimplified: "悬浮字幕显示在可独立移动的窗口中。"
     )
     static let floatingPreviewAccessibilityLabel = AppText.localized(
         english: "Floating caption preview. Original: We're going to focus on real-time translation. Translation: We will focus on real-time translation.",
-        korean: "플로팅 자막 미리보기. 원문: We're going to focus on real-time translation. 번역: 우리는 실시간 번역에 집중할 것입니다."
+        korean: "플로팅 자막 미리보기. 원문: We're going to focus on real-time translation. 번역: 우리는 실시간 번역에 집중할 것입니다.", chineseSimplified: "悬浮字幕预览。原文：我们将重点讨论实时翻译。译文：我们将重点讨论实时翻译。"
     )
     static let screenRecording = AppText.localized(
         english: "Screen Recording",
@@ -1596,9 +1499,9 @@ enum SettingsCopy {
         japanese: "GeminiキーはmacOSキーチェーンに保存済みです。新しいキーを入力して保存すると置き換えます。",
         chineseSimplified: "Gemini 密钥已保存在 macOS 钥匙串中。输入并保存新密钥即可替换。"
     )
-    static let required = AppText.localized(english: "Required", korean: "필수")
-    static let aboutAirTranslate = AppText.localized(english: "About AirTranslate", korean: "AirTranslate 정보")
-    static let localFirst = AppText.localized(english: "Local first", korean: "로컬 우선")
+    static let required = AppText.localized(english: "Required", korean: "필수", chineseSimplified: "必需")
+    static let aboutAirTranslate = AppText.localized(english: "About 文译", korean: "文译 정보", chineseSimplified: "关于文译")
+    static let localFirst = AppText.localized(english: "Local first", korean: "로컬 우선", chineseSimplified: "优先本地处理")
     static let version = AppText.localized(
         english: "Version",
         korean: "버전",
@@ -1617,12 +1520,12 @@ enum SettingsCopy {
         japanese: "確認できません",
         chineseSimplified: "无法获取"
     )
-    static let privacy = AppText.localized(english: "Privacy", korean: "개인정보")
+    static let privacy = AppText.localized(english: "Privacy", korean: "개인정보", chineseSimplified: "隐私")
     static let privacyDetail = AppText.localized(
         english: "Apple mode runs locally. Cloud providers receive audio only after you save their API key, choose the mode, and start capture.",
         korean: "Apple 모드는 로컬에서 실행됩니다. 클라우드 제공업체는 해당 API 키를 저장하고 모드를 선택한 뒤 캡처를 시작하면 오디오를 받습니다.",
         japanese: "Appleモードはローカルで動作します。クラウドサービスにはAPIキーを保存し、モードを選択してキャプチャを開始したときに音声が送信されます。",
-        chineseSimplified: "Apple 模式在本地运行。保存对应 API 密钥、选择模式并开始采集后，音频才会发送给云服务。"
+        chineseSimplified: "本地模式在本机运行。保存对应 API 密钥、选择模式并开始采集后，音频才会发送给云服务。"
     )
     static let macOSKeychain = AppText.localized(
         english: "macOS Keychain",
@@ -1644,7 +1547,7 @@ enum SettingsCopy {
     )
     static let sidebarHint = AppText.localized(
         english: "Opens this settings category.",
-        korean: "이 설정 카테고리를 엽니다."
+        korean: "이 설정 카테고리를 엽니다.", chineseSimplified: "打开此设置分类。"
     )
 }
 

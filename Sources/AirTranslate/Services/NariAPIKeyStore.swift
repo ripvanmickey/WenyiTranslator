@@ -100,7 +100,7 @@ enum NariAPIKeyStoreError: LocalizedError {
         case .invalidStoredKey:
             NariCopy.keyInvalid
         case let .keychainStatus(status):
-            "Nari Keychain (\(status))"
+            "Nari 钥匙串操作失败（\(status)）"
         }
     }
 }

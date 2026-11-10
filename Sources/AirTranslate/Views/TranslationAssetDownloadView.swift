@@ -3,6 +3,7 @@ import SwiftUI
 @preconcurrency import Translation
 
 /// 설정·메뉴 막대·시작 버튼에서 공통으로 사용할, 요청 동안만 존재하는 창이다.
+@available(macOS 15.0, *)
 @MainActor
 final class TranslationAssetDownloadWindowController: NSObject, NSWindowDelegate {
     private let window: NSWindow
@@ -27,7 +28,7 @@ final class TranslationAssetDownloadWindowController: NSObject, NSWindowDelegate
                 guard let self, !dismissalRequested else { return }
                 isPreparing = true
                 // 이 취소 핸들은 translationTask action이 실행되는 동안에만 유효하다.
-                cancelSession = { session.cancel() }
+                cancelSession = { if #available(macOS 26.0, *) { session.cancel() } }
                 defer {
                     cancelSession = nil
                     isPreparing = false
@@ -80,6 +81,7 @@ final class TranslationAssetDownloadWindowController: NSObject, NSWindowDelegate
     }
 }
 
+@available(macOS 15.0, *)
 private struct TranslationAssetDownloadView: View {
     let request: TranslationAssetDownloader.Request
     let prepare: @MainActor (TranslationSession) async -> Void

@@ -1,0 +1,28 @@
+{
+  "nemotron": {
+    "repo": "mlx-community/nemotron-3.5-asr-streaming-0.6b",
+    "revision": "e550040c0478027ed679b2b6b0d055502c103663"
+  },
+  "qwen17": {
+    "repo": "Qwen/Qwen3-ASR-1.7B",
+    "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5"
+  },
+  "qwen06": {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0"
+  },
+  "granite": {
+    "repo": "ibm-granite/granite-speech-5.0-2b",
+    "revision": "205b95148be9cf83419180314066c2beba862a00"
+  },
+  "vad": {
+    "repo": "mlx-community/silero-vad",
+    "revision": "7bc17f22d3c0451bd3a6cd71e759b009271ff49a"
+  },
+  "multitalker": {
+    "repo": "handy-computer/multitalker-parakeet-streaming-0.6b-v1-gguf",
+    "revision": "d9ed2931bc10058f79809bd88139a27c2ef09a53",
+    "filename": "multitalker-parakeet-streaming-0.6b-v1-Q8_0.gguf",
+    "sha256": "cf83cedc6777d2528a4d2a8a4bf476174ef7e5c65b86bc6c955f4cc9f5951ac5"
+  }
+}

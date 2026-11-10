@@ -334,8 +334,8 @@ private final class JevSelectionHTTPTransport: @unchecked Sendable {
     deinit { session?.invalidateAndCancel() }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let session = lock.withLock {
-            if let session { return session }
+        let session: URLSession = lock.withLock {
+            if let session = self.session { return session }
             let configuration = URLSessionConfiguration.ephemeral
             configuration.urlCache = nil
             configuration.requestCachePolicy = .reloadIgnoringLocalCacheData

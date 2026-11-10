@@ -14,265 +14,201 @@ struct FloatingCaptionTextSnapshot {
     var hasVisibleText: Bool { !source.isEmpty || !translation.isEmpty }
 }
 
-private struct FloatingCaptionPreviousBlock: View, Equatable {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var settled = false
-    @State private var visible = true
-
-    let text: String
-    let expiresAt: Date
-    let font: Font
-    let color: Color
-    let lineCount: Int
-    let alignment: FloatingCaptionTextAlignment
-    let lineSpacing: CGFloat
-    let effect: FloatingCaptionTextEffect
-    let availableWidth: CGFloat
-    let nativeFont: NSFont
-    let nativeFontName: String
-    let nativeFontPointSize: CGFloat
-    let fallbackWidthUnits: Double
-
-    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.text == rhs.text && lhs.expiresAt == rhs.expiresAt && lhs.font == rhs.font
-            && lhs.color == rhs.color && lhs.lineCount == rhs.lineCount && lhs.alignment == rhs.alignment
-            && lhs.lineSpacing == rhs.lineSpacing && lhs.effect == rhs.effect
-            && lhs.availableWidth == rhs.availableWidth
-            && lhs.nativeFontName == rhs.nativeFontName && lhs.nativeFontPointSize == rhs.nativeFontPointSize
-            && lhs.fallbackWidthUnits == rhs.fallbackWidthUnits
-    }
-
-    private var formattedText: String {
-        if availableWidth > 0 {
-            return text.floatingCaptionTail(maxLines: lineCount, availableWidth: availableWidth, font: nativeFont)
-        }
-        return text.floatingCaptionTail(maxLines: lineCount, lineWidthUnits: fallbackWidthUnits)
-    }
-
-    var body: some View {
-        Text(formattedText)
-            .font(font)
-            .foregroundStyle(color)
-            .lineLimit(lineCount)
-            .fixedSize(horizontal: false, vertical: true)
-            .multilineTextAlignment(alignment.textAlignment)
-            .lineSpacing(lineSpacing)
-            .modifier(CaptionTextEffectModifier(effect: effect))
-            .opacity(settled ? 0.68 : 0.86)
-            .opacity(visible ? 1 : 0)
-            .offset(y: reduceMotion || !settled ? 0 : -FloatingCaptionHistoryLayout.historyMotionHeight)
-            .onAppear {
-                // 현재 자막은 이 애니메이션에 포함하지 않는다. 만료는 세션의 작업 하나가 담당한다.
-                withAnimation(.easeOut(duration: 0.45)) { settled = true }
-                let remaining = max(0, expiresAt.timeIntervalSinceNow)
-                let fadeDuration = min(0.6, remaining)
-                withAnimation(.easeOut(duration: fadeDuration).delay(max(0, remaining - fadeDuration))) { visible = false }
-            }
-    }
-}
-
+// Keep the same CaptionLine identity, revisions and paragraph breaks as the main board.
+// Keep recent content in a bounded viewport; expired paragraphs stay in the main board.
 struct FloatingCaptionWindowView: View {
     @Bindable var session: TranslationSessionStore
 
-    private static let blockSpacing: CGFloat = 8
-    private static let horizontalPadding: CGFloat = AirTranslateDesign.Spacing.lg * 2
-    private static let verticalPadding: CGFloat = AirTranslateDesign.Spacing.md * 2
+    @State private var stable: [UUID: FloatingParagraphStability] = [:]
+    @State private var visibility = FloatingParagraphVisibility()
+    private static let previewID = UUID()
+
+    private var paragraphs: [CaptionLine] {
+        if session.isPreviewingFloatingCaptions {
+            return [CaptionLine(id: Self.previewID, sourceText: CaptionStyleCopy.sampleOriginal,
+                translatedText: CaptionStyleCopy.sampleTranslation, createdAt: .distantPast, isFinal: true)]
+        }
+        guard session.isFloatingCaptionPresentationActive else { return [] }
+        return Array(session.lines.suffix(2))
+    }
+
+    private var visibleParagraphs: [CaptionLine] {
+        visibility.hidesPrevious ? Array(paragraphs.suffix(1)) : paragraphs
+    }
+    private var preferredHeight: CGFloat { min(280, max(160, session.floatingCaptionPreferredWindowHeight)) }
+    private var latestText: [String] {
+        guard let line = paragraphs.last else { return [] }
+        return [source(line), translation(line)]
+    }
+    private var latestID: UUID? { paragraphs.last?.id }
+    private var hasText: Bool {
+        visibleParagraphs.contains { line in
+            (session.floatingCaptionDisplayMode != .translation && !source(line).isEmpty)
+            || (session.floatingCaptionDisplayMode != .original && !translation(line).isEmpty)
+        }
+    }
 
     var body: some View {
-        let textSnapshot = FloatingCaptionTextSnapshot(
-            mode: session.floatingCaptionDisplayMode,
-            source: { sourceText },
-            translation: { translationText }
-        )
-        ZStack {
-            AirTranslateDesign.Palette.transparent
-
-            VStack(spacing: Self.blockSpacing) {
-                captionContent(sourceText: textSnapshot.source, translationText: textSnapshot.translation)
+        ZStack(alignment: .bottom) {
+            Color.clear
+            if hasText {
+                VStack(spacing: 0) {
+                    // A small dedicated drag strip leaves text scrolling available.
+                    FloatingCaptionDragSurface().frame(height: 12).help("拖动字幕窗口；在文字区域滚动查看完整段落")
+                    ScrollViewReader { reader in
+                        ScrollView(.vertical) {
+                            VStack(alignment: .leading, spacing: 18) {
+                                ForEach(visibleParagraphs) { line in
+                                    paragraph(line)
+                                        .id(line.id)
+                                }
+                            }
+                            .overlay(alignment: .bottom) { Color.clear.frame(height: 1).id("live-bottom") }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 18).padding(.vertical, 8)
+                            .background {
+                                LinearGradient(stops: [
+                                    .init(color: session.floatingCaptionBackgroundColor.opacity(session.floatingCaptionBackgroundOpacity * 0.65), location: 0),
+                                    .init(color: session.floatingCaptionBackgroundColor.opacity(session.floatingCaptionBackgroundOpacity * 0.45), location: 0.8),
+                                    .init(color: session.floatingCaptionBackgroundColor.opacity(session.floatingCaptionBackgroundOpacity * 0.12), location: 1)
+                                ], startPoint: .top, endPoint: .bottom)
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .frame(height: preferredHeight - 30)
+                        .defaultScrollAnchor(.bottom)
+                        .onChange(of: latestText) { old, new in
+                            // Follow appended words, not late revisions of already read sentences.
+                            if zip(old, new).contains(where: { !$0.1.isEmpty && $0.1 != $0.0 && $0.1.hasPrefix($0.0) }) {
+                                reader.scrollTo("live-bottom", anchor: .bottom)
+                            }
+                        }
+                        .onChange(of: latestID) { _, id in
+                            // Follow a new paragraph once. Revisions never reposition the reader.
+                            if let id { reader.scrollTo(id, anchor: .bottom) }
+                        }
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(6)
             }
-            .padding(.horizontal, AirTranslateDesign.Spacing.lg)
-            .padding(.vertical, AirTranslateDesign.Spacing.md)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(
-            minWidth: FloatingCaptionWindowController.minimumWindowSize.width,
+        .frame(minWidth: FloatingCaptionWindowController.minimumWindowSize.width,
             idealWidth: FloatingCaptionWindowController.defaultWindowSize.width,
-            maxWidth: .infinity,
-            minHeight: session.floatingCaptionMinimumWindowHeight,
-            idealHeight: preferredHeight,
-            maxHeight: .infinity
-        )
-        .onGeometryChange(for: CGSize.self) { proxy in
-            proxy.size
-        } action: { size in
-            let textWidth = max(0, size.width - Self.horizontalPadding)
-            let contentHeight = max(0, size.height - Self.verticalPadding)
-            if session.floatingCaptionMeasuredTextWidth != textWidth {
-                session.floatingCaptionMeasuredTextWidth = textWidth
-            }
-            if session.floatingCaptionMeasuredContentHeight != contentHeight {
-                session.floatingCaptionMeasuredContentHeight = contentHeight
+            maxWidth: .infinity, minHeight: session.floatingCaptionMinimumWindowHeight,
+            idealHeight: preferredHeight, maxHeight: .infinity)
+        .overlay(alignment: .topTrailing) {
+            if session.isPreviewingFloatingCaptions {
+                Button {
+                    FloatingCaptionWindowController.close()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .padding(6)
+                        .background(.regularMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help(CaptionStyleCopy.closePreview)
+                .accessibilityLabel(CaptionStyleCopy.closePreview)
+                .padding(8)
             }
         }
-        .contentShape(Rectangle())
-        .allowsWindowActivationEvents(true)
-        .overlay {
-            FloatingCaptionDragSurface()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+            session.floatingCaptionMeasuredTextWidth = max(0, size.width - 48)
+            session.floatingCaptionMeasuredContentHeight = max(0, size.height - 40)
         }
-        .background(
-            FloatingWindowConfigurator(
-                preferredContentHeight: preferredHeight,
-                minimumWindowSize: session.floatingCaptionMinimumWindowSize,
-                keepsAboveOtherWindows: session.keepsFloatingCaptionAboveOtherWindows,
-                hasCaptionText: textSnapshot.hasVisibleText || hasVisibleHistory
-            )
-        )
-    }
-
-    private var hasVisibleHistory: Bool {
-        guard !session.isPreviewingFloatingCaptions, session.floatingCaptionHistoryLayout.historyLines > 0 else { return false }
-        return (session.floatingCaptionDisplayMode != .translation && session.floatingCaptionHistory.previousSource != nil)
-            || (session.floatingCaptionDisplayMode != .original && session.floatingCaptionHistory.previousTranslation != nil)
-    }
-
-    // 블록 경계를 고정해 자막이 갱신되어도 읽는 위치를 유지한다.
-    @ViewBuilder
-    private func captionContent(sourceText: String, translationText: String) -> some View {
-        switch session.floatingCaptionDisplayMode {
-        case .original:
-            primaryBlock(sourceText, previous: session.floatingCaptionHistory.previousSource, anchor: .bottom)
-        case .originalAndTranslation:
-            if session.floatingCaptionStyle.translationFirst {
-                primaryBlock(translationText, previous: session.floatingCaptionHistory.previousTranslation, anchor: .bottom)
-                secondaryBlock(sourceText, previous: session.floatingCaptionHistory.previousSource, anchor: .top)
-            } else {
-                secondaryBlock(sourceText, previous: session.floatingCaptionHistory.previousSource, anchor: .bottom)
-                primaryBlock(translationText, previous: session.floatingCaptionHistory.previousTranslation, anchor: .top)
+        .onChange(of: paragraphs, initial: true) { _, _ in refresh() }
+        .task {
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                refresh()
             }
-        case .translation:
-            primaryBlock(translationText, previous: session.floatingCaptionHistory.previousTranslation, anchor: .bottom)
         }
+        .onDisappear { stable.removeAll(); visibility = FloatingParagraphVisibility() }
+        .wenyiWindowActivationEvents()
+        .background(FloatingWindowConfigurator(preferredContentHeight: preferredHeight,
+            minimumWindowSize: FloatingCaptionWindowController.minimumWindowSize,
+            keepsAboveOtherWindows: session.keepsFloatingCaptionAboveOtherWindows,
+            hasCaptionText: hasText))
     }
 
-    private var sourceText: String {
-        session.isPreviewingFloatingCaptions
-            ? session.floatingCaptionText(from: CaptionStyleCopy.sampleOriginal, usesPrimaryFont: session.floatingCaptionDisplayMode == .original)
-            : session.floatingSourceText
+    private func source(_ line: CaptionLine) -> String {
+        session.isPreviewingFloatingCaptions ? line.sourceDisplayText : stable[line.id]?.source.text ?? ""
     }
 
-    private var translationText: String {
-        session.isPreviewingFloatingCaptions
-            ? session.floatingCaptionText(from: CaptionStyleCopy.sampleTranslation)
-            : session.floatingTranslationText
+    private func translation(_ line: CaptionLine) -> String {
+        if session.isPreviewingFloatingCaptions { return line.translatedDisplayText }
+        return stable[line.id]?.translation.text ?? ""
     }
 
-    private var lineLimit: Int {
-        session.floatingCaptionEffectiveLineCount
+    private func refresh() {
+        let now = ProcessInfo.processInfo.systemUptime
+        let rows = paragraphs
+        let live = Set(rows.map(\.id))
+        stable = stable.filter { live.contains($0.key) }
+        for line in rows {
+            // Once a newer paragraph exists, preserve the old visible snapshot.
+            // Its late corrections still update the full transcript, not this overlay.
+            if line.id != rows.last?.id && stable[line.id] != nil { continue }
+            var state = stable[line.id] ?? FloatingParagraphStability()
+            state.source.receive(line.sourceDisplayText, final: line.isFinal, now: now)
+            let translated = line.translatedDisplayText == AppText.translating ? "" : line.translatedDisplayText
+            // ASR finality alone does not finalize a streaming translation.
+            let finalTranslation = line.isFinal && line.isTranslationComplete
+                && line.translatedSourceText == line.sourceText
+            state.translation.receive(translated, final: finalTranslation, now: now, minimumFirstLength: 8)
+            stable[line.id] = state
+        }
+        let current = rows.last
+        visibility.update(latestID: current?.id,
+            hasSource: current.map { !source($0).isEmpty } ?? false,
+            hasTranslation: current.map { !translation($0).isEmpty } ?? false,
+            requiresTranslation: session.floatingCaptionDisplayMode != .original, now: now)
     }
 
-    private var alignment: FloatingCaptionTextAlignment {
-        session.floatingCaptionTextAlignment
+    @ViewBuilder private func paragraph(_ line: CaptionLine) -> some View {
+        VStack(alignment: session.floatingCaptionTextAlignment == .center ? .center : .leading, spacing: 8) {
+            switch session.floatingCaptionDisplayMode {
+            case .original:
+                text(source(line), primary: true)
+            case .translation:
+                text(translation(line), primary: true)
+            case .originalAndTranslation:
+                if session.floatingCaptionStyle.translationFirst {
+                    text(translation(line), primary: true)
+                    text(source(line), primary: false)
+                } else {
+                    text(source(line), primary: false)
+                    text(translation(line), primary: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: session.floatingCaptionTextAlignment.frameAlignment(vertical: .top))
+        .transaction { $0.animation = nil }
+    }
+
+    @ViewBuilder private func text(_ value: String, primary: Bool) -> some View {
+        if !value.isEmpty {
+            Text(value)
+                .font(primary ? session.floatingCaptionPrimaryFont : session.floatingCaptionSecondaryFont)
+                .foregroundStyle(session.floatingCaptionTextColor.opacity(primary ? 1 : 0.82))
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(session.floatingCaptionTextAlignment.textAlignment)
+                .lineSpacing(session.floatingCaptionStyle.lineSpacing.points)
+                .frame(maxWidth: .infinity, alignment: session.floatingCaptionTextAlignment.frameAlignment(vertical: .top))
+                .modifier(CaptionTextEffectModifier(effect: session.floatingCaptionStyle.textEffect))
+        }
     }
 
     static func blockHeight(lineHeight: CGFloat, lineCount: Int) -> CGFloat {
         FloatingCaptionAppearance.blockHeight(lineHeight: lineHeight, lineCount: lineCount)
     }
+}
 
-    private var primaryBlockHeight: CGFloat {
-        FloatingCaptionAppearance.blockHeight(lineHeight: session.floatingCaptionPrimaryLineHeight, lineCount: lineLimit, lineSpacing: session.floatingCaptionStyle.lineSpacing.points)
-    }
-
-    private var secondaryBlockHeight: CGFloat {
-        FloatingCaptionAppearance.blockHeight(lineHeight: session.floatingCaptionSecondaryLineHeight, lineCount: lineLimit, lineSpacing: session.floatingCaptionStyle.lineSpacing.points)
-    }
-
-    private var preferredHeight: CGFloat {
-        session.floatingCaptionPreferredWindowHeight
-    }
-
-    private func primaryBlock(_ text: String, previous: FloatingCaptionHistory.Previous?, anchor: VerticalAlignment) -> some View {
-        captionPane(text, previous: previous, font: session.floatingCaptionPrimaryFont,
-                    color: session.floatingCaptionTextColor, height: primaryBlockHeight,
-                    lineHeight: session.floatingCaptionPrimaryLineHeight, usesPrimaryFont: true, anchor: anchor)
-    }
-
-    private func secondaryBlock(_ text: String, previous: FloatingCaptionHistory.Previous?, anchor: VerticalAlignment) -> some View {
-        captionPane(text, previous: previous, font: session.floatingCaptionSecondaryFont,
-                    color: session.floatingCaptionTextColor.opacity(0.82), height: secondaryBlockHeight,
-                    lineHeight: session.floatingCaptionSecondaryLineHeight, usesPrimaryFont: false, anchor: anchor)
-    }
-
-    private func captionPane(
-        _ text: String, previous: FloatingCaptionHistory.Previous?, font: Font, color: Color,
-        height: CGFloat, lineHeight: CGFloat, usesPrimaryFont: Bool, anchor: VerticalAlignment
-    ) -> some View {
-        let historyLines = session.floatingCaptionHistoryLayout.historyLines
-        let historyHeight = FloatingCaptionAppearance.blockHeight(
-            lineHeight: lineHeight, lineCount: historyLines, lineSpacing: session.floatingCaptionStyle.lineSpacing.points
-        )
-        // 조판된 현재 줄 수만 차지하게 해 짧은 자막 위의 이전 자막이 멀리 떨어지지 않게 한다.
-        // 바깥 높이는 예약된 줄 수 그대로 유지하므로 현재 자막의 기준 위치와 창 크기는 고정된다.
-        let visibleLineCount = min(lineLimit, max(1, text.split(separator: "\n").count))
-        let visibleHeight = FloatingCaptionAppearance.blockHeight(
-            lineHeight: lineHeight, lineCount: visibleLineCount, lineSpacing: session.floatingCaptionStyle.lineSpacing.points
-        )
-        let paneHeight = height + (historyLines > 0
-            ? historyHeight + FloatingCaptionHistoryLayout.historyMotionHeight + FloatingCaptionHistoryLayout.historySpacing : 0)
-        return VStack(spacing: historyLines > 0 ? FloatingCaptionHistoryLayout.historySpacing : 0) {
-            if historyLines > 0 {
-                ZStack(alignment: alignment.frameAlignment(vertical: .bottom)) {
-                    Color.clear
-                    if !session.isPreviewingFloatingCaptions, let previous {
-                        let nativeFont = session.floatingCaptionStyle.nativeFont(
-                            size: usesPrimaryFont ? session.floatingCaptionPrimaryPointSize : session.floatingCaptionSecondaryPointSize,
-                            primary: usesPrimaryFont
-                        )
-                        FloatingCaptionPreviousBlock(
-                            text: previous.caption.text,
-                            expiresAt: previous.expiresAt, font: font, color: color, lineCount: historyLines,
-                            alignment: alignment, lineSpacing: session.floatingCaptionStyle.lineSpacing.points,
-                            effect: session.floatingCaptionStyle.textEffect,
-                            availableWidth: session.floatingCaptionMeasuredTextWidth,
-                            nativeFont: nativeFont,
-                            nativeFontName: nativeFont.fontName,
-                            nativeFontPointSize: nativeFont.pointSize,
-                            fallbackWidthUnits: session.floatingCaptionLineWidthUnits(usesPrimaryFont: usesPrimaryFont)
-                        )
-                        .equatable()
-                        .id(previous)
-                    }
-                }
-                .frame(height: historyHeight + FloatingCaptionHistoryLayout.historyMotionHeight)
-                .clipped()
-                .accessibilityHidden(true)
-            }
-            captionBlock(text, font: font, color: color, height: visibleHeight, anchor: anchor)
-                .transaction { $0.animation = nil }
-        }
-        .frame(height: paneHeight, alignment: alignment.frameAlignment(vertical: anchor))
-    }
-
-    private func captionBlock(
-        _ text: String,
-        font: Font,
-        color: Color,
-        height: CGFloat,
-        anchor: VerticalAlignment
-    ) -> some View {
-        // 자막 안정화는 세션의 표시 정책이 담당한다. 같은 텍스트를 뷰의 별도
-        // 상태와 애니메이션 Task로 다시 처리하지 않고 완전한 대비로 즉시 표시한다.
-        Text(text)
-        .font(font)
-        .foregroundStyle(color)
-        .textSelection(.disabled)
-        .lineLimit(lineLimit)
-        .truncationMode(.tail)
-        .fixedSize(horizontal: false, vertical: true)
-        .multilineTextAlignment(alignment.textAlignment)
-        .lineSpacing(session.floatingCaptionStyle.lineSpacing.points)
-        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: alignment.frameAlignment(vertical: anchor))
-        .clipped()
-        .modifier(CaptionTextEffectModifier(effect: session.floatingCaptionStyle.textEffect))
+private extension View {
+    @ViewBuilder func wenyiWindowActivationEvents() -> some View {
+        if #available(macOS 15.0, *) { self.allowsWindowActivationEvents(true) }
+        else { self }
     }
 }

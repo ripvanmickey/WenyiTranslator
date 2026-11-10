@@ -27,6 +27,7 @@ final class TranslationAssetDownloader {
     private var dismiss: Dismiss?
 
     init(present: @escaping Presenter = { request, completion in
+        guard #available(macOS 15.0, *) else { completion(.failure(PlatformSupport.appleFeatureUnavailable)); return {} }
         let controller = TranslationAssetDownloadWindowController(request: request, completion: completion)
         controller.show()
         return { controller.dismiss() }
@@ -71,6 +72,7 @@ final class TranslationAssetDownloader {
     }
 
     /// prepareTranslation은 이미 다운로드 중인 경우 설치 완료 전에 반환할 수 있다.
+    @available(macOS 15.0, *)
     static func waitUntilInstalled(
         source: LanguageOption,
         target: LanguageOption,

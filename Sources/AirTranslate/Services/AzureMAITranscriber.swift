@@ -254,17 +254,17 @@ enum AzureMAIError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .configuration: AzureMAICopy.configurationRequired
-        case .audioFormat: AppText.localized(english: "Azure requires 16 kHz mono PCM audio.", korean: "Azure 입력은 16 kHz 모노 PCM 오디오여야 합니다.")
-        case .backlog: AppText.localized(english: "Azure transcription is falling behind. Capture stopped to bound the audio queue.", korean: "Azure 전사 응답이 입력보다 느립니다. 오디오 대기열 제한에 도달해 캡처를 중지했습니다.")
-        case .connection: AppText.localized(english: "Azure connection failed or timed out. Check your network and resource region.", korean: "Azure 연결 실패 또는 시간 초과입니다. 네트워크와 리소스 지역을 확인하세요.")
-        case .response: AppText.localized(english: "Azure returned an invalid transcription response.", korean: "Azure 전사 응답 형식이 올바르지 않습니다.")
-        case .http(let status): AppText.localized(english: "Azure request failed (HTTP \(status)). Check the resource, key, MAI availability and quota.", korean: "Azure 요청 실패(HTTP \(status)). 리소스·키·MAI 지원 지역·할당량을 확인하세요.")
+        case .audioFormat: AppText.localized(english: "Azure requires 16 kHz mono PCM audio.", korean: "Azure 입력은 16 kHz 모노 PCM 오디오여야 합니다.", chineseSimplified: "Azure 需要 16 kHz 单声道 PCM 音频。")
+        case .backlog: AppText.localized(english: "Azure transcription is falling behind. Capture stopped to bound the audio queue.", korean: "Azure 전사 응답이 입력보다 느립니다. 오디오 대기열 제한에 도달해 캡처를 중지했습니다.", chineseSimplified: "Azure 转写未能跟上音频速度，已停止采集以避免音频队列继续积压。")
+        case .connection: AppText.localized(english: "Azure connection failed or timed out. Check your network and resource region.", korean: "Azure 연결 실패 또는 시간 초과입니다. 네트워크와 리소스 지역을 확인하세요.", chineseSimplified: "Azure 连接失败或超时，请检查网络和资源区域。")
+        case .response: AppText.localized(english: "Azure returned an invalid transcription response.", korean: "Azure 전사 응답 형식이 올바르지 않습니다.", chineseSimplified: "Azure 返回了无效的转写响应。")
+        case .http(let status): AppText.localized(english: "Azure request failed (HTTP \(status)). Check the resource, key, MAI availability and quota.", korean: "Azure 요청 실패(HTTP \(status)). 리소스·키·MAI 지원 지역·할당량을 확인하세요.", chineseSimplified: "Azure 请求失败（HTTP \(status)），请检查资源、密钥、MAI 可用性及配额。")
         }
     }
 }
 
 enum AzureMAICopy {
-    static let title = "Azure MAI (Preview)"
+    static let title = AppText.localized(english: "Azure MAI (Preview)", korean: "Azure MAI (미리 보기)", chineseSimplified: "Azure MAI（预览版）")
     static let modelLabel = AppText.localized(english: "Transcription model", korean: "전사 모델", japanese: "文字起こしモデル", chineseSimplified: "转写模型")
     static let translationFinishTimedOut = AppText.localized(english: "Capture stopped. Some final translations did not finish in time; the source transcript was saved.", korean: "캡처를 중지했습니다. 일부 마지막 번역이 제한 시간 안에 끝나지 않았으며 원문 전사는 저장했습니다.", japanese: "キャプチャを停止しました。一部の最終翻訳が時間内に完了しませんでした。原文は保存しました。", chineseSimplified: "已停止捕获。部分最终翻译未能及时完成，原文转写已保存。")
     static let deploymentLabel = AppText.localized(english: "Foundry deployment name", korean: "Foundry 배포 이름", japanese: "Foundry デプロイ名", chineseSimplified: "Foundry 部署名称")
@@ -343,13 +343,13 @@ enum AzureMAICopy {
         english: "Remove the Azure key from Keychain?",
         korean: "Keychain의 Azure 키를 삭제할까요?",
         japanese: "Keychain から Azure キーを削除しますか？",
-        chineseSimplified: "要从 Keychain 中删除 Azure 密钥吗？"
+        chineseSimplified: "要从 钥匙串 中删除 Azure 密钥吗？"
     )
     static let keySaved = AppText.localized(
         english: "Saved in Keychain.",
         korean: "Keychain에 저장했습니다.",
         japanese: "Keychain に保存しました。",
-        chineseSimplified: "已保存到 Keychain。"
+        chineseSimplified: "已保存到 钥匙串。"
     )
     static let keyRemoved = AppText.localized(
         english: "Key removed.",

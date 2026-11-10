@@ -9,9 +9,9 @@ enum LiveOutputMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .translation:
-            AppText.translation
+            AppText.originalAndTranslation
         case .transcription:
-            AppText.transcribeOnly
+            AppText.originalOnly
         }
     }
 

@@ -1,0 +1,6 @@
+Bundled source: six-ddc/livecaption
+Repository: https://github.com/six-ddc/livecaption
+Commit: da182e0ae496743d975d4de556d3b6e450698a5c
+Only the Python source needed by the previously integrated ASR bridge is bundled.
+The inspected upstream archive has no standalone LICENSE file. Do not label it MIT by assumption.
+Public redistribution rights must be confirmed before public release.

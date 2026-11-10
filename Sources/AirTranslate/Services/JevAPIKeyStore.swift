@@ -99,7 +99,7 @@ enum JevAPIKeyStoreError: LocalizedError {
         case .invalidStoredKey:
             JevCopy.keyRequired
         case let .keychainStatus(status):
-            "Jev Keychain (\(status))"
+            "Jev 钥匙串操作失败（\(status)）"
         }
     }
 }

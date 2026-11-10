@@ -245,9 +245,9 @@ enum MAIVoiceError: LocalizedError {
         case .missingKey: MAIVoiceCopy.keyRequired
         case .languageUnsupported: MAIVoiceCopy.languageUnsupported
         case .catalog: MAIVoiceCopy.catalogFailed
-        case .http(let status): AppText.localized(english: "MAI Voice request failed (HTTP \(status)). Check the OpenRouter key, credits and model availability.", korean: "MAI Voice 요청 실패(HTTP \(status)). OpenRouter 키·잔액·모델 가용성을 확인하세요.")
-        case .textTooLong: AppText.localized(english: "MAI Voice text exceeds the request limit.", korean: "MAI Voice 요청의 텍스트 길이 제한을 초과했습니다.")
-        default: AppText.localized(english: "MAI Voice audio generation or playback failed. Captions remain available.", korean: "MAI Voice 음성 생성 또는 재생에 실패했습니다. 자막은 계속 사용할 수 있습니다.")
+        case .http(let status): AppText.localized(english: "MAI Voice request failed (HTTP \(status)). Check the OpenRouter key, credits and model availability.", korean: "MAI Voice 요청 실패(HTTP \(status)). OpenRouter 키·잔액·모델 가용성을 확인하세요.", chineseSimplified: "MAI Voice 请求失败（HTTP \(status)），请检查 OpenRouter 密钥、余额及模型可用性。")
+        case .textTooLong: AppText.localized(english: "MAI Voice text exceeds the request limit.", korean: "MAI Voice 요청의 텍스트 길이 제한을 초과했습니다.", chineseSimplified: "MAI Voice 文本超出请求长度限制。")
+        default: AppText.localized(english: "MAI Voice audio generation or playback failed. Captions remain available.", korean: "MAI Voice 음성 생성 또는 재생에 실패했습니다. 자막은 계속 사용할 수 있습니다.", chineseSimplified: "MAI Voice 语音生成或播放失败，字幕仍可继续使用。")
         }
     }
 }

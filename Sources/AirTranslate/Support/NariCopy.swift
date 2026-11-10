@@ -6,7 +6,7 @@ enum NariCopy {
         english: "Qwen3-ASR sends microphone or Mac audio to Nari for live transcription. GA models use paid Nari credits. Translation uses the existing Apple translation workflow.",
         korean: "마이크나 Mac 오디오를 Nari로 보내 Qwen3-ASR로 실시간 전사합니다. GA 모델은 유료 Nari 크레딧을 사용합니다. 번역은 기존 Apple 번역 흐름을 사용합니다.",
         japanese: "マイクまたはMacの音声をNariに送信し、Qwen3-ASRでリアルタイムに文字起こしします。GAモデルは有料のNariクレジットを使用します。翻訳には既存のApple翻訳を使用します。",
-        chineseSimplified: "将麦克风或 Mac 音频发送到 Nari，使用 Qwen3-ASR 实时转写。GA 模型会使用付费 Nari 额度。翻译使用现有的 Apple 翻译流程。"
+        chineseSimplified: "将麦克风或 Mac 音频发送到 Nari，使用 Qwen3-ASR 实时转写。正式版模型会使用付费 Nari 额度。翻译使用现有的 Apple 翻译流程。"
     )
     static let modelLabel = AppText.localized(
         english: "Nari transcription model", korean: "Nari 전사 모델",
@@ -16,31 +16,31 @@ enum NariCopy {
         english: "Free Public Beta endpoints stop accepting requests starting September 17, 2026 PT. Choose a GA model only when you intend to use Nari credits.",
         korean: "Free Public Beta 엔드포인트는 2026년 9월 17일 PT부터 요청을 받지 않습니다. Nari 크레딧 사용을 이해한 경우에만 GA 모델을 선택하세요.",
         japanese: "Free Public Betaエンドポイントは2026年9月17日 PT以降リクエストを受け付けません。Nariクレジットの使用を理解している場合のみGAモデルを選択してください。",
-        chineseSimplified: "Free Public Beta 端点自 2026 年 9 月 17 日 PT 起停止接受请求。仅在明确会使用 Nari 额度时选择 GA 模型。"
+        chineseSimplified: "免费公开测试 端点自 2026 年 9 月 17 日 PT 起停止接受请求。仅在明确会使用 Nari 额度时选择 正式版模型。"
     )
     static let standardBilling = AppText.localized(
         english: "GA Standard: qwen3-asr, $0.06 per input audio hour. Uses Nari credits.",
         korean: "GA Standard: qwen3-asr, 입력 오디오 시간당 $0.06. Nari 크레딧을 사용합니다.",
         japanese: "GA Standard: qwen3-asr、入力音声1時間あたり$0.06。Nariクレジットを使用します。",
-        chineseSimplified: "GA Standard：qwen3-asr，每输入音频小时 $0.06。使用 Nari 额度。"
+        chineseSimplified: "正式版标准模型：qwen3-asr，每输入音频小时 $0.06。使用 Nari 额度。"
     )
     static let fastBilling = AppText.localized(
         english: "GA Fast: qwen3-asr-fast, $0.12 per input audio hour. Uses Nari credits.",
         korean: "GA Fast: qwen3-asr-fast, 입력 오디오 시간당 $0.12. Nari 크레딧을 사용합니다.",
         japanese: "GA Fast: qwen3-asr-fast、入力音声1時間あたり$0.12。Nariクレジットを使用します。",
-        chineseSimplified: "GA Fast：qwen3-asr-fast，每输入音频小时 $0.12。使用 Nari 额度。"
+        chineseSimplified: "正式版快速模型：qwen3-asr-fast，每输入音频小时 $0.12。使用 Nari 额度。"
     )
     static let legacyFreeModelEnded = AppText.localized(
         english: "The selected Free Public Beta model is preserved but blocked. Select a GA model to start Nari STT.",
         korean: "선택되어 있던 Free Public Beta 모델은 보존되지만 시작할 수 없습니다. Nari STT를 시작하려면 GA 모델을 선택하세요.",
         japanese: "選択済みのFree Public Betaモデルは保持されますが開始できません。Nari STTを開始するにはGAモデルを選択してください。",
-        chineseSimplified: "已选择的 Free Public Beta 模型会保留，但无法启动。请选择 GA 模型来启动 Nari STT。"
+        chineseSimplified: "已选择的 免费公开测试 模型会保留，但无法启动。请选择 正式版模型来启动 Nari STT。"
     )
     static let chooseGAModel = AppText.localized(
         english: "Choose GA Nari model",
         korean: "Nari GA 모델 선택",
         japanese: "Nari GAモデルを選択",
-        chineseSimplified: "选择 Nari GA 模型"
+        chineseSimplified: "选择 Nari 正式版模型"
     )
     static let configurationRequired = AppText.localized(
         english: "Save a Nari API key in API Keys settings.",

@@ -19,10 +19,12 @@ fi
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>CFBundleLocalizations</key>
+  <array><string>en</string><string>ko</string><string>ja</string><string>zh-Hans</string></array>
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleDisplayName</key>
-  <string>$APP_NAME</string>
+  <string>$APP_DISPLAY_NAME</string>
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleIconFile</key>
@@ -32,7 +34,7 @@ fi
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>$APP_NAME</string>
+  <string>$APP_DISPLAY_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -54,9 +56,9 @@ PLIST
   <key>LSApplicationCategoryType</key>
   <string>$CATEGORY</string>
   <key>NSAudioCaptureUsageDescription</key>
-  <string>AirTranslate captures system audio only after you start capture so it can transcribe and translate what is playing on this Mac.</string>
+  <string>文译 captures system audio only after you start capture so it can transcribe and translate what is playing on this Mac.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>AirTranslate can optionally capture microphone audio after you choose Microphone input and start capture.</string>
+  <string>文译 can optionally capture microphone audio after you choose Microphone input and start capture.</string>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSHumanReadableCopyright</key>
@@ -65,17 +67,17 @@ PLIST
   else
     cat <<PLIST
   <key>NSAppleEventsUsageDescription</key>
-  <string>AirTranslate does not automate other apps.</string>
+  <string>文译 does not automate other apps.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>AirTranslate can optionally capture microphone audio after you choose Microphone input and start capture.</string>
+  <string>文译 can optionally capture microphone audio after you choose Microphone input and start capture.</string>
   <key>NSSystemAudioCaptureUsageDescription</key>
-  <string>AirTranslate captures Mac system audio so it can transcribe and translate what is playing.</string>
+  <string>文译 captures Mac system audio so it can transcribe and translate what is playing.</string>
 PLIST
   fi
 
   cat <<PLIST
   <key>NSSpeechRecognitionUsageDescription</key>
-  <string>AirTranslate uses speech recognition to convert captured Mac audio into live captions and translations.</string>
+  <string>文译 uses speech recognition to convert captured Mac audio into live captions and translations.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>

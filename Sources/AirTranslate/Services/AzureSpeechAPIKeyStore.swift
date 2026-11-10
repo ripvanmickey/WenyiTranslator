@@ -94,7 +94,7 @@ enum AzureSpeechAPIKeyStoreError: LocalizedError {
         case .invalidStoredKey:
             AzureMAICopy.configurationRequired
         case let .keychainStatus(status):
-            "Azure Keychain (\(status))"
+            "Azure 钥匙串操作失败（\(status)）"
         }
     }
 }

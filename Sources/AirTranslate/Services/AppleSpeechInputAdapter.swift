@@ -3,6 +3,7 @@ import CoreMedia
 import Foundation
 import Speech
 
+@available(macOS 26.0, *)
 protocol SpeechAnalyzerInputAdapting: AnyObject, Sendable {
     func convert(
         _ sampleBuffer: CMSampleBuffer,
@@ -18,6 +19,7 @@ private enum AppleSpeechInputAdapterError: Error {
 }
 
 /// 정상 캡처의 기존 PCM 풀은 유지하고, 포맷이 달라진 입력만 시스템 변환기로 보정한다.
+#if compiler(>=6.4)
 @available(macOS 27.0, *)
 final class AppleSpeechInputAdapter: SpeechAnalyzerInputAdapting, @unchecked Sendable {
     private let lock = NSLock()
@@ -142,3 +144,5 @@ final class AppleSpeechInputAdapter: SpeechAnalyzerInputAdapting, @unchecked Sen
         return CMTime(seconds: Double(frames) / sampleRate, preferredTimescale: 1_000_000_000)
     }
 }
+
+#endif

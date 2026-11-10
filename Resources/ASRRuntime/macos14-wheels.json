@@ -1,0 +1,26 @@
+[
+  {
+    "profile": "legacy",
+    "filename": "mlx-0.31.2-cp312-cp312-macosx_14_0_arm64.whl",
+    "url": "https://files.pythonhosted.org/packages/c3/47/5f33906cb03d6a378a697cd2d2641a26b37dea17ee3d9124d7e39e8eca01/mlx-0.31.2-cp312-cp312-macosx_14_0_arm64.whl",
+    "sha256": "e5067aaf2be1f3d7bba5be52348775804f111173c1ed04639618fd713b1a530f"
+  },
+  {
+    "profile": "legacy",
+    "filename": "mlx_metal-0.31.2-py3-none-macosx_14_0_arm64.whl",
+    "url": "https://files.pythonhosted.org/packages/3f/69/fe3b783ebe999f3118234e1e940feb622518bfb1dea6ac5d13b1d36a8449/mlx_metal-0.31.2-py3-none-macosx_14_0_arm64.whl",
+    "sha256": "b25385bcee18fc194092255b8b53b9a3d8489eb650e59160f1b57aadd07aa2dc"
+  },
+  {
+    "profile": "granite",
+    "filename": "mlx-0.32.4-cp312-cp312-macosx_14_0_arm64.whl",
+    "url": "https://files.pythonhosted.org/packages/69/b0/e726ce51e1b445e4ed08c2d0e036a01c7532f4d1a856328da546a6f883bd/mlx-0.32.4-cp312-cp312-macosx_14_0_arm64.whl",
+    "sha256": "ff1d7be54758ea3a875b8fe54eff13bed17ad9566505e301f5d7851bf869680f"
+  },
+  {
+    "profile": "granite",
+    "filename": "mlx_metal-0.32.4-py3-none-macosx_14_0_arm64.whl",
+    "url": "https://files.pythonhosted.org/packages/77/24/7e5b7ed5d28abacab4577c7a8dd1fca6e9058504f5f95ae4333c09420e2e/mlx_metal-0.32.4-py3-none-macosx_14_0_arm64.whl",
+    "sha256": "8019b2db622599267d66cc168b2f0dbf5af929790a6c3b3913e00eabc42a7947"
+  }
+]

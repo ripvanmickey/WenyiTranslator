@@ -38,6 +38,16 @@ package enum TranscriptTextProcessor {
             options: .regularExpression
         )
 
+        if languageID.hasPrefix("ja") {
+            // Japanese sentence boundaries do not require a following space.
+            // Keep closing quotation marks with the preceding sentence.
+            organized = organized.replacingOccurrences(
+                of: #"([。！？!?]+[」』）】]*)[ \t]*(?![。！？!?」』）】\n]|$)"#,
+                with: "$1\n",
+                options: .regularExpression
+            )
+        }
+
         if languageID == "ko-KR" {
             organized = organized.replacingOccurrences(
                 of: #"(습니다|니다|어요|아요|세요|군요|네요|죠|지요|다)\s+"#,

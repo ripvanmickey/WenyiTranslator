@@ -34,6 +34,7 @@ struct FloatingCaptionModeChoiceView: View {
         }
         .padding(24)
         .frame(width: 450)
+        .background(CaptionChoiceWindowConfigurator())
         .onAppear {
             if session.isFloatingCaptionPresentationActive { dismissWindow() }
         }
@@ -41,5 +42,19 @@ struct FloatingCaptionModeChoiceView: View {
             // 다른 진입점에서 이미 자막을 열었다면 남은 확인 창을 닫는다.
             if isActive { dismissWindow() }
         }
+    }
+}
+
+private struct CaptionChoiceWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { configure(view) }
+        return view
+    }
+    func updateNSView(_ view: NSView, context: Context) { DispatchQueue.main.async { configure(view) } }
+    private func configure(_ view: NSView) {
+        view.window?.identifier = NSUserInterfaceItemIdentifier(AirTranslateWindowID.floatingCaptionModeChoice)
+        view.window?.isRestorable = false
+        view.window?.standardWindowButton(.miniaturizeButton)?.isEnabled = false
     }
 }

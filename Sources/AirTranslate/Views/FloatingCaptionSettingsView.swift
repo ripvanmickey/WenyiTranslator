@@ -19,20 +19,18 @@ struct FloatingCaptionSettingsView: View {
                     }
                     .disabled(session.isTranscribeOnlyMode)
                     sizeControl
-                    Picker(AppText.floatingLineCount, selection: $session.floatingCaptionLineCount) {
+                    Picker("窗口高度参考", selection: $session.floatingCaptionLineCount) {
                         ForEach(FloatingCaptionLineCount.allCases) { Text($0.title).tag($0) }
                     }
-                    Text(CaptionStyleCopy.lineHint).font(.caption).foregroundStyle(.secondary)
+                    Text("悬浮字幕与主窗口共用段落，旧段在新译文出现后约 1 秒退出；长段落在有限高度内滚动，完整历史留在主窗口。").font(.caption).foregroundStyle(.secondary)
                     Picker(AppText.captionAlignment, selection: $session.floatingCaptionTextAlignment) {
                         ForEach(FloatingCaptionTextAlignment.allCases) { Text($0.title).tag($0) }
                     }
                     if session.floatingCaptionDisplayMode == .originalAndTranslation {
                         Toggle(CaptionStyleCopy.translationFirst, isOn: $session.floatingCaptionStyle.translationFirst)
                     }
-                    Picker(AppText.captionStability, selection: $session.floatingCaptionStability) {
-                        ForEach(FloatingCaptionStability.allCases) { Text($0.title).tag($0) }
-                    }
-                    .help(AppText.captionStabilityDescription)
+                    Text("首个可用结果先显示，确认后更新；长句每隔至少 0.5 秒追加内容，避免反复改写。")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(8)
             }
@@ -221,12 +219,21 @@ private struct FloatingCaptionStylePreview: View {
             .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(.secondary.opacity(0.25)) }
             Text(CaptionStyleCopy.previewHint)
                 .font(.caption).foregroundStyle(.secondary)
-            Button {
-                FloatingCaptionWindowController.open(session: session, preview: true)
-            } label: {
-                Label(CaptionStyleCopy.previewWindow, systemImage: "rectangle.on.rectangle")
+            HStack {
+                Button {
+                    FloatingCaptionWindowController.open(session: session, preview: true)
+                } label: {
+                    Label(CaptionStyleCopy.previewWindow, systemImage: "rectangle.on.rectangle")
+                }
+                .disabled(session.isRunning || session.isStarting || session.isPreviewingFloatingCaptions)
+                if session.isPreviewingFloatingCaptions {
+                    Button {
+                        FloatingCaptionWindowController.close()
+                    } label: {
+                        Label(CaptionStyleCopy.closePreview, systemImage: "xmark.circle")
+                    }
+                }
             }
-            .disabled(session.isRunning || session.isStarting)
         }
     }
 
@@ -248,8 +255,7 @@ private struct FloatingCaptionStylePreview: View {
     }
 
     private func formattedSample(_ text: String, primary: Bool) -> String {
-        let size = primary ? session.floatingCaptionPrimaryPointSize : session.floatingCaptionSecondaryPointSize
-        return text.floatingCaptionTail(maxLines: session.floatingCaptionLineCount.rawValue, availableWidth: textWidth, font: session.floatingCaptionStyle.nativeFont(size: size, primary: primary))
+        return text
     }
 
     private var previewHeight: CGFloat {

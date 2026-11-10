@@ -1,0 +1,27 @@
+{
+  "commit": "da182e0ae496743d975d4de556d3b6e450698a5c",
+  "files": {
+    "uv.lock": "e9c3441d21b2be1c439cd492f639c07afa8deee28390ec9596c827e792b90346",
+    "pyproject.toml": "d31b6223fe2a98f6dc415174a4669d0de47c6a465f4b7b94b805f4ded4deb55a",
+    "scripts/build_audiotee.sh": "8270c603a56c7fde229814bcf9ffa92029b036a90ee81254314f91ea8d9f0c7c",
+    "scripts/spike_qwen3.py": "bf4d9427b148d0f2296ed29b2b478d6acd6c1276b4155ca56b862c871dbbfa9e",
+    "scripts/smoke_mel.py": "f01ab47ab8622e6100f513e149235e0935491d2672467b9b7db907b5963db2d5",
+    "scripts/diag_system_audio.py": "176195d3da217baa08a541567da8c9133286115a45bde2f60236abccf1a7d74b",
+    "scripts/smoke_asr.py": "b0bbc951b7e713084cc82a638dc11a1e491fd296338f6d44f6dd7344e04c40bc",
+    "scripts/smoke_translate.py": "a0776f0930557c21a779cbd347bc403e01b85899ac57a910b77c1e3cb972873b",
+    "scripts/smoke_diff.py": "07e0921addc52c82508824564aa169dab1a42da40a397a1998daa9c6248b315f",
+    "scripts/smoke_qwen.py": "5b8d0b22ffc7f712d434c791043a4b14f2ece313341859851244a94c263ef5f4",
+    "scripts/smoke_qwen_diar.py": "ef99c467fb4b538fcf5e8bc996f038187fd83cd9aa9eccf19107bc20887f4ce4",
+    "livecaption/translate.py": "382ff89e7968fe93762a7971c8fc3206dd527a1dd4cd0d4e10691e08f2ff8ec5",
+    "livecaption/config.py": "6e142277467e0623d82fee4ff0d00adce3216c762cc4ce1073107e17de4ca101",
+    "livecaption/models.py": "fe43f987b4a0bae3a5ab10801f13205f64efb757a95d848931d797f6346df78c",
+    "livecaption/render.py": "735b9d53767fdafc33d595609c37996f09d1637635d7972717c2d3d81cdb76b3",
+    "livecaption/asr_qwen.py": "354d650dca3fbc87f256bcd941b045d1e3cc306e4bc8c4693d4c5e5fdf08b122",
+    "livecaption/__init__.py": "99d23b049f776a13b438954caac901a9c82f8b1499d7ab9f954075cce1112cc4",
+    "livecaption/asr.py": "e4269a853092fa423d389bbe8666c2ae8fad801dbf4fcc50c6e416f5eb481b5a",
+    "livecaption/runtime.py": "0943fff9b3e66041b5b16dc7882be898c4a4c7149f5c0d58dbb1f94d815e8882",
+    "livecaption/cli.py": "7964b4563691a0a6b0811aae4c9e7c8417d9b7a790513320a99abb319e245075",
+    "livecaption/audio.py": "76b75e6948c20d09858a3dd94afeada439e7798d64b9f76ad05ae53050eeb204",
+    "livecaption/languages.py": "94add3e9583ccc544001b289542829b180ede5b6f05aa7d4b279429a8004809c"
+  }
+}

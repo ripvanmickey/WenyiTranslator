@@ -91,6 +91,12 @@ enum ModelAvailabilityChecker {
     }
 
     private static func speechAvailability(for language: LanguageOption) async -> ModelAvailability {
+        if #available(macOS 26.0, *) { return await modernSpeechAvailability(for: language) }
+        return ModelAvailability(state: .unavailable, detail: "Apple 语音识别需要 macOS 26，请选择本地识别模型。")
+    }
+
+    @available(macOS 26.0, *)
+    private static func modernSpeechAvailability(for language: LanguageOption) async -> ModelAvailability {
         guard SpeechTranscriber.isAvailable else {
             return ModelAvailability(
                 state: .unavailable,
@@ -124,6 +130,12 @@ enum ModelAvailabilityChecker {
     }
 
     private static func downloadSpeechAssets(for language: LanguageOption) async throws {
+        if #available(macOS 26.0, *) { try await downloadModernSpeechAssets(for: language) }
+        else { throw PlatformSupport.appleFeatureUnavailable }
+    }
+
+    @available(macOS 26.0, *)
+    private static func downloadModernSpeechAssets(for language: LanguageOption) async throws {
         guard let supportedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: language.locale) else {
             return
         }
@@ -136,7 +148,13 @@ enum ModelAvailabilityChecker {
         try await request.downloadAndInstall()
     }
 
-    private static func translationAvailability(
+    private static func translationAvailability(source: LanguageOption, target: LanguageOption, quality: AppleTranslationQuality) async -> ModelAvailability {
+        if #available(macOS 26.0, *) { return await modernTranslationAvailability(source: source, target: target, quality: quality) }
+        return ModelAvailability(state: .unavailable, detail: "Apple 翻译需要 macOS 26，请配置 LM Studio 本地翻译。")
+    }
+
+    @available(macOS 26.0, *)
+    private static func modernTranslationAvailability(
         source: LanguageOption,
         target: LanguageOption,
         quality: AppleTranslationQuality
@@ -163,6 +181,7 @@ enum ModelAvailabilityChecker {
         )
     }
 
+    @available(macOS 26.0, *)
     private static func availabilityState(
         for status: AssetInventory.Status
     ) -> ModelAvailabilityState {
@@ -180,6 +199,7 @@ enum ModelAvailabilityChecker {
         }
     }
 
+    @available(macOS 26.0, *)
     private static func availabilityState(
         for status: LanguageAvailability.Status
     ) -> ModelAvailabilityState {

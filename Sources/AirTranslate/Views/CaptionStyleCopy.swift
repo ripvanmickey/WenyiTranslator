@@ -13,6 +13,7 @@ enum CaptionStyleCopy {
     static var sample: String { text("Sample captions · No recording", "샘플 자막 · 녹음 안 함", "サンプル字幕・録音なし", "示例字幕 · 不录音") }
     static var previewHint: String { text("Actual text size. Scroll inside for long captions, or preview in the window without recording.", "실제 글자 크기입니다. 긴 내용은 안에서 스크롤하거나 녹음 없이 자막 창에서 확인하세요.", "実際の文字サイズです。長い字幕は中をスクロールするか、録音せずに字幕ウインドウで確認できます。", "实际字号。长字幕可在预览内滚动，也可在不录音的情况下打开字幕窗口。") }
     static var previewWindow: String { text("Preview in caption window", "자막 창에서 미리보기", "字幕ウインドウで確認", "在字幕窗口中预览") }
+    static var closePreview: String { text("Close preview", "미리보기 닫기", "プレビューを閉じる", "关闭预览") }
     static var openWindow: String { text("Show captions", "자막 표시", "字幕を表示", "显示字幕") }
     static var closeWindow: String { text("Hide captions", "자막 숨기기", "字幕を非表示", "隐藏字幕") }
     static var toggleCaptions: String { text("Show or hide captions", "자막 표시/숨기기", "字幕の表示切替", "显示或隐藏字幕") }

@@ -62,3 +62,16 @@ tmp/
 
 # Python bytecode
 __pycache__/
+
+# Wenyi: generated runtimes, installed dependencies and local artifacts
+Resources/ASRRuntime/*
+!Resources/ASRRuntime/runtime.json
+!Resources/ASRRuntime/macos14-wheels.json
+!Resources/ASRRuntime/requirements-*.txt
+Resources/MultitalkerNative/*.dylib
+*.pyc
+*.app/
+*.app.zip
+*.dmg
+*.safetensors
+*.gguf

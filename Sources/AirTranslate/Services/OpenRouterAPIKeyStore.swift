@@ -95,7 +95,7 @@ enum OpenRouterAPIKeyStoreError: LocalizedError {
         case .invalidStoredKey:
             MAIVoiceCopy.keyRequired
         case let .keychainStatus(status):
-            "OpenRouter Keychain (\(status))"
+            "OpenRouter 钥匙串操作失败（\(status)）"
         }
     }
 }

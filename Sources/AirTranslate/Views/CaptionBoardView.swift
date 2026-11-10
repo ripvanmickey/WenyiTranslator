@@ -6,14 +6,18 @@ struct CaptionBoardView: View {
     @Binding var viewportState: CaptionFeedViewportState
 
     var body: some View {
-        CaptionTranscriptFeed(session: session, viewportState: $viewportState)
+        Group {
+            if #available(macOS 15.0, *) { ModernCaptionTranscriptFeed(session: session, viewportState: $viewportState) }
+            else { LegacyCaptionTranscriptFeed(session: session, viewportState: $viewportState) }
+        }
             .frame(maxWidth: 928, maxHeight: .infinity)
             .padding(.horizontal, AirTranslateDesign.Spacing.lg)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-private struct CaptionTranscriptFeed: View {
+@available(macOS 15.0, *)
+private struct ModernCaptionTranscriptFeed: View {
     private static let stageVisibleLineLimit = 12
 
     @Bindable var session: TranslationSessionStore
@@ -81,6 +85,7 @@ private struct CaptionTranscriptFeed: View {
                             CaptionLineView(
                                 line: line,
                                 showsTranslationPane: session.shouldShowTranslationPane,
+                                showsRecognitionState: session.whisperRecognitionEnabled && (session.isUsingLocalTranslation || session.isTranscribeOnlyMode),
                                 isLive: session.isRunning
                                     && line.id == session.lines.last?.id
                                     && !line.isFinal
@@ -389,6 +394,7 @@ private struct StageEmptyStateView: View {
 private struct CaptionLineView: View, Equatable {
     let line: CaptionLine
     let showsTranslationPane: Bool
+    var showsRecognitionState = false
     let isLive: Bool
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
@@ -396,6 +402,8 @@ private struct CaptionLineView: View, Equatable {
             && lhs.line.revision == rhs.line.revision
             && lhs.showsTranslationPane == rhs.showsTranslationPane
             && lhs.isLive == rhs.isLive
+            && lhs.showsRecognitionState == rhs.showsRecognitionState
+            && lhs.line.isFinal == rhs.line.isFinal
     }
 
     var body: some View {
@@ -414,7 +422,7 @@ private struct CaptionLineView: View, Equatable {
                 if showsTranslationPane {
                     TurnTranscriptText(
                         lineID: line.id,
-                        title: AppText.original,
+                        title: showsRecognitionState ? AppText.original + (line.isFinal ? " · 已确认" : " · 临时识别") : AppText.original,
                         text: line.sourceText,
                         displayText: line.sourceDisplayText,
                         holdsLiveRewrites: isLive,
@@ -436,7 +444,7 @@ private struct CaptionLineView: View, Equatable {
                 } else {
                     TurnTranscriptText(
                         lineID: line.id,
-                        title: AppText.original,
+                        title: showsRecognitionState ? AppText.original + (line.isFinal ? " · 已确认" : " · 临时识别") : AppText.original,
                         text: line.sourceText,
                         displayText: line.sourceDisplayText,
                         holdsLiveRewrites: isLive,
@@ -1118,5 +1126,101 @@ struct AudioLevelWaveform: View {
     private func barFill(for index: Int) -> Color {
         let quietOpacity = 0.44 + Double(index) * 0.035
         return tint.opacity(min(0.92, 0.46 + normalizedLevel * quietOpacity))
+    }
+}
+
+/// macOS 14 uses ScrollViewReader; the newer scroll position APIs stay in the 15+ view.
+private struct LegacyCaptionTranscriptFeed: View {
+    @Bindable var session: TranslationSessionStore
+    @Binding var viewportState: CaptionFeedViewportState
+    @State private var latestVisible = true
+    private var latestKey: String { session.lines.last.map { $0.id.uuidString + ":" + String($0.revision) } ?? "" }
+    var body: some View {
+        if !session.hasTranscriptContent && !session.isRunning {
+            StageEmptyStateView(session: session, description: AppText.noCaptionsDescription)
+        } else {
+            GeometryReader { viewport in
+                ScrollViewReader { reader in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
+                            ForEach(session.lines.suffix(12)) { line in
+                                CaptionLineView(line: line, showsTranslationPane: session.shouldShowTranslationPane,
+                                    showsRecognitionState: session.whisperRecognitionEnabled && (session.isUsingLocalTranslation || session.isTranscribeOnlyMode),
+                                    isLive: session.isRunning && line.id == session.lines.last?.id && !line.isFinal)
+                                    .equatable().id(line.id)
+                            }
+                            Color.clear.frame(height: 1).id("legacy-latest")
+                        }
+                        .padding(.vertical, AirTranslateDesign.Spacing.lg)
+                        .frame(minHeight: viewport.size.height, alignment: .bottom)
+                    .background(LegacyCaptionScrollObserver { scrolling in
+                        viewportState.followState.updateLatestVisibility(latestVisible)
+                        viewportState.followState.setUserScrolling(scrolling)
+                    })
+                        .background {
+                            GeometryReader { content in
+                                Color.clear.preference(key: LegacyCaptionBottomKey.self,
+                                    value: content.frame(in: .named("legacy-caption-viewport")).maxY)
+                            }
+                        }
+                    }
+                    .coordinateSpace(name: "legacy-caption-viewport")
+                    .defaultScrollAnchor(.bottom)
+                    .onPreferenceChange(LegacyCaptionBottomKey.self) { bottom in
+                        latestVisible = bottom <= viewport.size.height + 32
+                        viewportState.followState.updateLatestVisibility(latestVisible)
+                    }
+                    .task(id: latestKey) {
+                        guard viewportState.followState.shouldFollowUpdates else { return }
+                        if session.shouldCoalesceTranscriptAutoScroll { try? await Task.sleep(for: .milliseconds(250)) }
+                        guard !Task.isCancelled, viewportState.followState.shouldFollowUpdates else { return }
+                        reader.scrollTo("legacy-latest", anchor: .bottom)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if !viewportState.followState.isFollowingLatest {
+                            Button { viewportState.returnToLatest(); reader.scrollTo("legacy-latest", anchor: .bottom) }
+                            label: { Label("跳转到最新字幕", systemImage: "arrow.down.to.line") }
+                                .buttonStyle(.borderedProminent).padding(12)
+                        }
+                    }
+                }
+            }
+            .onDisappear { viewportState.followState.suspendInteraction() }
+        }
+    }
+}
+private struct LegacyCaptionBottomKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+private struct LegacyCaptionScrollObserver: NSViewRepresentable {
+    let changed: @MainActor (Bool) -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(changed) }
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { context.coordinator.attach(view.enclosingScrollView) }
+        return view
+    }
+    func updateNSView(_ view: NSView, context: Context) {
+        context.coordinator.changed = changed
+        DispatchQueue.main.async { context.coordinator.attach(view.enclosingScrollView) }
+    }
+    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) { coordinator.detach() }
+    @MainActor final class Coordinator {
+        var changed: @MainActor (Bool) -> Void
+        private weak var scroll: NSScrollView?
+        private var observers: [NSObjectProtocol] = []
+        init(_ changed: @escaping @MainActor (Bool) -> Void) { self.changed = changed }
+        func attach(_ view: NSScrollView?) {
+            guard let view, scroll !== view else { return }
+            detach(); scroll = view
+            for (name, scrolling) in [(NSScrollView.willStartLiveScrollNotification, true), (NSScrollView.didEndLiveScrollNotification, false)] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: view, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.changed(scrolling) }
+                })
+            }
+        }
+        func detach() { for token in observers { NotificationCenter.default.removeObserver(token) }; observers = []; scroll = nil }
     }
 }

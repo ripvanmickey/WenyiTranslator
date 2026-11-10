@@ -112,6 +112,7 @@ private enum SettingsKey {
     static let paragraphBreakSilenceInterval = "paragraphBreakSilenceInterval"
     static let savedTranscriptContentMode = "savedTranscriptContentMode"
     static let sessionDurationMode = "sessionDurationMode"
+    static let audioOnlySystemCapture = "audioOnlySystemCapture"
     static let audioInputSource = "audioInputSource"
     static let selectedMicrophoneInputDeviceID = "selectedMicrophoneInputDeviceID"
     static let isAppleSourceAutoDetectionEnabled = "isAppleSourceAutoDetectionEnabled"
@@ -120,6 +121,8 @@ private enum SettingsKey {
 private struct TranslationRequest {
     let requestID = UUID()
     let enqueuedAtUptime = ProcessInfo.processInfo.systemUptime
+    var audioEndUptime: TimeInterval? = nil
+    var recognitionMS: Double? = nil
     let generation: Int
     let pipelineGeneration: UInt64
     let line: CaptionLine
@@ -165,6 +168,14 @@ private struct PendingRecognizedCaption {
 }
 
 struct StartConfiguration: Equatable {
+    let whisperRecognitionEnabled: Bool
+    let whisperModelFolder: String
+    let nemotronRecognitionEnabled: Bool
+    let graniteRecognitionEnabled: Bool
+    let multitalkerRecognitionEnabled: Bool
+    let qwenASRModel: String
+    let nemotronRuntimeFolder: String
+    let audioOnlySystemCapture: Bool
     let audioInputSource: AudioInputSource
     let microphoneDeviceUniqueID: String?
     let sourceLanguage: LanguageOption
@@ -190,9 +201,18 @@ struct StartConfiguration: Equatable {
     let usesAppleSourceAutoDetection: Bool
     let usesJevSelection: Bool
     let appleTranslationOptions: AppleTranslationOptions
+    let localTranslation: LocalTranslationConfiguration
 
     init(
         audioInputSource: AudioInputSource,
+        whisperRecognitionEnabled: Bool = false,
+        whisperModelFolder: String = "",
+        nemotronRecognitionEnabled: Bool = false,
+        graniteRecognitionEnabled: Bool = false,
+        multitalkerRecognitionEnabled: Bool = false,
+        qwenASRModel: String = "",
+        nemotronRuntimeFolder: String = "",
+        audioOnlySystemCapture: Bool = false,
         microphoneDeviceUniqueID: String?,
         sourceLanguage: LanguageOption,
         targetLanguage: LanguageOption,
@@ -216,8 +236,17 @@ struct StartConfiguration: Equatable {
         usesMetaSpeakerLabels: Bool = true,
         usesAppleSourceAutoDetection: Bool,
         usesJevSelection: Bool = false,
-        appleTranslationOptions: AppleTranslationOptions = .init()
+        appleTranslationOptions: AppleTranslationOptions = .init(),
+        localTranslation: LocalTranslationConfiguration = .init()
     ) {
+        self.whisperRecognitionEnabled = whisperRecognitionEnabled
+        self.whisperModelFolder = whisperModelFolder
+        self.nemotronRecognitionEnabled = nemotronRecognitionEnabled
+        self.graniteRecognitionEnabled = graniteRecognitionEnabled
+        self.multitalkerRecognitionEnabled = multitalkerRecognitionEnabled
+        self.qwenASRModel = qwenASRModel
+        self.nemotronRuntimeFolder = nemotronRuntimeFolder
+        self.audioOnlySystemCapture = audioOnlySystemCapture
         self.audioInputSource = audioInputSource
         self.microphoneDeviceUniqueID = microphoneDeviceUniqueID
         self.sourceLanguage = sourceLanguage
@@ -242,6 +271,7 @@ struct StartConfiguration: Equatable {
         self.usesMetaSpeakerLabels = usesMetaSpeakerLabels
         self.usesAppleSourceAutoDetection = usesAppleSourceAutoDetection
         self.usesJevSelection = usesJevSelection
+        self.localTranslation = localTranslation
         self.appleTranslationOptions = appleTranslationOptions
     }
 
@@ -380,6 +410,7 @@ private final class AudioSamplePipelineRegistry: @unchecked Sendable {
     private struct Pipeline {
         let generation: UInt64
         let transcriber: LiveSpeechTranscriber
+        let whisperTranscriber: (any LocalSpeechTranscriber)?
         let openAITranscriber: OpenAIRealtimeTranscriber
         let geminiLiveTranslator: GeminiLiveTranslationService
         let azureMAITranscriber: AzureMAITranscriber
@@ -395,6 +426,7 @@ private final class AudioSamplePipelineRegistry: @unchecked Sendable {
     func publish(
         generation: UInt64,
         transcriber: LiveSpeechTranscriber,
+        whisperTranscriber: (any LocalSpeechTranscriber)? = nil,
         openAITranscriber: OpenAIRealtimeTranscriber,
         geminiLiveTranslator: GeminiLiveTranslationService,
         metaVoiceTranscriber: MetaVoiceTranscribeService,
@@ -407,6 +439,7 @@ private final class AudioSamplePipelineRegistry: @unchecked Sendable {
         pipeline = Pipeline(
             generation: generation,
             transcriber: transcriber,
+            whisperTranscriber: whisperTranscriber,
             openAITranscriber: openAITranscriber,
             geminiLiveTranslator: geminiLiveTranslator,
             azureMAITranscriber: azureMAITranscriber,
@@ -431,6 +464,7 @@ private final class AudioSamplePipelineRegistry: @unchecked Sendable {
 
         // clear() waits for any in-flight append to finish before the MainActor
         // stops or replaces these backends.
+        pipeline.whisperTranscriber?.append(sampleBuffer)
         pipeline.transcriber.append(sampleBuffer)
         pipeline.openAITranscriber.append(sampleBuffer)
         pipeline.geminiLiveTranslator.append(sampleBuffer)
@@ -537,23 +571,10 @@ final class TranslationSessionStore {
             stopSpeaking()
         }
     }
-    var isDubbingEnabled = false {
-        didSet {
-            if !isApplyingVoiceOutputDefault {
-                rememberVoiceOutputPreference(isDubbingEnabled)
-            }
-            persistSelectedSettings()
-            if isDubbingEnabled {
-                if isUsingProviderRealtimeTranslation {
-                    openAIRealtimeAudioOutput.stop()
-                } else {
-                    primeDubbingBaselineToCurrentTranslation()
-                }
-            } else {
-                stopSpeaking()
-                dubbingSpeechProgress.reset()
-            }
-        }
+    // Speech playback has been removed. Legacy configuration writes are intentionally ignored.
+    var isDubbingEnabled: Bool {
+        get { false }
+        set { }
     }
     var translatedVoiceVolume = 1.0 {
         didSet {
@@ -680,7 +701,10 @@ final class TranslationSessionStore {
     }
     var isFinishingQwenTranslation = false
     var isReconnectingQwenTranslation = false
-    private var qwenVoiceOutputEnabled = false
+    private var qwenVoiceOutputEnabled: Bool {
+        get { false }
+        set { }
+    }
     @ObservationIgnored private var qwenTranslator = QwenRealtimeTranslationService()
     @ObservationIgnored private var qwenTransitionTask: Task<Void, Never>?
     private var qwenSourceTranscript = QwenCaptionTranscript()
@@ -898,6 +922,52 @@ final class TranslationSessionStore {
     var isMetaSpeakerLabelsEnabled = true {
         didSet { persistSelectedSettings() }
     }
+    var captionLatencyReadings: [CaptionLatencyReading] = []
+    private var recognitionTimingByLineID: [UUID: (Double, Double)] = [:]
+    func latencySummary() -> String {
+        let readings = captionLatencyReadings
+        func summary(_ values: [Double]) -> String {
+            let sorted = values.filter { $0.isFinite && $0 >= 0 }.sorted()
+            guard !sorted.isEmpty else { return "暂无有效样本" }
+            let median = sorted[(sorted.count - 1) / 2]
+            let p95 = sorted[min(sorted.count - 1, Int(ceil(Double(sorted.count) * 0.95)) - 1)]
+            return String(format: "P50 %.0f ms · P95 %.0f ms · %d 个样本", median, p95, sorted.count)
+        }
+        let whisperReport = whisperRecognitionEnabled ? "\n\n" + whisperTranscriber.diagnosticsSummary() : ""
+        return "识别引擎：\(recognitionEngineTitle)\n采集：\(audioOnlySystemCapture ? "纯音频 Tap" : "兼容方式")\n模型：\(localTranslation.modelID)\n语言：\(languageSummary)\n识别（音频帧末端→文字）：\(summary(readings.compactMap(\.recognitionMS)))\n排队：\(summary(readings.compactMap(\.queueMS)))\n翻译请求→首段译文：\(summary(readings.compactMap(\.translationFirstMS)))\n音频帧末端→首段译文：\(summary(readings.compactMap(\.frameToTranslationMS)))\n\n这是识别音频范围末端的时序估算，不是人工标注的句尾延迟。暂停、重启或切换模型后应清空再测。只保留最近 1000 条数字样本，不含音频、原文、译文或密钥。" + whisperReport
+    }
+
+    private var storedLocalTranslation = LocalTranslationConfiguration()
+    var localTranslation: LocalTranslationConfiguration {
+        get { storedLocalTranslation }
+        set {
+            guard !isRunning, !isStarting else { return }
+            storedLocalTranslation = newValue
+            resetTranslationCache()
+            resetDubbingProgress()
+            persistSelectedSettings()
+            if !isRestoringSelectedSettings { refreshModelAvailability() }
+        }
+    }
+    // Local translation only replaces the Apple workflow, never a cloud audio engine.
+    var isUsingLocalTranslation: Bool {
+        localTranslation.enabled && !isTranscribeOnlyMode
+            && !openAITranslationModel.isEnabled && !openAITranscriptionModel.isEnabled
+            && !geminiTranslationModel.isEnabled && !isUsingQwenTranslation
+            && !isUsingAzureMAI && !isUsingMetaScribe && !isUsingNariSTT && !isUsingGrokSTT
+    }
+    func enableLocalTranslation(_ enabled: Bool) {
+        guard !isRunning, !isStarting else { return }
+        guard enabled || PlatformSupport.supportsAppleSpeech else { return }
+        if enabled {
+            useAppleDefaultMode()
+            isJevSelectionEnabled = false
+            speechSynthesisModel = .appleSystem
+            isDubbingEnabled = false
+        }
+        localTranslation.enabled = enabled
+    }
+
     private var storedAppleTranslationQuality: AppleTranslationQuality = .realtime
     private(set) var isUsingAppleRealtimeFallback = false
     private(set) var didKeepOriginalForAppleProtectedTerms = false
@@ -937,7 +1007,7 @@ final class TranslationSessionStore {
         return false
     }
     var isUsingAppleTextTranslation: Bool {
-        !isTranscribeOnlyMode && !openAITranslationModel.isEnabled
+        !isUsingLocalTranslation && !isTranscribeOnlyMode && !openAITranslationModel.isEnabled
             && !geminiTranslationModel.isEnabled && !isUsingQwenTranslation
     }
     var isJevSelectionEnabled = false {
@@ -947,14 +1017,16 @@ final class TranslationSessionStore {
         }
     }
     var isJevSelectionAvailable: Bool {
-        !isTranscribeOnlyMode && usesAppleSpeechTranscriber(for: currentStartConfiguration())
+        !whisperRecognitionEnabled && !isTranscribeOnlyMode && usesAppleSpeechTranscriber(for: currentStartConfiguration())
     }
     var processingEngineTitle: String {
         let quality = isUsingAppleTextTranslation && appleTranslationOptions.effectiveQuality == .highQuality
             ? " · " + (isUsingAppleRealtimeFallback ? AppleTranslationCopy.fallbackTitle : AppleTranslationCopy.title(for: .highQuality)) : ""
+        if isUsingLocalTranslation { return "\(recognitionEngineTitle) + LM Studio · \(localTranslation.modelID)" }
+        if whisperRecognitionEnabled && isTranscribeOnlyMode { return recognitionEngineTitle }
         return ProcessingEngine.current(for: self).title + (isUsingJevSelection ? " + Jev" : "") + quality
     }
-    var isUsingJevSelection: Bool { isJevSelectionEnabled && isJevSelectionAvailable }
+    var isUsingJevSelection: Bool { !isUsingLocalTranslation && isJevSelectionEnabled && isJevSelectionAvailable }
 
     var isTranscriptLintEnabled = false {
         didSet { persistSelectedSettings() }
@@ -1055,6 +1127,49 @@ final class TranslationSessionStore {
             refreshModelAvailability()
         }
     }
+    var isPreparingWhisperModel = false
+    var whisperRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
+    var nemotronRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
+    var nemotronRuntimeFolder = NemotronSpeechTranscriber.defaultRuntimeFolder { didSet { persistSelectedSettings() } }
+    var graniteRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
+    var multitalkerRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
+    var qwenASRModel = "" { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
+    var localRecognitionEngine: String {
+        get { graniteRecognitionEnabled && whisperRecognitionEnabled ? "granite" : multitalkerRecognitionEnabled && whisperRecognitionEnabled ? "multitalker" : !whisperRecognitionEnabled ? "apple" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "nemotron" : "qwen") : "whisper") }
+        set {
+            guard newValue != "apple" || PlatformSupport.supportsAppleSpeech else { return }
+            graniteRecognitionEnabled = newValue == "granite"
+            multitalkerRecognitionEnabled = newValue == "multitalker"
+            if newValue == "qwen" { if qwenASRModel.isEmpty { qwenASRModel = "Qwen/Qwen3-ASR-1.7B" } } else { qwenASRModel = "" }
+            nemotronRecognitionEnabled = newValue == "nemotron" || newValue == "qwen" || newValue == "multitalker" || newValue == "granite"
+            whisperRecognitionEnabled = newValue != "apple"
+        }
+    }
+    private var whisperModelFolders: [String: String] = [:]
+    var whisperModel = "base" { didSet { persistSelectedSettings() } }
+    var whisperModelFolder: String {
+        get {
+            if let path = whisperModelFolders[whisperModel],
+               WhisperModelFiles.isUsable(folder: URL(fileURLWithPath: path), model: whisperModel) { return path }
+            let cached = WhisperModelFiles.defaultFolder(base: whisperModelsDirectory, model: whisperModel)
+            return WhisperModelFiles.isUsable(folder: cached, model: whisperModel) ? cached.path : ""
+        }
+        set {
+            if newValue.isEmpty { whisperModelFolders[whisperModel] = nil }
+            else if WhisperModelFiles.isUsable(folder: URL(fileURLWithPath: newValue), model: whisperModel) {
+                whisperModelFolders[whisperModel] = newValue
+            }
+            persistSelectedSettings()
+        }
+    }
+    var recognitionEngineTitle: String { graniteRecognitionEnabled && whisperRecognitionEnabled ? "Granite Speech 5.0 · 2B（分段）" : multitalkerRecognitionEnabled && whisperRecognitionEnabled ? "Multitalker Parakeet · 0.6B（段尾校正）" : !whisperRecognitionEnabled ? "Apple Speech" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "Nemotron 3.5 · 0.6B" : "Qwen3-ASR · " + (qwenASRModel.contains("1.7B") ? "1.7B" : "0.6B")) : "WhisperKit · \(whisperModel)") }
+    var whisperModelsDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("AirTranslate/WhisperKit", isDirectory: true)
+    }
+    var audioOnlySystemCapture = false {
+        didSet { persistSelectedSettings() }
+    }
     var audioInputSource = AudioInputSource.systemAudio {
         didSet { persistSelectedSettings() }
     }
@@ -1071,10 +1186,17 @@ final class TranslationSessionStore {
     var lines: [CaptionLine] = []
     var savedTranscripts: [SavedTranscript] = []
     var selectedSavedTranscriptID: String?
+    var savedDraftTitle = ""
+    var isGeneratingSavedTitle = false
+    var savedTitleMessage: String?
+    private var savedTitleTask: Task<Void, Never>?
+    private var savedTitleRequestID = UUID()
+    private var savedTranscriptPolishTask: Task<Void, Never>?
+    private var transcriptCleanupRequestID = UUID()
     var savedDraftSourceText = ""
     var savedDraftTranslationText = ""
     var pendingAutoDetectionLanguageChange: AutoDetectionLanguageChangeConfirmation?
-    var isFoundationTranscriptCleanupRunning = false
+    var isLocalTranscriptCleanupRunning = false
     private(set) var latestAudioLevel: Float?
     var modelAvailabilityByModelID = Dictionary(
         uniqueKeysWithValues: IntelligenceModel.allCases.map {
@@ -1085,6 +1207,7 @@ final class TranslationSessionStore {
     private let systemAudioCapture = SystemAudioCapture()
     private let microphoneAudioCapture = MicrophoneAudioCapture()
     @ObservationIgnored private var transcriber = LiveSpeechTranscriber()
+    @ObservationIgnored private var whisperTranscriber: any LocalSpeechTranscriber = WhisperKitSpeechTranscriber()
     @ObservationIgnored private let floatingCaptionLayoutCache = FloatingCaptionLayoutCache()
     @ObservationIgnored private var openAITranscriber = OpenAIRealtimeTranscriber()
     @ObservationIgnored private var geminiLiveTranslator = GeminiLiveTranslationService()
@@ -1096,7 +1219,6 @@ final class TranslationSessionStore {
         OpenAITerminalTranscriptMailbox()
     private let translator: AppleTranslationService
     private let openAITranslator = OpenAITranslationService()
-    private let foundationTranscriptPolisher = FoundationTranscriptPolisher()
     private let speechOutput = TranslatedSpeechOutput()
     private let geminiSpeechOutput = GeminiSpeechOutput()
     private let maiSpeechOutput = MAIVoiceSpeechOutput()
@@ -1164,6 +1286,7 @@ final class TranslationSessionStore {
     }
 #endif
     private var transcriptCleanupTask: Task<Void, Never>?
+    private var punctuatedDisplayByLine: [UUID: (source: String, display: String)] = [:]
     private var translationTask: Task<Void, Never>?
     private var translationDriverID: UUID?
     private var translationOperationTask: Task<String, Error>?
@@ -1209,7 +1332,11 @@ final class TranslationSessionStore {
     private var translationSegmentCache = TranslationSegmentCache(
         capacity: TranslationSessionStore.maxTranslationCacheEntries
     )
-    private let appleRecognitionTranslationPolicy = AppleRecognitionTranslationPolicy()
+    private var appleRecognitionTranslationPolicy: AppleRecognitionTranslationPolicy {
+        isUsingLocalTranslation
+            ? AppleRecognitionTranslationPolicy(partialCadence: 0.25, smallPartialSilenceFallback: 0.25)
+            : AppleRecognitionTranslationPolicy()
+    }
     private var appleRecognitionTranslationState = AppleRecognitionTranslationPolicy.State()
     private var appleSpeechSegmentIDByLineID: [UUID: String] = [:]
     private var appleSpeechRevisionByLineID: [UUID: Int] = [:]
@@ -1260,8 +1387,14 @@ final class TranslationSessionStore {
     private var appleDubbingLineOrder: [UUID] = []
     private var hasShownTranscribeOnlyNoticeForCurrentActivation = false
     private var floatingCaptionDisplayModeBeforeTranscribeOnly: FloatingCaptionDisplayMode?
-    private var appleVoiceOutputEnabled = false
-    private var providerVoiceOutputEnabled = true
+    private var appleVoiceOutputEnabled: Bool {
+        get { false }
+        set { }
+    }
+    private var providerVoiceOutputEnabled: Bool {
+        get { false }
+        set { }
+    }
     private var isApplyingVoiceOutputDefault = false
 
     private enum SavedTranscriptPart {
@@ -1370,6 +1503,11 @@ final class TranslationSessionStore {
         self.transcriptsDirectoryOverride = transcriptsDirectoryURL
         self.transcriptCheckpointInterval = transcriptCheckpointInterval
         restoreSelectedSettings()
+        if !PlatformSupport.supportsAudioTap { audioOnlySystemCapture = false }
+        if !PlatformSupport.supportsAppleSpeech {
+            if !whisperRecognitionEnabled { localRecognitionEngine = "nemotron" }
+            storedLocalTranslation.enabled = true
+        }
         geminiSpeechOutput.onFailure = { [weak self] in
             self?.statusMessage = AppText.geminiSpeechOutputFailed
         }
@@ -1429,9 +1567,36 @@ final class TranslationSessionStore {
     }
 
     func start() {
+        cancelSavedTitleGeneration()
+        cancelTranscriptCleanup()
         isPreviewingFloatingCaptions = false
         guard !isRunning, !isStarting else { return }
 
+        if whisperRecognitionEnabled && usesAppleSpeechTranscriber(for: currentStartConfiguration()) {
+            if multitalkerRecognitionEnabled && !sourceLanguage.id.lowercased().hasPrefix("en") {
+                statusMessage = "Multitalker Parakeet 仅支持英语，请切换源语言或识别引擎。"
+                return
+            }
+            if nemotronRecognitionEnabled {
+                do {
+                    if graniteRecognitionEnabled { try NemotronSpeechTranscriber.validateGranite(folder: nemotronRuntimeFolder) }
+                    else if multitalkerRecognitionEnabled { try NemotronSpeechTranscriber.validateMultitalker(folder: nemotronRuntimeFolder) }
+                    else { try ManagedASRRuntime.validate(qwenASRModel.isEmpty ? "nemotron" : qwenASRModel.contains("1.7B") ? "qwen17" : "qwen06") }
+                }
+                catch { statusMessage = error.localizedDescription; return }
+            }
+            guard !isPreparingWhisperModel, !ASRModelManager.shared.isBusy else { statusMessage = "请等待模型操作完成，或先取消下载。"; return }
+            guard isUsingLocalTranslation || isTranscribeOnlyMode else {
+                statusMessage = "本地识别引擎请搭配本地模型翻译，或选择仅转写。"; return
+            }
+            guard nemotronRecognitionEnabled || !whisperModelFolder.isEmpty else {
+                statusMessage = "请先在 General 的识别引擎设置中下载或选择 WhisperKit 模型。"; return
+            }
+        }
+        if isUsingLocalTranslation {
+            do { _ = try localTranslation.validatedBaseURL(); try localTranslation.validateModel() }
+            catch { statusMessage = error.localizedDescription; return }
+        }
         let readiness = startReadinessAssessment()
         guard readiness.canStart else {
             if readiness.issue == .localAssetsDownloadRequired,
@@ -1458,7 +1623,7 @@ final class TranslationSessionStore {
         isStarting = true
         statusMessage = configuration.audioInputSource == .microphone
             ? AppText.checkingMicrophonePermission
-            : AppText.checkingScreenPermission
+            : (configuration.audioOnlySystemCapture ? "准备纯音频采集…" : AppText.checkingScreenPermission)
 
         captureStartTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -1469,7 +1634,7 @@ final class TranslationSessionStore {
                     self.captureStopTask = nil
                 }
                 try validatePipelineStart(generation: generation, configuration: configuration)
-                if configuration.audioInputSource == .systemAudio {
+                if configuration.audioInputSource == .systemAudio && !configuration.audioOnlySystemCapture {
                     try systemAudioCapture.requestScreenRecordingAccess()
                 }
                 try validatePipelineStart(generation: generation, configuration: configuration)
@@ -1496,6 +1661,7 @@ final class TranslationSessionStore {
                 audioSamplePipelineRegistry.publish(
                     generation: generation,
                     transcriber: transcriber,
+                    whisperTranscriber: whisperTranscriber,
                     openAITranscriber: openAITranscriber,
                     geminiLiveTranslator: geminiLiveTranslator,
                     metaVoiceTranscriber: metaVoiceTranscriber,
@@ -1510,7 +1676,8 @@ final class TranslationSessionStore {
                 case .systemAudio:
                     try await systemAudioCapture.start(
                         sampleRate: configuration.sampleRate,
-                        generation: generation
+                        generation: generation,
+                        audioOnly: configuration.audioOnlySystemCapture
                     )
                 case .microphone:
                     try await microphoneAudioCapture.start(
@@ -1723,6 +1890,14 @@ final class TranslationSessionStore {
     private func currentStartConfiguration() -> StartConfiguration {
         StartConfiguration(
             audioInputSource: audioInputSource,
+            whisperRecognitionEnabled: whisperRecognitionEnabled,
+            whisperModelFolder: whisperModelFolder,
+            nemotronRecognitionEnabled: nemotronRecognitionEnabled,
+            graniteRecognitionEnabled: graniteRecognitionEnabled,
+            multitalkerRecognitionEnabled: multitalkerRecognitionEnabled,
+            qwenASRModel: qwenASRModel,
+            nemotronRuntimeFolder: nemotronRuntimeFolder,
+            audioOnlySystemCapture: audioOnlySystemCapture,
             microphoneDeviceUniqueID: selectedMicrophoneDevice.uniqueID,
             sourceLanguage: sourceLanguage,
             targetLanguage: targetLanguage,
@@ -1745,8 +1920,9 @@ final class TranslationSessionStore {
             maiStreamingDeployment: maiStreamingDeployment,
             usesMetaSpeakerLabels: isMetaSpeakerLabelsEnabled,
             usesAppleSourceAutoDetection: isUsingAppleSourceAutoDetection,
-            usesJevSelection: isJevSelectionEnabled,
-            appleTranslationOptions: appleTranslationOptions
+            usesJevSelection: isUsingLocalTranslation ? false : isJevSelectionEnabled,
+            appleTranslationOptions: appleTranslationOptions,
+            localTranslation: localTranslation
         )
     }
 
@@ -1872,6 +2048,9 @@ final class TranslationSessionStore {
     }
 
     private var requiredLocalModelForStart: IntelligenceModel? {
+        if whisperRecognitionEnabled && usesAppleSpeechTranscriber(for: currentStartConfiguration()),
+           isUsingLocalTranslation || isTranscribeOnlyMode { return nil }
+        if isUsingLocalTranslation { return .appleSpeechOnly }
         if isUsingQwenTranslation { return nil }
         if isUsingNariSTT || isUsingGrokSTT {
             return isTranscribeOnlyMode ? nil : .appleOnDevice
@@ -2049,7 +2228,7 @@ final class TranslationSessionStore {
     }
 
     func openPrivacySettings() {
-        openPrivacySettings(audioInputSource == .microphone ? .microphone : .screenRecording)
+        openPrivacySettings(audioInputSource == .microphone ? .microphone : (audioOnlySystemCapture ? .systemAudioRecording : .screenRecording))
     }
 
     func openPrivacySettings(_ pane: PrivacySettingsPane) {
@@ -2149,7 +2328,7 @@ final class TranslationSessionStore {
     }
 
     var isUsingAppleSourceAutoDetection: Bool {
-        isAppleSourceAutoDetectionAvailable
+        !whisperRecognitionEnabled && isAppleSourceAutoDetectionAvailable
             && isAppleSourceAutoDetectionEnabled
             && !openAITranscriptionModel.isEnabled
             && !openAITranslationModel.isEnabled
@@ -2981,7 +3160,11 @@ final class TranslationSessionStore {
     func selectSavedTranscript(_ id: String) {
         guard let transcript = savedTranscripts.first(where: { $0.id == id }) else { return }
 
+        cancelSavedTitleGeneration()
+        cancelTranscriptCleanup()
+        savedTitleMessage = nil
         selectedSavedTranscriptID = id
+        savedDraftTitle = transcript.title
         savedDraftSourceText = loadTranscriptText(fileName: transcript.sourceFileName) ?? transcript.sourceText
         if let translationFileName = transcript.translationFileName,
            let translatedText = loadTranscriptText(fileName: translationFileName) {
@@ -2993,6 +3176,11 @@ final class TranslationSessionStore {
 
     func saveSelectedTranscriptEdits() {
         guard let selectedTranscript = selectedSavedTranscript else { return }
+        guard !isRunning, !isStarting else {
+            savedTitleMessage = "请先停止监听，再保存记录和文件名。"; return
+        }
+        cancelSavedTitleGeneration()
+        cancelTranscriptCleanup()
 
         let sourceText = savedDraftSourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !sourceText.isEmpty else { return }
@@ -3000,68 +3188,129 @@ final class TranslationSessionStore {
         if selectedTranscript.isOriginalAndTranslation,
            let translationFileName = selectedTranscript.translationFileName {
             let translatedText = savedDraftTranslationText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard writeTranscriptText(sourceText, fileName: selectedTranscript.sourceFileName),
-                  writeTranscriptText(translatedText, fileName: translationFileName)
+            guard writeEditedTranscriptIfChanged(sourceText, fileName: selectedTranscript.sourceFileName),
+                  writeEditedTranscriptIfChanged(translatedText, fileName: translationFileName)
             else {
                 return
             }
         } else {
-            guard writeTranscriptText(sourceText, fileName: selectedTranscript.sourceFileName) else { return }
+            guard writeEditedTranscriptIfChanged(sourceText, fileName: selectedTranscript.sourceFileName) else { return }
         }
 
-        let selectedID = selectedTranscript.id
-        loadSavedTranscripts()
-        selectSavedTranscript(selectedID)
+        do {
+            let selectedID: String
+            if SavedTranscriptTitleStore.normalized(savedDraftTitle) != selectedTranscript.title {
+                let renamed = try SavedTranscriptFileRenamer.rename(selectedTranscript, title: savedDraftTitle, directory: transcriptsDirectoryURL)
+                selectedID = renamed.id
+            } else {
+                try SavedTranscriptTitleStore(directory: transcriptsDirectoryURL).set(savedDraftTitle, for: savedTitleKey(selectedTranscript))
+                selectedID = selectedTranscript.id
+            }
+            loadSavedTranscripts()
+            selectSavedTranscript(selectedID)
+        } catch { savedTitleMessage = "保存文件名失败：" + error.localizedDescription }
     }
 
-    func polishSelectedTranscriptDraftWithFoundationModel() {
-        guard !isFoundationTranscriptCleanupRunning,
-              let selectedTranscript = selectedSavedTranscript
-        else {
-            return
-        }
+    func revealSelectedTranscriptInFinder() {
+        guard let record = selectedSavedTranscript else { return }
+        let files = ([record.sourceFileName] + (record.translationFileName.map { [$0] } ?? []))
+            .map { transcriptURL(fileName: $0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        if files.isEmpty { openTranscriptsFolder() }
+        else { NSWorkspace.shared.activateFileViewerSelecting(files) }
+    }
 
-        let selectedID = selectedTranscript.id
-        let sourceText = savedDraftSourceText
-        let translationText = savedDraftTranslationText
-        let shouldPolishTranslation = selectedTranscript.isOriginalAndTranslation
-            && translationText.rangeOfCharacter(from: .whitespacesAndNewlines.inverted) != nil
-        guard sourceText.rangeOfCharacter(from: .whitespacesAndNewlines.inverted) != nil
-            || shouldPolishTranslation
-        else {
-            return
-        }
+    private func writeEditedTranscriptIfChanged(_ text: String, fileName: String) -> Bool {
+        // A title-only edit must not trim the original file or change its modification date.
+        if let previous = loadTranscriptText(fileName: fileName),
+           previous.trimmingCharacters(in: .whitespacesAndNewlines) == text { return true }
+        return writeTranscriptText(text, fileName: fileName)
+    }
 
-        isFoundationTranscriptCleanupRunning = true
-        statusMessage = AppText.foundationModelCleanupRunning
+    private func savedTitleKey(_ record: SavedTranscript) -> String {
+        transcriptVariantInfo(record.sourceFileName)?.baseFileName ?? record.id
+    }
 
-        Task { @MainActor in
+    func cancelSavedTitleGeneration() {
+        savedTitleRequestID = UUID()
+        savedTitleTask?.cancel(); savedTitleTask = nil; isGeneratingSavedTitle = false
+    }
+
+    func generateSavedTranscriptTitle() {
+        guard !isRunning, !isStarting, !isGeneratingSavedTitle, !isLocalTranscriptCleanupRunning, let record = selectedSavedTranscript else { return }
+        let original = savedDraftSourceText
+        let translation = savedDraftTranslationText
+        let initialTitle = savedDraftTitle
+        let text = translation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? original : translation + "\n原文参考：\n" + original
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let configuration = localTranslation
+        do { try configuration.validateModel(); _ = try configuration.validatedBaseURL() }
+        catch { savedTitleMessage = "请先在通用设置中配置本地翻译模型，再生成标题。"; return }
+        let requestID = UUID(); savedTitleRequestID = requestID
+        isGeneratingSavedTitle = true; savedTitleMessage = nil
+        savedTitleTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { if self.savedTitleRequestID == requestID { self.isGeneratingSavedTitle = false; self.savedTitleTask = nil } }
             do {
-                let cleanedSource = try await foundationTranscriptPolisher.polishTranscript(sourceText)
-                let cleanedTranslation = shouldPolishTranslation
-                    ? try await foundationTranscriptPolisher.polishTranscript(translationText)
-                    : ""
-
-                if selectedSavedTranscriptID == selectedID {
-                    if !cleanedSource.isEmpty {
-                        savedDraftSourceText = cleanedSource
-                    }
-                    if shouldPolishTranslation {
-                        savedDraftTranslationText = cleanedTranslation
-                    }
-                    statusMessage = AppText.foundationModelCleanupComplete
+                let title = try await LocalTranslationService.shared.transcriptTitle(text, configuration: configuration, apiKey: LocalTranslationAPIKeyStore.readAPIKey())
+                try Task.checkCancellation()
+                guard self.savedTitleRequestID == requestID, self.selectedSavedTranscriptID == record.id else { return }
+                guard self.savedDraftTitle == initialTitle, self.savedDraftSourceText == original,
+                      self.savedDraftTranslationText == translation else {
+                    self.savedTitleMessage = "草稿已修改，未覆盖当前标题。需要时可重新生成。"; return
                 }
-            } catch {
-                statusMessage = AppText.foundationModelCleanupFailed(error.localizedDescription)
-            }
+                self.savedDraftTitle = SavedTranscriptTitleStore.normalized(title)
+                self.savedTitleMessage = "标题已生成，可修改后点击「保存修改」。"
+            } catch is CancellationError { }
+            catch { if self.savedTitleRequestID == requestID { self.savedTitleMessage = "标题生成失败：" + error.localizedDescription } }
+        }
+    }
 
-            isFoundationTranscriptCleanupRunning = false
+    func cancelTranscriptCleanup() {
+        transcriptCleanupRequestID = UUID()
+        savedTranscriptPolishTask?.cancel(); savedTranscriptPolishTask = nil
+        isLocalTranscriptCleanupRunning = false
+    }
+
+    func polishSelectedTranscriptDraftWithLocalModel() {
+        guard !isRunning, !isStarting, !isLocalTranscriptCleanupRunning, !isGeneratingSavedTitle,
+              let record = selectedSavedTranscript else { return }
+        let source = savedDraftSourceText, translation = savedDraftTranslationText
+        guard !(source + translation).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let configuration = localTranslation
+        do { try configuration.validateModel(); _ = try configuration.validatedBaseURL() }
+        catch { statusMessage = "请先在通用设置中配置本地翻译模型，再整理正文。"; return }
+        let requestID = UUID(); transcriptCleanupRequestID = requestID
+        isLocalTranscriptCleanupRunning = true
+        statusMessage = AppText.localModelCleanupRunning
+        savedTranscriptPolishTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { if self.transcriptCleanupRequestID == requestID { self.isLocalTranscriptCleanupRunning = false; self.savedTranscriptPolishTask = nil } }
+            do {
+                let key = try LocalTranslationAPIKeyStore.readAPIKey()
+                let cleanedSource = try await LocalTranslationService.shared.polishTranscript(source, configuration: configuration, apiKey: key)
+                let cleanedTranslation = record.isOriginalAndTranslation
+                    ? try await LocalTranslationService.shared.polishTranscript(translation, configuration: configuration, apiKey: key) : translation
+                try Task.checkCancellation()
+                guard self.transcriptCleanupRequestID == requestID, self.selectedSavedTranscriptID == record.id else { return }
+                guard self.savedDraftSourceText == source, self.savedDraftTranslationText == translation else {
+                    self.statusMessage = "草稿已修改，未覆盖当前正文。需要时可重新整理。"; return
+                }
+                self.savedDraftSourceText = cleanedSource
+                self.savedDraftTranslationText = cleanedTranslation
+                self.statusMessage = AppText.localModelCleanupComplete
+            } catch is CancellationError { }
+            catch { if self.transcriptCleanupRequestID == requestID { self.statusMessage = AppText.localModelCleanupFailed(error.localizedDescription) } }
         }
     }
 
     func deleteSelectedTranscript() {
         guard let selectedTranscript = selectedSavedTranscript else { return }
 
+        cancelSavedTitleGeneration()
+        cancelTranscriptCleanup()
+        try? SavedTranscriptTitleStore(directory: transcriptsDirectoryURL).set("", for: savedTitleKey(selectedTranscript))
+        savedDraftTitle = ""; savedTitleMessage = nil
         savedTranscripts.removeAll { $0.id == selectedTranscript.id }
         try? FileManager.default.removeItem(at: transcriptURL(fileName: selectedTranscript.sourceFileName))
         if let translationFileName = selectedTranscript.translationFileName {
@@ -3073,7 +3322,11 @@ final class TranslationSessionStore {
     }
 
     func deleteAllSavedTranscripts() {
+        cancelSavedTitleGeneration()
+        cancelTranscriptCleanup()
         do {
+            try SavedTranscriptTitleStore(directory: transcriptsDirectoryURL).clear()
+            savedDraftTitle = ""; savedTitleMessage = nil
             try FileManager.default.createDirectory(
                 at: transcriptsDirectoryURL,
                 withIntermediateDirectories: true
@@ -3103,6 +3356,14 @@ final class TranslationSessionStore {
         generation: UInt64
     ) async throws {
         if usesAppleSpeechTranscriber(for: configuration) {
+            if configuration.whisperRecognitionEnabled {
+                if configuration.nemotronRecognitionEnabled {
+                    try await startNemotronSpeechTranscriber(configuration: configuration, generation: generation)
+                } else {
+                    try await startWhisperSpeechTranscriber(configuration: configuration, generation: generation)
+                }
+                return
+            }
             try await startAppleSpeechTranscriber(
                 configuration: configuration,
                 generation: generation
@@ -3310,6 +3571,65 @@ final class TranslationSessionStore {
             && !configuration.openAITranslationModel.usesRealtimeAudioTranslation
     }
 
+    private func startNemotronSpeechTranscriber(configuration: StartConfiguration, generation: UInt64) async throws {
+        stopCaptioners()
+        let candidate = NemotronSpeechTranscriber(qwenModel: configuration.qwenASRModel, multitalker: configuration.multitalkerRecognitionEnabled, granite: configuration.graniteRecognitionEnabled)
+        let language = configuration.sourceLanguage
+        do {
+            statusMessage = configuration.graniteRecognitionEnabled ? "正在加载 Granite Speech 5.0…" : configuration.multitalkerRecognitionEnabled ? "正在加载 Multitalker Parakeet…" : configuration.qwenASRModel.isEmpty ? "正在加载 Nemotron 本地识别模型…" : "正在加载 Qwen3-ASR 本地识别模型…"
+            try await candidate.start(folder: configuration.nemotronRuntimeFolder, language: language,
+                update: { [weak self, weak candidate] text, metadata in
+                    guard let self, let candidate, candidate === self.whisperTranscriber,
+                          self.pipelineLifecycle.acceptsSample(generation: generation), self.isRunning, !self.isPaused else { return }
+                    self.enqueueRecognizedCaption(sourceText: text, recognizedLanguage: language, confidence: 0.8, metadata: metadata)
+                }, recovery: { [weak self, weak candidate] in
+                    Task { @MainActor in
+                        guard let self, let candidate, candidate === self.whisperTranscriber,
+                              self.pipelineLifecycle.acceptsSample(generation: generation), self.isRunning else { return }
+                        self.showToast("本地识别音频队列已恢复，较早的部分音频可能遗漏。")
+                    }
+                }, failure: { [weak self, weak candidate] error in
+                    Task { @MainActor in
+                        guard let self, let candidate, candidate === self.whisperTranscriber else { return }
+                        self.handleFatalPipelineError(error, generation: generation)
+                    }
+                })
+            try validatePipelineStart(generation: generation, configuration: configuration)
+            whisperTranscriber = candidate
+            activeCaptionerGeneration = generation
+        } catch { candidate.stop(); throw error }
+    }
+
+    private func startWhisperSpeechTranscriber(configuration: StartConfiguration, generation: UInt64) async throws {
+        stopCaptioners()
+        let candidate = WhisperKitSpeechTranscriber()
+        let language = configuration.sourceLanguage
+        do {
+            statusMessage = "正在加载 WhisperKit 模型（首次可能需要较长时间）…"
+            try await candidate.start(folder: configuration.whisperModelFolder, base: whisperModelsDirectory,
+                model: whisperModel, language: language, update: { [weak self, weak candidate] text, metadata in
+                        guard let self, let candidate, candidate === self.whisperTranscriber,
+                              self.pipelineLifecycle.acceptsSample(generation: generation), self.isRunning, !self.isPaused else { return }
+                        self.enqueueRecognizedCaption(sourceText: text, recognizedLanguage: language,
+                            confidence: 0.8, metadata: metadata)
+                }, recovery: { [weak self, weak candidate] in
+                    Task { @MainActor in
+                        guard let self, let candidate, candidate === self.whisperTranscriber,
+                              self.pipelineLifecycle.acceptsSample(generation: generation), self.isRunning, !self.isPaused else { return }
+                        self.showToast("已跳过较早的待确认音频，继续实时识别；部分内容可能遗漏。")
+                    }
+                }, failure: { [weak self, weak candidate] error in
+                    Task { @MainActor in
+                        guard let self, let candidate, candidate === self.whisperTranscriber else { return }
+                        self.handleFatalPipelineError(error, generation: generation)
+                    }
+                })
+            try validatePipelineStart(generation: generation, configuration: configuration)
+            whisperTranscriber = candidate
+            activeCaptionerGeneration = generation
+        } catch { candidate.stop(); throw error }
+    }
+
     private func startAppleSpeechTranscriber(
         configuration: StartConfiguration,
         generation: UInt64
@@ -3385,6 +3705,7 @@ final class TranslationSessionStore {
         metaSessionRefreshTask?.cancel()
         metaSessionRefreshTask = nil
         audioSamplePipelineRegistry.clear()
+        whisperTranscriber.stop()
         activeCaptionerGeneration = nil
         openAITranscriber.onAudioTransportDegraded = nil
         geminiLiveTranslator.onAudioTransportDegraded = nil
@@ -3604,6 +3925,7 @@ final class TranslationSessionStore {
     }
 
     private func setCaptionersPaused(_ isPaused: Bool) {
+        whisperTranscriber.setPaused(isPaused)
         transcriber.setPaused(isPaused)
         openAITranscriber.setPaused(isPaused)
         geminiLiveTranslator.setPaused(isPaused)
@@ -4165,7 +4487,7 @@ final class TranslationSessionStore {
 
     private func warmTranslationSession() {
         cancelTranslationSessionWarmup()
-        guard !isUsingQwenTranslation, !openAITranslationModel.isEnabled, !geminiTranslationModel.isEnabled else { return }
+        guard !isUsingLocalTranslation, !isUsingQwenTranslation, !openAITranslationModel.isEnabled, !geminiTranslationModel.isEnabled else { return }
 
         let warmSourceLanguage = sourceLanguage
         let warmTargetLanguage = targetLanguage
@@ -4260,6 +4582,15 @@ final class TranslationSessionStore {
         defer { isRestoringSelectedSettings = false }
 
         let defaults = settingsDefaults
+        // Migrate old enabled preferences without changing stored credentials or translation settings.
+        for key in [SettingsKey.isDubbingEnabled, SettingsKey.appleVoiceOutputEnabled,
+                    SettingsKey.providerVoiceOutputEnabled, "qwenVoiceOutputEnabled"] {
+            defaults.set(false, forKey: key)
+        }
+        if let data = defaults.data(forKey: "localTranslationConfiguration"),
+           let config = try? JSONDecoder().decode(LocalTranslationConfiguration.self, from: data) {
+            storedLocalTranslation = config
+        }
         if let sourceLanguageID = defaults.string(forKey: SettingsKey.sourceLanguageID),
            let language = LanguageOption.supported.first(where: { $0.id == sourceLanguageID }) {
             sourceLanguage = language
@@ -4394,6 +4725,20 @@ final class TranslationSessionStore {
            let durationMode = SessionDurationMode(rawValue: durationModeID) {
             sessionDurationMode = durationMode
         }
+        whisperRecognitionEnabled = defaults.bool(forKey: "whisperRecognitionEnabled")
+        graniteRecognitionEnabled = defaults.bool(forKey: "graniteRecognitionEnabled")
+        multitalkerRecognitionEnabled = defaults.bool(forKey: "multitalkerRecognitionEnabled")
+        qwenASRModel = defaults.string(forKey: "qwenASRModel") ?? ""
+        nemotronRecognitionEnabled = defaults.bool(forKey: "nemotronRecognitionEnabled")
+        if let folder = defaults.string(forKey: "nemotronRuntimeFolder"), !folder.isEmpty { nemotronRuntimeFolder = folder }
+        if let model = defaults.string(forKey: "whisperModel"), ["tiny", "base", "small"].contains(model) { whisperModel = model }
+        whisperModelFolders = defaults.dictionary(forKey: "whisperModelFolders") as? [String: String] ?? [:]
+        if let old = defaults.string(forKey: "whisperModelFolder"), !old.isEmpty,
+           let actual = WhisperModelFiles.identity(folder: URL(fileURLWithPath: old)),
+           whisperModelFolders[actual] == nil {
+            whisperModelFolders[actual] = old
+        }
+        audioOnlySystemCapture = defaults.bool(forKey: SettingsKey.audioOnlySystemCapture)
         if let audioInputSourceID = defaults.string(forKey: SettingsKey.audioInputSource),
            let source = AudioInputSource(rawValue: audioInputSourceID) {
             audioInputSource = source
@@ -4499,6 +4844,9 @@ final class TranslationSessionStore {
         }
 
         let defaults = settingsDefaults
+        if let data = try? JSONEncoder().encode(localTranslation) {
+            defaults.set(data, forKey: "localTranslationConfiguration")
+        }
         defaults.set(sourceLanguage.id, forKey: SettingsKey.sourceLanguageID)
         defaults.set(targetLanguage.id, forKey: SettingsKey.targetLanguageID)
         defaults.set(selectedModel.id, forKey: SettingsKey.selectedModelID)
@@ -4553,6 +4901,16 @@ final class TranslationSessionStore {
         defaults.set(paragraphBreakSilenceInterval, forKey: SettingsKey.paragraphBreakSilenceInterval)
         defaults.set(savedTranscriptContentMode.id, forKey: SettingsKey.savedTranscriptContentMode)
         defaults.set(sessionDurationMode.id, forKey: SettingsKey.sessionDurationMode)
+        defaults.set(whisperRecognitionEnabled, forKey: "whisperRecognitionEnabled")
+        defaults.set(graniteRecognitionEnabled, forKey: "graniteRecognitionEnabled")
+        defaults.set(multitalkerRecognitionEnabled, forKey: "multitalkerRecognitionEnabled")
+        defaults.set(qwenASRModel, forKey: "qwenASRModel")
+        defaults.set(nemotronRecognitionEnabled, forKey: "nemotronRecognitionEnabled")
+        defaults.set(nemotronRuntimeFolder, forKey: "nemotronRuntimeFolder")
+        defaults.set(whisperModel, forKey: "whisperModel")
+        defaults.set(whisperModelFolder, forKey: "whisperModelFolder")
+        defaults.set(whisperModelFolders, forKey: "whisperModelFolders")
+        defaults.set(audioOnlySystemCapture, forKey: SettingsKey.audioOnlySystemCapture)
         defaults.set(audioInputSource.id, forKey: SettingsKey.audioInputSource)
         defaults.set(selectedMicrophoneInputDeviceID, forKey: SettingsKey.selectedMicrophoneInputDeviceID)
         defaults.set(isAppleSourceAutoDetectionEnabled, forKey: SettingsKey.isAppleSourceAutoDetectionEnabled)
@@ -4627,6 +4985,12 @@ final class TranslationSessionStore {
                     )
                 }
             savedTranscripts = groupedSavedTranscripts(from: transcriptFiles)
+            let titles = (try? SavedTranscriptTitleStore(directory: transcriptsDirectoryURL).load()) ?? [:]
+            for index in savedTranscripts.indices {
+                if let title = titles[savedTitleKey(savedTranscripts[index])], !title.isEmpty {
+                    savedTranscripts[index].title = title
+                }
+            }
             sortSavedTranscripts()
         } catch {
             savedTranscripts = []
@@ -5159,7 +5523,8 @@ final class TranslationSessionStore {
         guard recognizedCaptionDeliveryTask == nil else { return }
 
         let elapsed = Date().timeIntervalSince(lastRecognizedCaptionDeliveryAt)
-        let delay = max(0, Self.largeTranscriptRecognitionDeliveryInterval - elapsed)
+        let deliveryInterval = isUsingLocalTranslation ? 0.06 : Self.largeTranscriptRecognitionDeliveryInterval
+        let delay = max(0, deliveryInterval - elapsed)
         guard delay > 0 else {
             flushPendingRecognizedCaption()
             return
@@ -5253,6 +5618,7 @@ final class TranslationSessionStore {
     }
 
     private func shouldPresentCaptionUpdate(sourceText: String, isFinal: Bool) -> Bool {
+        if isUsingLocalTranslation { return true }
         let sourceLength = sourceText.utf16.count
         guard sourceLength >= Self.largeTranscriptPresentationCharacterLimit else { return true }
 
@@ -6415,6 +6781,8 @@ final class TranslationSessionStore {
         _ text: String,
         source: LanguageOption,
         target: LanguageOption,
+        incrementalIdentity: String? = nil,
+        punctuation: LocalTranslationService.Progress? = nil,
         progress: @escaping @MainActor @Sendable (String) -> Void = { _ in }
     ) async throws -> String {
 #if DEBUG
@@ -6431,6 +6799,11 @@ final class TranslationSessionStore {
             return try await nariTranslationForTesting(text)
         }
 #endif
+        if isUsingLocalTranslation, let identity = incrementalIdentity {
+            return try await IncrementalLocalTranslator.shared.translate(text, identity: identity,
+                source: source.id, target: target.id, configuration: localTranslation,
+                apiKey: LocalTranslationAPIKeyStore.readAPIKey(), punctuation: punctuation, progress: progress)
+        }
         let translationOptions = appleTranslationOptions
         let segmentationOptions = isUsingAppleTextTranslation ? translationOptions : AppleTranslationOptions()
         let paragraphSegments = try await Task.detached(priority: .userInitiated) {
@@ -6462,7 +6835,20 @@ final class TranslationSessionStore {
                 consecutiveCacheHitCount = 0
 
                 let translatedSegment: String
-                if openAITranslationModel.isEnabled && !openAITranslationModel.usesRealtimeAudioTranslation {
+                if isUsingLocalTranslation {
+                    let key = try LocalTranslationAPIKeyStore.readAPIKey()
+                    let completedParagraphs = translatedParagraphs
+                    let completedSegments = translatedSegments
+                    translatedSegment = try await LocalTranslationService.shared.translate(
+                        segment, source: source.id, target: target.id,
+                        configuration: localTranslation, apiKey: key,
+                        progress: { partial in
+                            let text = (completedParagraphs + [(completedSegments + [partial]).joined(separator: "\n")]).joined(separator: "\n\n")
+                            guard !text.isEmpty else { return }
+                            progress(text)
+                        }
+                    )
+                } else if openAITranslationModel.isEnabled && !openAITranslationModel.usesRealtimeAudioTranslation {
                     let completedParagraphs = translatedParagraphs
                     let completedSegments = translatedSegments
                     translatedSegment = try await openAITranslator.translate(
@@ -6582,6 +6968,7 @@ final class TranslationSessionStore {
     }
 
     private var translationEngineCacheID: String {
+        if isUsingLocalTranslation { return "local:\(localTranslation.baseURL):\(localTranslation.modelID)" }
         if openAITranslationModel.isEnabled {
             return "openai:\(openAITranslationModel.id)"
         }
@@ -7096,6 +7483,13 @@ final class TranslationSessionStore {
             return
         }
 
+        if let end = metadata.audioEndUptime {
+            recognitionTimingByLineID[line.id] = (end, max(0, (metadata.emittedAtUptime - end) * 1000))
+            if recognitionTimingByLineID.count > 256 {
+                let live = Set(lines.suffix(128).map(\.id))
+                recognitionTimingByLineID = recognitionTimingByLineID.filter { live.contains($0.key) }
+            }
+        }
         let decision = appleRecognitionTranslationPolicy.receive(
             sourceText: line.sourceText,
             lineID: line.id,
@@ -7319,7 +7713,7 @@ final class TranslationSessionStore {
         if latestTranslationRequest == nil, orderedTranslationRequests.isEmpty {
             translationBurstStartedAt = Date()
         }
-        let request = TranslationRequest(
+        var request = TranslationRequest(
             generation: translationTaskGeneration,
             pipelineGeneration: pipelineLifecycle.generation,
             line: line,
@@ -7332,12 +7726,21 @@ final class TranslationSessionStore {
             appleIdentity: appleIdentity,
             jevInput: jevInput
         )
+        if let timing = recognitionTimingByLineID[line.id] {
+            request.audioEndUptime = timing.0
+            request.recognitionMS = timing.1
+        }
         recordTranslationEvent("translation.queued", request: request)
         if preservesOrdering {
             if appleIdentity?.isFinal == true, let pending = latestTranslationRequest,
                pending.line.id == line.id {
                 recordTranslationEvent("translation.superseded", request: pending)
                 latestTranslationRequest = nil
+            }
+            if isUsingLocalTranslation {
+                orderedTranslationRequests.removeAll { pending in
+                    pending.line.id == request.line.id && pending.generation == request.generation
+                }
             }
             orderedTranslationRequests.append(request)
             supersedeActivePartialTranslation(with: request)
@@ -7346,6 +7749,11 @@ final class TranslationSessionStore {
                 recordTranslationEvent("translation.superseded", request: pending)
             }
             latestTranslationRequest = request
+            if isUsingLocalTranslation, let active = activeTranslationRequest,
+               !active.request.preservesOrdering, active.request.line.id == request.line.id,
+               !Self.isCompatibleLiveSource(current: request.sourceText, requested: active.request.sourceText) {
+                translationOperationTask?.cancel()
+            }
         }
 
         startTranslationDriverIfNeeded()
@@ -7415,6 +7823,17 @@ final class TranslationSessionStore {
                     translationSourceText,
                     source: request.source,
                     target: request.target,
+                    incrementalIdentity: "\(request.pipelineGeneration):\(request.line.id.uuidString)",
+                    punctuation: { [weak self] candidate in
+                        guard let self, self.acceptsTranslationUpdates(for: request),
+                              let index = self.lines.firstIndex(where: { $0.id == request.line.id }),
+                              self.lines[index].sourceText == request.sourceText,
+                              let display = JapanesePunctuationPolicy.validatedDisplay(candidate, original: request.sourceText) else { return }
+                        self.punctuatedDisplayByLine[request.line.id] = (request.sourceText, display)
+                        self.lines[index].sourceDisplayText = display
+                        let retained = Set(self.lines.suffix(64).map(\.id))
+                        self.punctuatedDisplayByLine = self.punctuatedDisplayByLine.filter { retained.contains($0.key) }
+                    },
                     progress: { [weak self] partialText in
                         self?.updateTranslation(
                             partialText,
@@ -7485,6 +7904,7 @@ final class TranslationSessionStore {
     }
 
     private func cancelTranslationRequests() {
+        punctuatedDisplayByLine.removeAll()
         translationTaskGeneration &+= 1
         bufferedJevSelections.removeAll()
         if let pending = latestTranslationRequest {
@@ -7749,7 +8169,8 @@ final class TranslationSessionStore {
             pendingTranslationSourceText = ""
         }
         if lines[index].translatedText == organizedTranslatedText,
-           lines[index].translatedSourceText == sourceText {
+           lines[index].translatedSourceText == sourceText,
+           lines[index].isTranslationComplete == finalizesRequest {
             // 같은 progress/result로 화면과 저장 예약을 다시 만들지 않고 음성의 마지막 조각만 확정한다.
             if finalizesRequest {
                 speakTranslatedDeltaIfNeeded(organizedTranslatedText, isFinal: true, appleLineID: appleIdentity?.lineID)
@@ -7768,15 +8189,28 @@ final class TranslationSessionStore {
             translatedSourceText: sourceText,
             createdAt: line.createdAt,
             isFinal: lines[index].isFinal,
+            isTranslationComplete: finalizesRequest,
             revision: lines[index].revision + 1,
             speakerLabel: lines[index].speakerLabel,
             usesLongSessionDisplay: usesLongSessionMode
         )
 
+        if let punctuated = punctuatedDisplayByLine[line.id], punctuated.source == currentSourceText {
+            lines[index].sourceDisplayText = punctuated.display
+        }
+
         if let request {
             recordTranslationEvent("translation.apply", request: request)
             if activeTranslationRequest?.didApply == false {
                 activeTranslationRequest?.didApply = true
+                if isUsingLocalTranslation, let started = activeTranslationRequest?.startedAtUptime {
+                    let now = ProcessInfo.processInfo.systemUptime
+                    captionLatencyReadings.append(.init(recognitionMS: request.recognitionMS,
+                        queueMS: max(0, (started - request.enqueuedAtUptime) * 1000),
+                        translationFirstMS: max(0, (now - started) * 1000),
+                        frameToTranslationMS: request.audioEndUptime.map { max(0, (now - $0) * 1000) }))
+                    if captionLatencyReadings.count > 1000 { captionLatencyReadings.removeFirst(captionLatencyReadings.count - 1000) }
+                }
                 recordTranslationEvent("translation.first_apply", request: request, values: [
                     "since_queued_ms": max(0, (ProcessInfo.processInfo.systemUptime - request.enqueuedAtUptime) * 1_000)
                 ])
@@ -8022,15 +8456,7 @@ final class TranslationSessionStore {
     }
 
     private func speak(_ text: String) {
-        guard !text.isEmpty else { return }
-        switch speechSynthesisModel {
-        case .appleSystem:
-            speechOutput.speak(text, language: targetLanguage)
-        case .gemini38Flash, .gemini38FlashLite:
-            geminiSpeechOutput.speak(text, model: speechSynthesisModel)
-        case .maiVoice21, .maiVoice21Flash:
-            maiSpeechOutput.speak(text, model: speechSynthesisModel, language: targetLanguage, voiceName: maiVoiceName)
-        }
+        // Compatibility with retained transcript scheduling code; no synthesis request or playback.
     }
 
     private func speakTranslatedDeltaIfNeeded(_ translatedText: String, isFinal: Bool = false, appleLineID: UUID? = nil) {

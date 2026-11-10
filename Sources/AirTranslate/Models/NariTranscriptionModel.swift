@@ -27,10 +27,10 @@ enum NariTranscriptionModel: String, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .off: AppText.localized(english: "Off", korean: "끔", japanese: "オフ", chineseSimplified: "关闭")
-        case .qwen3ASRFree: "Qwen3-ASR · Free Public Beta ended"
-        case .qwen3ASRFastFree: "Qwen3-ASR Fast · Free Public Beta ended"
-        case .qwen3ASR: "Qwen3-ASR · GA · credits"
-        case .qwen3ASRFast: "Qwen3-ASR Fast · GA · credits"
+        case .qwen3ASRFree: AppText.localized(english: "Qwen3-ASR · Free Public Beta ended", korean: "Qwen3-ASR · Free Public Beta ended", chineseSimplified: "Qwen3-ASR · 免费公开测试已结束")
+        case .qwen3ASRFastFree: AppText.localized(english: "Qwen3-ASR Fast · Free Public Beta ended", korean: "Qwen3-ASR Fast · Free Public Beta ended", chineseSimplified: "Qwen3-ASR Fast · 免费公开测试已结束")
+        case .qwen3ASR: AppText.localized(english: "Qwen3-ASR · GA · credits", korean: "Qwen3-ASR · GA · credits", chineseSimplified: "Qwen3-ASR · 正式版 · 使用额度")
+        case .qwen3ASRFast: AppText.localized(english: "Qwen3-ASR Fast · GA · credits", korean: "Qwen3-ASR Fast · GA · credits", chineseSimplified: "Qwen3-ASR Fast · 正式版 · 使用额度")
         }
     }
 

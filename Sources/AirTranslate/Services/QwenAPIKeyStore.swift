@@ -100,7 +100,7 @@ enum QwenAPIKeyStoreError: LocalizedError {
         case .invalidStoredKey:
             QwenCopy.keyInvalid
         case let .keychainStatus(status):
-            "Qwen Keychain (\(status))"
+            "Qwen 钥匙串操作失败（\(status)）"
         }
     }
 }

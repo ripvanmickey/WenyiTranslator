@@ -6,6 +6,7 @@ struct APIKeySettingsView: View {
     @State private var expandedProvider: CredentialProvider?
     @State private var showsStorageInfo = false
 
+    private var visibleProviders: [CredentialProvider] { CredentialProvider.allCases.filter { $0 != .openRouter } }
     private var isLocked: Bool { session.isRunning || session.isStarting }
     private var validAzureConfiguration: Bool {
         session.hasAzureConfiguration
@@ -22,14 +23,14 @@ struct APIKeySettingsView: View {
                 }
                 InlineHelpIcon(
                     symbol: "checkmark.shield",
-                    help: CredentialsCopy.summary(saved: CredentialProvider.allCases.filter(hasKey).count, total: CredentialProvider.allCases.count)
+                    help: CredentialsCopy.summary(saved: visibleProviders.filter(hasKey).count, total: visibleProviders.count)
                 )
                 storageInfoButton
             }
             .foregroundStyle(.secondary)
 
             VStack(spacing: 0) {
-                ForEach(CredentialProvider.allCases) { provider in
+                ForEach(visibleProviders) { provider in
                     ProviderCredentialRow(
                         name: provider.title,
                         symbol: provider.symbol,
@@ -51,7 +52,7 @@ struct APIKeySettingsView: View {
                         if provider == .qwen { qwenConfiguration }
                     }
                     .id(provider.rawValue)
-                    if provider != CredentialProvider.allCases.last {
+                    if provider != visibleProviders.last {
                         Rectangle()
                             .fill(AirTranslateDesign.Palette.hairline)
                             .frame(height: 1)
@@ -174,7 +175,6 @@ struct APIKeySettingsView: View {
         if session.isUsingMetaScribe { return .meta }
         if session.isUsingGemini { return .gemini }
         if session.isUsingOpenAIRealtime || session.isUsingGPTTranscriptionMode { return .openAI }
-        if session.speechSynthesisModel.isMAIVoice { return .openRouter }
         return nil
     }
 

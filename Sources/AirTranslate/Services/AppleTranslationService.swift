@@ -1,12 +1,16 @@
 import Foundation
 @preconcurrency import Translation
 
-actor AppleTranslationService {
-    struct CacheKey: Hashable, Sendable {
+struct AppleTranslationCacheKey: Hashable, Sendable {
         let sourceID: String
         let targetID: String
         let quality: AppleTranslationQuality
     }
+
+
+@available(macOS 26.0, *)
+actor ModernAppleTranslationService {
+    typealias CacheKey = AppleTranslationCacheKey
 
     private var availabilityByQuality: [AppleTranslationQuality: LanguageAvailability] = [:]
     private var sessionsByLanguagePair: [CacheKey: TranslationSession] = [:]
@@ -40,6 +44,7 @@ actor AppleTranslationService {
         source: LanguageOption, target: LanguageOption, model: IntelligenceModel,
         options: AppleTranslationOptions = .init()
     ) async throws {
+        if #available(macOS 26.0, *) {
         let resolved = resolvedOptions(options, source: source, target: target)
         do {
             try await prepareOnce(source: source, target: target, model: model, options: resolved)
@@ -52,12 +57,15 @@ actor AppleTranslationService {
             fallback.quality = .realtime
             try await prepareOnce(source: source, target: target, model: model, options: fallback)
         }
+    
+        } else { throw PlatformSupport.appleFeatureUnavailable }
     }
 
     func translate(
         _ text: String, source: LanguageOption, target: LanguageOption, model: IntelligenceModel,
         options: AppleTranslationOptions = .init()
     ) async throws -> String {
+        if #available(macOS 26.0, *) {
         didKeepOriginalForProtectedTerms = false
         let resolved = resolvedOptions(options, source: source, target: target)
         do {
@@ -74,6 +82,8 @@ actor AppleTranslationService {
             let result = try await translateOnce(text, source: source, target: target, model: model, options: fallback)
             return checkedProtectedTerms(result, source: text, options: options)
         }
+    
+        } else { throw PlatformSupport.appleFeatureUnavailable }
     }
 
     private func checkedProtectedTerms(_ result: String, source: String, options: AppleTranslationOptions) -> String {
@@ -83,6 +93,7 @@ actor AppleTranslationService {
         return source
     }
 
+    @available(macOS 26.0, *)
     private func prepareOnce(
         source: LanguageOption,
         target: LanguageOption,
@@ -115,6 +126,7 @@ actor AppleTranslationService {
         }
     }
 
+    @available(macOS 26.0, *)
     private func translateOnce(
         _ text: String,
         source: LanguageOption,
@@ -193,6 +205,7 @@ actor AppleTranslationService {
         return status
     }
 
+    @available(macOS 26.0, *)
     private func translationSession(
         source: Locale.Language,
         target: Locale.Language,
@@ -239,4 +252,40 @@ enum TranslationServiceError: LocalizedError {
             AppleTranslationCopy.termsFallback
         }
     }
+}
+
+/// Local translation remains usable when the Apple Translation framework is unavailable.
+actor AppleTranslationService {
+    typealias CacheKey = AppleTranslationCacheKey
+    private var storage: AnyObject?
+    private(set) var didKeepOriginalForProtectedTerms = false
+    init() {
+        if #available(macOS 26.0, *) { storage = ModernAppleTranslationService() }
+    }
+    @available(macOS 26.0, *)
+    private var modern: ModernAppleTranslationService { storage as! ModernAppleTranslationService }
+    func usesRealtimeFallback(source: LanguageOption, target: LanguageOption) async -> Bool {
+        if #available(macOS 26.0, *) { return await modern.usesRealtimeFallback(source: source, target: target) }
+        return false
+    }
+    func prepare(source: LanguageOption, target: LanguageOption, model: IntelligenceModel, options: AppleTranslationOptions = .init()) async throws {
+        if #available(macOS 26.0, *) { try await modern.prepare(source: source, target: target, model: model, options: options) }
+        else { throw PlatformSupport.appleFeatureUnavailable }
+    }
+    func translate(_ text: String, source: LanguageOption, target: LanguageOption, model: IntelligenceModel, options: AppleTranslationOptions = .init()) async throws -> String {
+        if #available(macOS 26.0, *) {
+            let result = try await modern.translate(text, source: source, target: target, model: model, options: options)
+            didKeepOriginalForProtectedTerms = await modern.didKeepOriginalForProtectedTerms
+            return result
+        }
+        throw PlatformSupport.appleFeatureUnavailable
+    }
+    nonisolated static func cacheKey(source: LanguageOption, target: LanguageOption, options: AppleTranslationOptions, supportsStrategySelection: Bool = AppleTranslationOptions.supportsStrategySelection) -> CacheKey {
+        CacheKey(sourceID: source.id, targetID: target.id, quality: options.effectiveQuality(supportsStrategySelection: supportsStrategySelection))
+    }
+#if DEBUG
+    init(translationForTesting: @escaping @Sendable (String, AppleTranslationOptions) async throws -> String) {
+        if #available(macOS 26.0, *) { storage = ModernAppleTranslationService(translationForTesting: translationForTesting) }
+    }
+#endif
 }

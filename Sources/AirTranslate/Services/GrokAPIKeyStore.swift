@@ -100,7 +100,7 @@ enum GrokAPIKeyStoreError: LocalizedError {
         case .invalidStoredKey:
             GrokCopy.keyInvalid
         case let .keychainStatus(status):
-            "Grok Keychain (\(status))"
+            "Grok 钥匙串操作失败（\(status)）"
         }
     }
 }
