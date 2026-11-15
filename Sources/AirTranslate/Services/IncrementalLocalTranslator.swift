@@ -6,7 +6,18 @@ struct IncrementalCaptionPlan: Sendable {
     let blocks: [String]
     let reusable: [Chunk]
 
-    init(text: String, previous: [Chunk]) {
+    init(text: String, previous: [Chunk], onlineIndex: Bool = false) {
+        let blocks = onlineIndex ? LocalTranslationService.onlineCaptionChunks(text) : Self.localBlocks(text)
+        self.blocks = blocks
+        var reusable: [Chunk] = []
+        for (index, pair) in zip(blocks, previous).enumerated() {
+            let (block, old) = pair
+            guard block == old.source, (onlineIndex || old.followingContext == Self.following(blocks, at: index)) else { break }
+            reusable.append(old)
+        }
+        self.reusable = reusable
+    }
+    private static func localBlocks(_ text: String) -> [String] {
         var blocks: [String] = []
         var current = ""
         for character in text {
@@ -18,14 +29,7 @@ struct IncrementalCaptionPlan: Sendable {
             }
         }
         if !current.isEmpty { blocks.append(current) }
-        self.blocks = blocks
-        var reusable: [Chunk] = []
-        for (index, pair) in zip(blocks, previous).enumerated() {
-            let (block, old) = pair
-            guard block == old.source, old.followingContext == Self.following(blocks, at: index) else { break }
-            reusable.append(old)
-        }
-        self.reusable = reusable
+        return blocks
     }
     static func following(_ blocks: [String], at index: Int) -> String {
         let trimmed = blocks[index].trimmingCharacters(in: .whitespacesAndNewlines)
@@ -45,7 +49,8 @@ actor IncrementalLocalTranslator {
 
     nonisolated static func needsWholeFinalCaption(_ text: String, source: String, target: String,
                                                    configuration: LocalTranslationConfiguration) -> Bool {
-        omitsNeighboringContext(source: source, target: target, configuration: configuration)
+        !configuration.usesOnlineIndex
+            && omitsNeighboringContext(source: source, target: target, configuration: configuration)
             && text.count <= wholeFinalCaptionLimit
             && IncrementalCaptionPlan(text: text, previous: []).blocks.count > 1
     }
@@ -89,7 +94,7 @@ actor IncrementalLocalTranslator {
             }
             return translation
         }
-        let plan = IncrementalCaptionPlan(text: text, previous: previous[key] ?? [])
+        let plan = IncrementalCaptionPlan(text: text, previous: previous[key] ?? [], onlineIndex: configuration.usesOnlineIndex)
         let includesContext = !Self.omitsNeighboringContext(source: source, target: target, configuration: configuration)
         reusedClauses[key, default: 0] += plan.reusable.count
         var completed = plan.reusable

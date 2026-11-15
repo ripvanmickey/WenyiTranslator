@@ -34,7 +34,7 @@ struct LocalTranslationConfiguration: Codable, Equatable, Sendable {
 enum LocalTranslationError: LocalizedError {
     case invalidURL, modelRequired, invalidResponse, emptyTranslation, truncated, interrupted, http(Int), server(Int, String)
     case untranslatedJapanese
-    case indexHTTP(Int)
+    case indexHTTP(Int), indexInterrupted, indexTruncated, indexWrongLanguage, indexEmpty
     var httpStatus: Int? {
         switch self {
         case let .http(code), let .server(code, _): code
@@ -50,6 +50,10 @@ enum LocalTranslationError: LocalizedError {
         case .interrupted: "流式翻译提前中断；请检查模型是否被卸载，或有其他客户端正在切换模型。"
         case .truncated: "本地模型在短段重试后仍达到输出上限；请检查 LM Studio 的思考设置或更换模型。"
         case .untranslatedJapanese: "本地模型重译后仍夹杂日语，这段译文未完成。"
+        case .indexInterrupted: "Index 在线翻译连接中断或超时，已显示的译文可能不完整。"
+        case .indexTruncated: "Index 在线翻译达到输出上限，这段译文未完成。"
+        case .indexWrongLanguage: "Index 在线翻译重试后仍返回日语，这段译文未完成。"
+        case .indexEmpty: "Index 在线翻译未返回译文。"
         case .indexHTTP(429): "Index 在线翻译请求过多，请稍后再试。"
         case let .indexHTTP(code): "Index 在线翻译返回 HTTP \(code)。"
         case let .server(code, message): code >= 400 ? "本地服务 HTTP \(code)：\(message)" : "本地流式服务错误：\(message)"
@@ -324,6 +328,29 @@ actor LocalTranslationService {
         return chunks
     }
 
+    /// Send one coherent request per normal caption. For longer captions prefer an
+    /// existing sentence or clause boundary near the size limit.
+    nonisolated static func onlineCaptionChunks(_ text: String) -> [String] {
+        var chunks: [String] = []
+        var remaining = text[...]
+        let limit = 180
+        while !remaining.isEmpty {
+            let cap = remaining.index(remaining.startIndex, offsetBy: limit, limitedBy: remaining.endIndex) ?? remaining.endIndex
+            var end = cap
+            if cap < remaining.endIndex {
+                let nearEnd = remaining.index(remaining.startIndex, offsetBy: limit * 2 / 3)
+                let candidates = remaining[nearEnd..<cap]
+                let boundary = candidates.lastIndex(where: { "。！？.!?\n".contains($0) })
+                    ?? candidates.lastIndex(where: { "、，,；;".contains($0) })
+                    ?? candidates.lastIndex(where: \.isWhitespace)
+                if let boundary { end = remaining.index(after: boundary) }
+            }
+            chunks.append(String(remaining[..<end]))
+            remaining = remaining[end...]
+        }
+        return chunks
+    }
+
     func translate(_ text: String, source: String, target: String,
                    configuration: LocalTranslationConfiguration, apiKey: String? = nil,
                    context: String = "",
@@ -331,8 +358,14 @@ actor LocalTranslationService {
                    progress: Progress? = nil) async throws -> String {
         try configuration.validateModel()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let chunks = asSingleCaption && trimmed.count <= 180
-            ? (trimmed.isEmpty ? [] : [trimmed]) : Self.captionChunks(text)
+        let chunks: [String]
+        if configuration.usesOnlineIndex {
+            chunks = Self.onlineCaptionChunks(trimmed).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        } else {
+            chunks = asSingleCaption && trimmed.count <= 180
+                ? (trimmed.isEmpty ? [] : [trimmed]) : Self.captionChunks(text)
+        }
         var results: [String] = []
         for chunk in chunks {
             try Task.checkCancellation()
@@ -356,7 +389,8 @@ actor LocalTranslationService {
                                       configuration: LocalTranslationConfiguration, apiKey: String?, depth: Int, context: String,
                                       progress: Progress?) async throws -> String {
         if configuration.usesOnlineIndex {
-            return try await translateOnlineIndex(text, target: target, configuration: configuration, progress: progress)
+            return try await translateOnlineIndexWithRecovery(text, source: source, target: target,
+                configuration: configuration, progress: progress)
         }
         do {
             do {
@@ -385,29 +419,60 @@ actor LocalTranslationService {
         }
     }
 
+    private func translateOnlineIndexWithRecovery(_ text: String, source: String, target: String,
+                                                 configuration: LocalTranslationConfiguration,
+                                                 progress: Progress?) async throws -> String {
+        let requiresChinese = Self.isJapaneseToChinese(source: source, target: target)
+        for attempt in 0...1 {
+            try Task.checkCancellation()
+            do {
+                return try await translateOnlineIndex(text, target: target, configuration: configuration,
+                    requiresChinese: requiresChinese, isRetry: attempt > 0, progress: attempt == 0 ? progress : nil)
+            } catch LocalTranslationError.untranslatedJapanese {
+                if attempt > 0 { throw LocalTranslationError.indexWrongLanguage }
+            } catch LocalTranslationError.truncated {
+                if attempt > 0 { throw LocalTranslationError.indexTruncated }
+            } catch LocalTranslationError.emptyTranslation {
+                if attempt > 0 { throw LocalTranslationError.indexEmpty }
+            } catch LocalTranslationError.interrupted {
+                // A broken stream can be retried once. Keep the partial subtitle visible.
+                if attempt > 0 { throw LocalTranslationError.indexInterrupted }
+            } catch let error as URLError where error.code == .timedOut || error.code == .networkConnectionLost {
+                try Task.checkCancellation()
+                if error.code == .timedOut || attempt > 0 { throw LocalTranslationError.indexInterrupted }
+            }
+        }
+        throw LocalTranslationError.indexInterrupted
+    }
+
     private func translateOnlineIndex(_ text: String, target: String, configuration: LocalTranslationConfiguration,
-                                      progress: Progress?) async throws -> String {
+                                      requiresChinese: Bool, isRetry: Bool, progress: Progress?) async throws -> String {
         var request = try request("chat/completions", configuration: configuration, apiKey: nil)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Index-Translate-Client/1.0", forHTTPHeaderField: "User-Agent")
-        let targetName = switch target {
-        case "zh-CN", "zh-Hans": "简体中文"
-        case "zh-TW", "zh-Hant": "繁體中文"
+        let language = target.lowercased().replacingOccurrences(of: "_", with: "-")
+        let targetName = switch language {
+        case "zh", "zh-cn", "zh-hans": "简体中文"
+        case "zh-tw", "zh-hant": "繁體中文"
         default: Locale(identifier: "zh-Hans").localizedString(forIdentifier: target.replacingOccurrences(of: "-", with: "_")) ?? target
         }
-        let input = "请将以下文本翻译为\(targetName)，直接输出翻译结果，不要进行任何解释。\n\n" + text
+        let instruction = isRetry
+            ? "请把下面的文本完整翻译成\(targetName)。只输出译文，不得复述原文，不要省略末尾。"
+            : "请将以下文本完整翻译为\(targetName)，直接输出译文，不要复述原文或解释。"
         let body: [String: Any] = [
             "model": configuration.activeModelID, "stream": true, "temperature": 0,
-            "max_tokens": min(384, max(64, text.count * 3)),
-            "messages": [["role": "user", "content": input]]
+            "max_tokens": isRetry ? 1_024 : min(768, max(96, text.count * 4)),
+            "messages": [["role": "user", "content": instruction + "\n\n" + text]]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let translated = try await streamTranslation(request, native: false) { output in
             let visible = Self.captionLineBreaks(output, streaming: true)
-            if !visible.isEmpty { progress?(visible) }
+            if !visible.isEmpty && (!requiresChinese || !Self.containsKana(visible)) { progress?(visible) }
         }
-        return try Self.cleanTranslation(Self.captionLineBreaks(translated))
+        let result = try Self.cleanTranslation(Self.captionLineBreaks(translated))
+        guard !requiresChinese || !Self.containsKana(result) else { throw LocalTranslationError.untranslatedJapanese }
+        return result
     }
 
     nonisolated static func isJapaneseToChinese(source: String, target: String) -> Bool {
@@ -591,7 +656,7 @@ actor LocalTranslationService {
             }
             throw LocalTranslationError.http(http.statusCode)
         }
-        var parser = LocalTranslationStreamParser(native: native)
+        var parser = LocalTranslationStreamParser(native: native, acceptsStopAsTerminal: online)
         var lastPublished = ""
         var lastPublishedAt: TimeInterval = 0
         var lineBuffer = Data()
@@ -656,13 +721,17 @@ actor LocalTranslationService {
 /// SSE framing and model output parsing are independent of transport for regression checks.
 struct LocalTranslationStreamParser {
     let native: Bool
+    let acceptsStopAsTerminal: Bool
     private(set) var text = ""
     private(set) var finished = false
     private var dataLines: [String] = []
     private var byteCount = 0
     private var sawStop = false
 
-    init(native: Bool) { self.native = native }
+    init(native: Bool, acceptsStopAsTerminal: Bool = false) {
+        self.native = native
+        self.acceptsStopAsTerminal = acceptsStopAsTerminal
+    }
 
     mutating func receive(_ line: String) throws -> String? {
         byteCount += line.utf8.count
@@ -677,7 +746,9 @@ struct LocalTranslationStreamParser {
         let payload = dataLines.joined(separator: "\n")
         dataLines.removeAll(keepingCapacity: true)
         if payload == "[DONE]" {
-            guard !native, sawStop else { throw LocalTranslationError.invalidResponse }
+            guard !native, sawStop else {
+                throw acceptsStopAsTerminal ? LocalTranslationError.interrupted : LocalTranslationError.invalidResponse
+            }
             finished = true
             return Self.visible(text)
         }
@@ -703,7 +774,10 @@ struct LocalTranslationStreamParser {
         } else {
             guard let choices = json["choices"] as? [[String: Any]], let choice = choices.first else { return nil }
             if choice["finish_reason"] as? String == "length" { throw LocalTranslationError.truncated }
-            if choice["finish_reason"] as? String == "stop" { sawStop = true }
+            if choice["finish_reason"] as? String == "stop" {
+                sawStop = true
+                if acceptsStopAsTerminal { finished = true }
+            }
             if let delta = choice["delta"] as? [String: Any] { text += delta["content"] as? String ?? "" }
         }
         return Self.visible(text)

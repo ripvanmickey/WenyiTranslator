@@ -4,6 +4,7 @@ final class Mock: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var calls = 0
     nonisolated(unsafe) static var raw = "今天晴天。明天呢？\n[WENYI_JA]今日は晴れています。明日はどうでしょうか？"
     nonisolated(unsafe) static var retry: String?
+    nonisolated(unsafe) static var streamResults: [(text: String, finish: String?, done: Bool)] = []
     nonisolated(unsafe) static var checkRequest: (([String: Any]) -> Void)?
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -26,9 +27,13 @@ final class Mock: URLProtocol, @unchecked Sendable {
                 headerFields: ["Content-Type": streaming ? "text/event-stream" : "application/json"])!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             if streaming {
-                let payload = ["choices": [["delta": ["content": Self.raw], "finish_reason": "stop"]]]
+                let result = Self.streamResults.isEmpty ? (Self.raw, "stop", true) : Self.streamResults.removeFirst()
+                var choice: [String: Any] = ["delta": ["content": result.0]]
+                if let finish = result.1 { choice["finish_reason"] = finish }
+                let payload = ["choices": [choice]]
                 let json = String(decoding: try! JSONSerialization.data(withJSONObject: payload), as: UTF8.self)
-                client?.urlProtocol(self, didLoad: Data("data: \(json)\n\ndata: [DONE]\n\n".utf8))
+                let terminalEvent = result.2 ? "data: [DONE]\n\n" : ""
+                client?.urlProtocol(self, didLoad: Data("data: \(json)\n\n\(terminalEvent)".utf8))
             } else {
                 let payload = ["choices": [["message": ["content": Self.raw], "finish_reason": "stop"]]]
                 client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: payload))
@@ -170,6 +175,52 @@ final class Mock: URLProtocol, @unchecked Sendable {
             configuration: online, apiKey: "local-test-key", context: context,
             progress: { onlinePreview = $0 })
         precondition(onlineResult == Mock.raw && onlinePreview == Mock.raw)
+        let longCaption = "コンサートでは、客席のみなさんと同じ時間を過ごせます。でも曲を書いているときは、まだ誰にも聴いてもらっていません。曲が少しずつ出来上がってきたときに、この曲はどんな人に届くのかなとか、どこで聴いてほしいかなとか考えることはありますか。それとも、まずは自分が歌いたいものを自由に作るほうですか？"
+        precondition((121...180).contains(longCaption.count))
+        let longResult = "演唱会上能和观众共享同一段时光。但创作时还没有人听过这首歌。歌曲逐渐成形时，你会想它会传到哪些人耳中、希望他们在哪里听到吗？还是更倾向于自由地创作自己想唱的内容？"
+        Mock.checkRequest = { body in
+            let messages = body["messages"] as! [[String: String]]
+            precondition(messages.count == 1 && messages[0]["content"]?.hasSuffix(longCaption) == true)
+        }
+        Mock.streamResults = [(longResult, "stop", false)]
+        let longStart = Mock.calls
+        let longPreview = try await incremental.translate(longCaption, identity: "index-online-long",
+            source: "ja-JP", target: "zh-CN", configuration: online, apiKey: nil, progress: { _ in })
+        let longFinal = try await incremental.translate(longCaption, identity: "index-online-long",
+            source: "ja-JP", target: "zh-CN", configuration: online, apiKey: nil, isFinal: true, progress: { _ in })
+        precondition(longPreview == longResult && longFinal == longResult && Mock.calls == longStart + 1)
+        let longer = longCaption + longCaption
+        let chunks = LocalTranslationService.onlineCaptionChunks(longer)
+        precondition(chunks.count == 2 && chunks.joined() == longer && chunks.allSatisfy { $0.count <= 180 })
+        let interrupted = "演唱会上能和观众共享同一段时光。"
+        Mock.streamResults = [(interrupted, nil, false), (longResult, "stop", true)]
+        var recoveryPreviews: [String] = []
+        let recovered = try await client.translate(longCaption, source: "ja-JP", target: "zh-CN",
+            configuration: online, progress: { recoveryPreviews.append($0) })
+        precondition(recovered == longResult && recoveryPreviews == [interrupted])
+
+        Mock.checkRequest = nil
+        Mock.streamResults = [(current, "stop", true), ("田中下周去东京。", "stop", true)]
+        var echoPreviews: [String] = []
+        let corrected = try await client.translate(current, source: "ja-JP", target: "zh-CN",
+            configuration: online, progress: { echoPreviews.append($0) })
+        precondition(corrected == "田中下周去东京。" && echoPreviews.isEmpty)
+        Mock.streamResults = [(current, "stop", true), (current, "stop", true)]
+        do {
+            _ = try await client.translate(current, source: "ja-JP", target: "zh-CN", configuration: online)
+            preconditionFailure("Japanese echo must not be marked complete")
+        } catch LocalTranslationError.indexWrongLanguage {}
+
+        let truncatedStart = Mock.calls
+        Mock.streamResults = [(interrupted, "length", true), (longResult, "stop", true)]
+        Mock.checkRequest = { body in
+            let budget = body["max_tokens"] as! Int
+            precondition((Mock.calls == truncatedStart + 1) == (budget < 1_024))
+        }
+        let afterTruncation = try await client.translate(longCaption, source: "ja-JP", target: "zh-CN", configuration: online)
+        precondition(afterTruncation == longResult && Mock.calls == truncatedStart + 2)
+        print("PASS online long caption uses one request, accepts explicit stop, retries a broken stream or output limit once, and filters Japanese echo")
+
         online.onlineIndex = nil
         do {
             _ = try online.validatedBaseURL()

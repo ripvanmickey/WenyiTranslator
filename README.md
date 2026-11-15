@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1213)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1214)
 </p>
 
 <p align="center">
@@ -57,6 +57,8 @@ Build 1210 recognizes Japanese sentence-final punctuation in Nemotron and allows
 Build 1211 stops sending adjacent source fragments with Index-Translate Japanese-to-Chinese subtitle requests. Short multi-block captions receive one complete translation when confirmed.
 
 In build 1213, Index online translation appears alongside Local Mode under Settings → General → Processing Mode. Speech recognition stays on the Mac, and only the current caption text is sent to Bilibili for translation.
+
+Build 1214 sends ordinary online captions as a single request and retries interrupted or truncated streams and Japanese source echoes once.
 
 ## Saved transcripts
 
