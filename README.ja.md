@@ -1,181 +1,93 @@
 <p align="center">
-  <img src="docs/assets/airtranslate-readme-hero.png" alt="AirTranslate" width="720">
-</p>
-
-# AirTranslate
-
-会議、動画、講義、インタビュー、配信向けのMac音声ライブ字幕と翻訳アプリ。
-
-<p align="center">
-  <a href="https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg"><img alt="Download AirTranslate.dmg" src="https://img.shields.io/badge/Download-AirTranslate.dmg-2EA44F?style=for-the-badge&logo=apple&logoColor=white"></a>
-  <a href="https://github.com/himomohi/AirTranslate/releases/latest"><img alt="Latest public release" src="https://img.shields.io/github/v/release/himomohi/AirTranslate?style=for-the-badge&label=Latest"></a>
-  <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge"></a>
+  <a href="#インストールと設定"><img src="./docs/readme-banner.svg" alt="文译 Wenyi｜リアルタイム文字起こし、二言語字幕、ローカル翻訳" width="100%"></a>
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> ·
-  <a href="README.ko.md">한국어</a> ·
-  日本語 ·
-  <a href="README.zh-CN.md">中文</a> ·
-  <a href="CHANGELOG.md">変更履歴</a> ·
-  <a href="docs/GETTING-STARTED.md">はじめに</a>
+  <a href="./README.md">English</a> · <a href="./README.zh-CN.md">简体中文</a> · <strong>日本語</strong>
 </p>
 
-AirTranslateはMacで再生中の音声を取り込み、ライブで文字起こしし、翻訳ワークフローを選んだ場合は翻訳し、必要に応じて他のアプリの上にフローティング字幕を表示します。Apple Modeは引き続きローカル優先の標準ワークフローです。クラウドエンジンは任意で、対応するプロバイダーキーを設定すると利用できます。
+<p align="center">
+  <a href="https://github.com/ripvanmickey/WenyiTranslator/actions/workflows/release-verify.yml"><img src="https://github.com/ripvanmickey/WenyiTranslator/actions/workflows/release-verify.yml/badge.svg?branch=master" alt="Release Verify"></a>
+</p>
 
-AirTranslate **1.16.0/build1160** は Apple 翻訳オプション、実験的な Jev 候補選択、キャプチャを開始するフローティング専用モードを追加します。
+<p align="center">
+  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1202）
+</p>
 
-- **フローティング専用の開始と操作:** 待機中はキャプチャを開始し、一時停止中は再開して、実行状態になってからメイン画面を最小化します。開始に失敗した場合はメイン操作画面を維持します。メニューバーとアプリメニューからも開始・停止、一時停止・再開できます。
-- **直前の字幕表示:** 現在の字幕とともに直前の字幕を1ブロック、最大2行で8秒間表示します。「視差効果を減らす」に対応します。
-- **フローティング字幕の描画:** サイズを制限したテキストレイアウトを再利用し、メイン画面の最小化中はメイン字幕の表示処理を減らします。音声認識と翻訳は継続します。
-- **Apple 文字起こしと翻訳の処理:** 周辺の認識文脈を利用し、停止時の最後の発話を保持して、古い翻訳処理による新しい字幕の上書きを防ぎます。
-- **実験的な Jev 候補選択:** 初期状態はオフです。Apple の文字起こしと翻訳を併用する際、確定した認識候補から翻訳するテキストを選べます。有効にすると、候補テキストと直前の最大6区間の文字起こし（1,000 UTF-8 バイト）を、Keychain に保存したユーザーのキーで TypeSafe に直接送信します。API 使用量と1リクエストあたり最大1.2秒の応答待機が加わります。候補なし・不確実・エラー・時間切れでは原文を保持し、精度向上は保証しません。[設定とデータ処理](docs/apple-translation-options.md)。
-- **Apple 翻訳品質と用語保持:** macOS 26.4 以降でリアルタイム（標準）または品質優先を選び、表記を保持する用語を登録できます。品質優先は時間がかかる場合があり、Apple のモデルの利用可否に依存します。失敗した言語ペアはアプリの再起動までリアルタイム翻訳に戻ります。登録用語が変更された場合、該当区間を原文のまま保持します。Apple のテキスト翻訳に適用されます。
-- **macOS 27 の音声入力互換性:** 既存の16 kHz モノラル経路を維持しつつ、異なる PCM 入力形式を Apple 音声認識に合わせて変換します。
-- **ソースのビルド要件:** macOS 27 SDK を含む Xcode 27 と Swift 6.4 以降が必要です。配布アプリは引き続き macOS 26 以降で動作します。
+<p align="center">
+  <strong><a href="#インストールと設定">インストールと設定</a></strong> ·
+  <a href="#リアルタイム字幕とローカル翻訳">機能</a> ·
+  <a href="#ローカルビルド">ローカルビルド</a>
+</p>
 
-設定 > APIキー > Qwenに **Alibaba CloudシンガポールのAPIキー** を入力してください。Qwen3.8 LiveTranslateにはワークスペースIDも必要ですが、Qwen Audio 3.1 Realtime PlusとFiletransはキーだけで利用できます。キーはmacOS Keychainの専用項目に保存し、キャプチャ開始時に選択したリアルタイム音声をAlibaba Cloudシンガポールへ直接送信します。設定 > 一般で既定の `qwen3.8-livetranslate-flash-realtime` または `qwen-audio-3.1-realtime-plus` を選べます。Qwen Audio 3.1 Realtime PlusはAirTranslateから翻訳指示を受ける全二重のリアルタイム音声会話モデルです。Qwen3.8 LiveTranslateは専用のリアルタイム翻訳モデルです。**音声出力は任意で、初期状態ではオフです**。Qwen Audioの料金はModel Studioで確認してください。
+文译（Wenyi）は、Mac のシステム音声やマイク入力をリアルタイムで文字起こしします。動画、ポッドキャスト、会議などで原文と訳文を同時に表示でき、文字起こしを保存して編集することもできます。
 
-設定 > 一般の `qwen-audio-3.1-asr-flash-filetrans` は非同期の音声ファイル文字起こしです。**公開HTTPS音声URLのみ利用できます**。QwenCloudがURLから音声を取得し、この機能はローカルファイルをアップロードしません。送信する権利のある音声だけを共有してください。[Qwenの設定と料金](docs/qwen-livetranslate.md)をご覧ください。実アカウントの認証・課金・翻訳と文字起こしの品質・遅延は未検証です。
+## リアルタイム字幕とローカル翻訳
 
-**APIキー状態を反映するモード選択**では、キーのないプロバイダーをグレー表示し、各行に設定へのショートカットを用意します。情報アイコンでモデルと料金基準を確認できます。**OpenAI音声は翻訳と原文文字起こしを統合**し、言語・出力の設定を保持します。メインの選択ではApple、OpenAI、Gemini、Qwen、Nariのモデルを機能別の説明とともに選べます。翻訳音声モデルは別の選択欄に表示されます。
+### リアルタイム文字起こしとフローティング字幕
 
-**フローティング字幕は文字だけを表示**します。背景・枠・ツールバー・状態表示・hover時のリサイズ操作は表示しません。5種類の文字スタイル、フォント・色・幅・行間・順序・サンプルプレビューは設定で調整し、メイン画面・メニューバー・⌘⇧Cで表示を切り替えます。
+システム音声やマイク入力を取り込み、発話に合わせて原文を表示します。翻訳を有効にすると、メインウインドウやフローティングウインドウで訳文のみ、または原文と訳文の両方を表示できます。Core Audio Tap によるシステム音声のみの取り込みには macOS 14.2 以降が必要です。
 
-**Qwenは停止前に最終字幕の受信を待ちます**。空の最終応答は暫定字幕を取り消し、定期保存を含むQwenの記録には確定結果だけを保存します。Apple Modeを標準とし、記録ファイル保存は任意のままです。
+### ローカル音声認識と発話区間の検出
 
-**翻訳音声出力モデルを選択できます**。設定またはメイン画面の別の翻訳音声選択欄でAppleシステム音声、Gemini 3.8 Flash TTS、Flash-Lite TTS、MAI Voice 2.1、Flashを選びます。リアルタイムモードでも選択は保存されますが、テキスト翻訳でのみ使用されます。リアルタイムプロバイダーは引き続き独自の音声を使用します。Gemini TTSは安定した翻訳テキストだけをGoogleへ送信します。
+Nemotron 0.6B、Granite Speech 2B、Qwen3-ASR、実験的な複数話者認識に対応しています。アプリ内で認識モデルのダウンロード、読み込み、削除ができます。Nemotron と Qwen3-ASR では音声区間検出（VAD）のプリセットと詳細設定を使えます。変更は次回のセッション開始時に適用されます。Apple Speech と Apple のシステム翻訳には macOS 26 以降が必要です。
 
-## ダウンロード
+### LM Studio によるローカル翻訳
 
-現在の公開最新版: **v1.16.0**。
+認識したテキストを同じ Mac 上の LM Studio に送って翻訳します。設定画面では短文・長文の翻訳テストと字幕の遅延診断を利用できます。ローカル認識とローカル翻訳を選ぶと、音声とテキストの処理は Mac 上で完結します。
 
-- [AirTranslate.dmgをダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.16.0.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.16.0/AirTranslate-1.16.0.zip)
-- [AirTranslate.dmg.sha256をダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
-- [バージョン履歴を見る](Release/VERSION-HISTORY.md)
+ビルド 1202 では、**後続の文脈を使った字幕の訂正**を追加しました。翻訳処理に余裕があるときに、後続の発話を参考に確定済みの字幕を見直し、同音異義語の誤認識を訂正できる場合は原文と訳文を一緒に更新します。新しい字幕の処理が優先されます。この機能は「設定 → 一般」で無効にできます。
 
-オープンソースのDMGとZIPはad-hoc署名で、Appleの公証を受けていません。初回起動がブロックされた場合は[インストールガイド](docs/GETTING-STARTED.md)を確認してください。DMGのハッシュは次のように確認できます。
+## 保存した文字起こし
 
-```bash
-shasum -a 256 AirTranslate.dmg
-cat AirTranslate.dmg.sha256
+文字起こしを保存、編集、改名し、対応する TXT ファイルを Finder で表示できます。ローカル翻訳モデルを設定すると、句読点の補完、段落分け、タイトルの提案にも使えます。
+
+## インストールと設定
+
+Apple Silicon（M1 以降）と macOS 14.0 以降が必要です。このリポジトリにはソースコードを掲載しており、テスト用インストーラは別途配布しています。
+
+1. DMG を開いて文译を「アプリケーション」にドラッグします。ZIP の場合は展開してから移動します。
+2. 「設定 → 一般」でローカルモードと音声認識エンジンを選びます。必要なモデルをダウンロードし、音声入力に応じた権限を許可します。
+3. 翻訳する場合は LM Studio でテキストモデルを読み込み、ローカル API を起動します。文译でサービスのアドレス（例 `http://localhost:1235/v1`）を入力し、モデル一覧から実際のモデル ID を選びます。認証を有効にしている場合はキーも入力します。
+4. 翻訳をテストし、原文と訳文の言語を選んでセッションを開始します。文字起こしだけを使う場合は原文のみの出力を選びます。
+
+テスト用パッケージはローカルのアドホック署名を使用しており、Apple の公証は未取得です。
+
+## ローカルビルド
+
+Apple Silicon Mac、Swift 6.2 ツールチェーン、macOS 26 の API を含む SDK を使用します。アプリのデプロイメントターゲットは macOS 14 です。
+
+```sh
+git clone https://github.com/ripvanmickey/WenyiTranslator.git
+cd WenyiTranslator
+swift build -c release
 ```
 
+Swift のメイン実行ファイルは単独でビルドできます。完全なインストーラを作るには、Python/MLX 実行環境と複数話者認識用の ARM64 ライブラリも必要です。
 
-## 実際のアプリ
+| 項目 | 場所 |
+| --- | --- |
+| 同梱する Swift 依存ライブラリと出典 | [Vendor/PROVENANCE.md](./Vendor/PROVENANCE.md) |
+| CPython 依存パッケージのバージョン | [Resources/ASRRuntime/](./Resources/ASRRuntime/) 内の `requirements-*.txt` |
+| macOS 14 用 MLX wheel の配布元とチェックサム | [macos14-wheels.json](./Resources/ASRRuntime/macos14-wheels.json) |
+| 実行環境の準備 | [bundle_asr_runtime.py](./script/bundle_asr_runtime.py)、[prepare_macos14_mlx.py](./script/prepare_macos14_mlx.py) |
+| 複数話者認識のネイティブライブラリ | [Resources/MultitalkerNative/](./Resources/MultitalkerNative/) にライセンス情報を掲載。パッケージ作成前に macOS 14 を対象とした汎用 ARM64 ライブラリを用意します。 |
+| DMG 作成、コンポーネント検査、ローカル署名 | [build_local_dmg.sh](./script/build_local_dmg.sh) |
 
-![AirTranslate workspace](docs/assets/airtranslate-workspace.jpg)
+新しい開発環境では、パッケージ作成前にランタイムとライブラリを手動で用意します。ディスクイメージの作成サービスも必要です。
 
-キャプチャ開始前のAirTranslateワークスペースです（韓国語UI）。
+## 検証状況と制限
 
-AirTranslateは原文の文字起こしと翻訳文を1つのワークスペースに保ち、別のアプリで視聴または作業している間はフローティング字幕で表示できます。
+ビルド 1202 は、コンパイル、署名、DMG の整合性検証、296 個のネイティブコンポーネントの macOS 14 最低バージョン検査に合格しました。文脈を使った訂正は模擬サービスで検証済みです。実際の日本語会話での精度と遅延、および macOS 14 を搭載した M1 Mac 上での一連の動作は未検証です。
 
-## 3ステップで開始
-
-1. アプリをインストールし、実際に使うコピーを起動して、macOSが求める画面収録とシステムオーディオ録音の権限を許可します。
-2. 原文言語と翻訳言語を選び、コンソールからApple Modeまたは任意のエンジンを選択します。
-3. **Start**を押し、Macの音声を再生するかマイク入力を選び、メインワークスペースまたはフローティング字幕で読みます。
-
-API連携エンジンは、**Settings > API Keys**でキーを設定すると利用できます。キー設定済みとはAirTranslateにローカルのプロバイダー設定があるという意味で、プロバイダーのアクセス権はセッション開始時に確認されます。
-
-## 主な機能
-
-- ScreenCaptureKitによるシステムオーディオ取り込みと、内蔵、Bluetooth、AirPodsマイク入力。
-- ローカル優先の標準経路であるApple Speech文字起こしとApple Translation翻訳。
-- 翻訳なしで原文字幕だけを見る文字起こし専用モード。
-- フローティング字幕、保存済み記録ライブラリ、任意の翻訳音声、ワンクリック言語入れ替え。
-- 文字だけのフローティング字幕と、設定での5スタイル・フォント・色・幅・行間・順序・プレビュー・保存・リセット。
-- 記録ファイル保存はデフォルトでオフです。Application Supportに通常の`.txt`ファイルを残す場合は**Save Transcript Files**を有効にします。
-- 英語、韓国語、日本語、簡体字中国語のアプリ言語。
-
-## エンジン
-
-| エンジン | 役割 | 必要なもの |
-| --- | --- | --- |
-| Apple Mode | 標準のローカル優先文字起こしと翻訳です。 | なし |
-| OpenAI 音声 | 1つのプロバイダー内で翻訳または原文文字起こしを選びます。出力アイコンで `gpt-realtime-translate`・`gpt-live-transcribe` を切り替え、ツールチップでモデルと料金を確認できます。 | OpenAI |
-| Gemini Live | 文書化されたリアルタイム翻訳モデル、または音声言語を自動検出する原文文字起こしモデルを選択できます。 | Gemini |
-| Meta Scribe | AirTranslate翻訳の前段にある、話者ラベル付き多言語文字起こしです。 | Meta |
-| Azure MAI | 5 秒 REST チャンクの MAI-Transcribe-2、または中間字幕付き MAI-Transcribe-2-Streaming と Apple 翻訳。 | リソースキーとエンドポイント。ストリーミングには Foundry デプロイ名も必要 |
-| Nari STT | Nari Qwen3-ASR原文文字起こしです。マイクまたはMac音声を使えます。 | Nari |
-| Grok STT | マイクまたはMac音声をGrok Voice Transcribe 2.0で原文に文字起こしします。 | SpaceXAI (xAI) |
-| Qwen LiveTranslate | Qwen3.8は専用のリアルタイム翻訳モデルです。Qwen Audio 3.1 Realtime PlusはAirTranslateから翻訳指示を受ける全二重音声会話モデルで、音声応答を返せます。 | Alibaba CloudシンガポールのAPIキー。Qwen3.8にはワークスペースIDも必要 |
-
-Qwen Audio 3.1 ASR Flash Filetransは、設定 > 一般で公開HTTPS音声URLから非同期で文字起こしします。QwenCloudがURLから音声を取得し、この機能はローカル音声ファイルをアップロードしません。
-
-Grok STTは1.10.0から含まれます。初回選択は原文文字起こしで、自分のxAI APIキーを使用します。設定、言語処理、検証範囲は[Grok STTの説明](docs/grok-stt.md)をご確認ください。
-
-Nari STTは1.9.0の任意エンジンです。Nariの初回選択は原文文字起こしとして開始し、原文言語が利用できる場合はApple Translationで翻訳できます。Nariの現在のGA STTモデルIDはqwen3-asr-fastとqwen3-asrで、利用可否、利用制限、有料クレジット条件はNariのプロバイダー文書とアカウント状態に従います。詳細は[docs/nari-stt.md](docs/nari-stt.md)にまとめています。
-
-Nariは韓国語を含む入力言語の手動選択と音声言語の自動検出に対応します。
-
-Nariを新しく選択すると、Nariクレジットが必要なGA Fastモデルを使用します。保存済みのFree Public Betaモデルの選択は保持して開始をブロックし、有料モデルへ自動移行しません。設定 > 一般で課金の案内を確認し、GAモデルを明示的に選択するとNari STTを再開できます。
-
-## フローティング字幕
-
-フローティング字幕は、画面に原文・翻訳の文字だけを重ねます。背景・枠・ツールバー・状態表示・サイズ変更の印は、ポインタを重ねても表示しません。字幕がないときは何も表示しません。設定・メイン画面・メニューバーで操作し、⌘⇧Cで字幕の表示を切り替えます。
-
-標準・映画・講義・高コントラスト・明るい画面用の5つの文字スタイル、4種類のフォント、太さ・行間・影/縁取り・文字色・配置・行数・翻訳を上に表示する設定を用意しています。明暗のサンプル画面で実際の18–72ptサイズを確認し、録音せずにサンプル字幕を表示できます。幅と最前面表示は設定で変更します。既存の外観設定は復元しますが、以前の背景設定が残っていてもウインドウ背景は表示しません。
-
-## Microsoft MAI 音声 (1.15.0)
-
-Azure MAI で **MAI-Transcribe-2-Streaming** を選ぶと中間の原文字幕を表示します。API キー設定に Microsoft Foundry リソースのエンドポイント（`https://<resource>.services.ai.azure.com`）、同じリソースのキーとデプロイ名を入力してください。3 秒ごと、および一時停止・停止時に音声を確定し、確定テキストを Apple で翻訳します。従来の 5 秒単位の MAI-Transcribe-2 も選択できます。
-
-翻訳音声出力で **MAI-Voice-2.1** または **MAI-Voice-2.1-Flash** を選び、**OpenRouter** キーを保存してください。翻訳先の言語と公開音声一覧に合う音声を使用します。韓国語に対応していますが、日本語は現在対応していません。音声生成には翻訳テキストのみを送信し、プロバイダー利用料金は別途発生します。[設定案内](docs/microsoft-mai-audio.md)。
-
-Azure キャプチャの停止時は、制限時間内で最後の確定翻訳を待ちます。空の Azure 最終結果は、メイン画面とフローティング字幕の仮テキストを消去します。
-
-## APIキー
-
-APIキー画面は、**OpenAI**、**Gemini**、**Meta**、**Azure**、**Nari**、**SpaceXAI (xAI)** · **Alibaba Cloud (Qwen)** · **OpenRouter** · **TypeSafe (Jev)**を1つのプロバイダー一覧で管理します。各行には、設定/準備状態、プロバイダーアイコン、キー管理コンソールへのリンク、設定済みキーがプロバイダー権限の検証を意味しないことを説明する情報ポップオーバーが表示されます。
-
-キーはmacOS Keychainに保存されます。AirTranslateにはアカウントシステム、開発者運用の中継サーバー、ハードコードされたプロバイダーキーは含まれていません。
-
-GeminiキーはGemini Liveと任意のGemini翻訳音声出力で共有します。Gemini TTSを選択しても、実アカウントの権限、課金、品質、遅延が検証済みであることは意味しません。
-
-## プライバシー
-
-- Apple ModeはmacOSフレームワークとApple管理の言語アセットを使います。
-- GPT、Gemini、Meta、Azure、Nari、Grok、Qwenモードは、選択した機能に必要な音声またはテキストだけを、ユーザーのキーで該当プロバイダーへ直接送信します。Gemini TTSはユーザーがGemini音声モデルを選んだ後、安定した翻訳テキストだけを送信します。
-- 保存済み記録は、ファイル保存を有効にした場合にだけMac上の通常のテキストファイルとして残ります。
-- より詳しいプロバイダーと保存の説明は[Release/PRIVACY-NOTICE.md](Release/PRIVACY-NOTICE.md)を参照してください。
-
-## 必要条件
-
-- macOS 26.0以降
-- ソースビルド用Swift 6.4以降
-- システムオーディオ取り込みに対応したMac
-- Apple SpeechとApple Translationフレームワークが利用できる環境
-- 任意: OpenAI、Gemini、Meta、Azure Speech、Nari、xAI、Alibaba Cloudのプロバイダーキー
-
-## ドキュメント
-
-- [Getting Started](docs/GETTING-STARTED.md)
-- [Development](docs/DEVELOPMENT.md)
-- [Nari STT notes](docs/nari-stt.md)
-- [変更履歴](CHANGELOG.md)
-- [バージョン履歴](Release/VERSION-HISTORY.md)
-
-<details>
-<summary>ソースからビルド</summary>
-
-```bash
-./script/build_and_run.sh
-./script/build_and_run.sh --verify
-swift test
+```sh
+bash script/verify_caption_context_correction.sh
+bash script/verify_reasoning_compatibility.sh
+bash script/verify_joint_japanese_translation.sh
+bash script/verify_transcript_polish.sh
+bash script/verify_transcript_rename.sh
 ```
 
-その他のコマンドは[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)にあります。
+## 出典とライセンス
 
-</details>
-
-## コントリビュート
-
-ユーザー向けのリリース履歴は[CHANGELOG.md](CHANGELOG.md)に保管します。READMEは過去のリリースノートを繰り返すのではなく、現在の製品、ダウンロード経路、プロバイダー境界を説明します。
-
-## ライセンス
-
-AirTranslateは[Apache License 2.0](LICENSE)で公開されています。著作権表記は[NOTICE](NOTICE)にあります。
-
-AirTranslateは独立したオープンソースプロジェクトであり、Apple、OpenAI、Google、Meta、Microsoft、Nari、SpaceXAI (xAI)、Alibaba Cloudとは提携していません。
+文译は [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) をベースに開発しており、上流の [Apache-2.0 ライセンス](./LICENSE) と [NOTICE](./NOTICE) を保持しています。[Swift SDK](./Vendor/PROVENANCE.md)、[音声認識ランタイム](./Resources/ASR-Runtime-Notices.md)、[livecaption のソース](./Resources/ASRProject/UPSTREAM.txt)、[複数話者認識コンポーネント](./Resources/MultitalkerNative/THIRD-PARTY-LICENSES.md) の詳細は各資料を参照してください。livecaption ソース単体のライセンスは確認中です。

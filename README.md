@@ -1,53 +1,61 @@
 <p align="center">
-  <a href="#安装与配置"><img src="./docs/readme-banner.svg" alt="文译 Wenyi｜实时语音转写、双语字幕与本地翻译" width="100%"></a>
+  <a href="#installation-and-setup"><img src="./docs/readme-banner.svg" alt="Wenyi — live transcription, bilingual captions, and local translation" width="100%"></a>
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1202）
+  <strong>English</strong> · <a href="./README.zh-CN.md">简体中文</a> · <a href="./README.ja.md">日本語</a>
 </p>
 
 <p align="center">
-  <strong><a href="#安装与配置">安装与配置</a></strong> ·
-  <a href="#实时字幕与本地翻译">查看功能</a> ·
-  <a href="#本地构建">本地构建</a>
+  <a href="https://github.com/ripvanmickey/WenyiTranslator/actions/workflows/release-verify.yml"><img src="https://github.com/ripvanmickey/WenyiTranslator/actions/workflows/release-verify.yml/badge.svg?branch=master" alt="Release Verify"></a>
 </p>
 
-文译可以把 Mac 正在播放的声音或麦克风语音转成实时字幕。看外语视频、听播客或开会时，可以同时显示原文和译文，也可以将转写保存下来继续编辑。
+<p align="center">
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1202)
+</p>
 
-## 实时字幕与本地翻译
+<p align="center">
+  <strong><a href="#installation-and-setup">Installation and setup</a></strong> ·
+  <a href="#live-captions-and-local-translation">Features</a> ·
+  <a href="#build-locally">Build locally</a>
+</p>
 
-### 实时转写与悬浮字幕
+Wenyi turns Mac system audio or microphone input into live captions. Display the original and translated text together while watching a video, listening to a podcast, or joining a meeting, then save the transcript for editing.
 
-从 Mac 系统音频或麦克风采集语音，实时显示原文。启用翻译后，可以单独看译文，也可以在主窗口或悬浮窗口同时看原文和译文。纯系统音频 Tap 需要 macOS 14.2 或以上。
+## Live captions and local translation
 
-### 本地识别与断句
+### Live transcription and floating captions
 
-支持 Nemotron 0.6B、Granite Speech 2B、Qwen3-ASR，以及实验性的多人识别。识别模型可在应用内按需下载、导入和删除。Nemotron 和 Qwen3-ASR 提供 VAD 预设和高级调节，下次开始监听时生效。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
+Capture system audio or microphone input and follow the transcript as people speak. With translation enabled, show the translation alone or both languages in the main or floating window. Audio-only system capture via Core Audio Tap requires macOS 14.2 or later.
 
-### LM Studio 本地翻译
+### Local speech recognition and segmentation
 
-文译把识别出的文本发送给同一台 Mac 上的 LM Studio 服务，可以在设置中测试短句和长句翻译，并查看字幕延迟诊断。在本地识别与本地翻译的组合下，音频和字幕处理都在本机完成。
+Choose Nemotron 0.6B, Granite Speech 2B, Qwen3-ASR, or experimental multi-speaker recognition. Download, import, or delete recognition models within the app. Nemotron and Qwen3-ASR offer voice activity detection (VAD) presets and custom settings that apply the next time a session starts. Apple Speech and Apple system translation require macOS 26 or later.
 
-构建 1202 加入了**跨段回看纠错**。翻译空闲时，文译依据后文尝试纠正近期已确认字幕中的同音词，并一起更新对应译文。新字幕到来时优先处理新内容。此功能可在「设置 → 通用」关闭。
+### Local translation with LM Studio
 
-## 字幕记录
+Wenyi sends the recognized text to LM Studio on the same Mac. The settings include short- and long-sentence translation tests and caption latency diagnostics. With local recognition and local translation selected, audio and text are processed on your Mac.
 
-可以保存、编辑和重命名转写记录，在访达中定位对应的 TXT 文件。配置本地翻译模型后，还可以用它为记录补标点、分段或生成标题。
+Build 1202 adds **contextual caption correction**. While translation is idle, Wenyi uses later speech to check recent finalized captions for homophone mistakes and updates the original and translation together when it finds a correction. New captions take priority. You can turn this feature off under Settings → General.
 
-## 安装与配置
+## Saved transcripts
 
-适用于 Apple Silicon（M1 或以上）和 macOS 14.0 或以上。本仓库提供源码，测试安装包单独分发。
+Save, edit, or rename transcripts and reveal the corresponding TXT files in Finder. A configured local translation model can restore punctuation, split text into paragraphs, or suggest a title.
 
-1. 拿到 DMG 时，打开它并把「文译」拖入「应用程序」。拿到 ZIP 时，解压后将「文译.app」移到「应用程序」。
-2. 在「设置 → 通用」选择「本地模式」和语音识别引擎，按提示下载模型，并根据音频来源授予系统权限。
-3. 需要翻译时，先在 LM Studio 加载文本模型并启动本地 API。回到文译，配置服务地址（例如 `http://localhost:1235/v1`），读取模型列表并选择实际的模型 ID。只有本地服务开启身份验证时才需要填写密钥。
-4. 点击「测试翻译」，然后选择原文和译文语言并开始监听。只看原文时可选「仅原文」。
+## Installation and setup
 
-测试包使用本地临时签名，未完成 Apple 公证。
+Requires Apple Silicon (M1 or later) and macOS 14.0 or later. This repository hosts the source code. Test installers are distributed separately.
 
-## 本地构建
+1. Open the DMG and drag Wenyi into Applications. If you have the ZIP, extract it and move the app into Applications.
+2. In Settings → General, select local mode and a speech recognition engine. Download the model when prompted and grant the permissions required by your audio source.
+3. For translation, load a text model in LM Studio and start its local API. In Wenyi, enter the service address, such as `http://localhost:1235/v1`, fetch the model list, and choose the model ID shown there. Enter a key if the local server requires authentication.
+4. Test translation, choose the source and target languages, and start listening. Select original-only output for transcription.
 
-使用 Apple Silicon Mac、Swift 6.2 工具链，以及包含 macOS 26 API 的 SDK。应用的运行部署目标为 macOS 14。
+The test packages use a local ad hoc signature and have yet to be notarized by Apple.
+
+## Build locally
+
+Use an Apple Silicon Mac, the Swift 6.2 toolchain, and an SDK that includes macOS 26 APIs. The app deployment target is macOS 14.
 
 ```sh
 git clone https://github.com/ripvanmickey/WenyiTranslator.git
@@ -55,22 +63,22 @@ cd WenyiTranslator
 swift build -c release
 ```
 
-Swift 主程序可独立编译。完整安装包还需要准备 Python/MLX 运行环境及多人识别的 ARM64 动态库。相关版本和构建脚本如下。
+The main Swift executable builds independently. A complete installer also needs the Python/MLX runtime and ARM64 libraries for multi-speaker recognition.
 
-| 内容 | 位置 |
+| Item | Location |
 | --- | --- |
-| Swift 依赖源码和来源说明 | [Vendor/PROVENANCE.md](./Vendor/PROVENANCE.md) |
-| CPython 依赖版本 | [Resources/ASRRuntime/](./Resources/ASRRuntime/) 中的 `requirements-*.txt` |
-| macOS 14 MLX wheel 来源和校验和 | [macos14-wheels.json](./Resources/ASRRuntime/macos14-wheels.json) |
-| 运行环境准备 | [bundle_asr_runtime.py](./script/bundle_asr_runtime.py)、[prepare_macos14_mlx.py](./script/prepare_macos14_mlx.py) |
-| 多人识别原生库 | [Resources/MultitalkerNative/](./Resources/MultitalkerNative/) 中的许可说明，打包前需提供以 macOS 14 为目标的通用 ARM64 库 |
-| DMG 打包、组件检查和本地签名 | [build_local_dmg.sh](./script/build_local_dmg.sh) |
+| Vendored Swift dependencies and provenance | [Vendor/PROVENANCE.md](./Vendor/PROVENANCE.md) |
+| CPython dependency versions | `requirements-*.txt` in [Resources/ASRRuntime/](./Resources/ASRRuntime/) |
+| macOS 14 MLX wheels and checksums | [macos14-wheels.json](./Resources/ASRRuntime/macos14-wheels.json) |
+| Runtime setup | [bundle_asr_runtime.py](./script/bundle_asr_runtime.py), [prepare_macos14_mlx.py](./script/prepare_macos14_mlx.py) |
+| Multi-speaker native libraries | License information in [Resources/MultitalkerNative/](./Resources/MultitalkerNative/). Provide generic ARM64 libraries targeting macOS 14 for packaging. |
+| DMG packaging, component checks, and local signing | [build_local_dmg.sh](./script/build_local_dmg.sh) |
 
-完整打包流程需要上述运行组件和可用的磁盘镜像服务。全新开发机仍需手动准备这些组件。
+On a fresh development Mac, prepare the runtime and libraries manually before packaging. The packaging script also needs working disk image services.
 
-## 验证与限制
+## Verification and limits
 
-构建 1202 已通过编译、签名、DMG 完整性检查以及 296 个原生组件的 macOS 14 最低版本检查。跨段纠错已通过模拟服务测试，真实日语对话的纠错准确率、延迟影响以及 M1 + macOS 14 的端到端效果仍待实测。
+Build 1202 passed compilation, signature and DMG integrity checks, and macOS 14 minimum-version checks for 296 native components. Contextual correction passed tests with a simulated service. Correction accuracy and latency in real Japanese conversations, and end-to-end behavior on an M1 Mac running macOS 14, remain to be tested.
 
 ```sh
 bash script/verify_caption_context_correction.sh
@@ -80,6 +88,6 @@ bash script/verify_transcript_polish.sh
 bash script/verify_transcript_rename.sh
 ```
 
-## 来源与许可
+## Credits and licensing
 
-文译基于 [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) 开发，保留上游 [Apache-2.0 LICENSE](./LICENSE) 和 [NOTICE](./NOTICE)。第三方 SDK、运行环境及模型分别适用各自许可，详见 [Swift SDK 来源](./Vendor/PROVENANCE.md)、[ASR 运行环境说明](./Resources/ASR-Runtime-Notices.md)、[livecaption 来源](./Resources/ASRProject/UPSTREAM.txt) 和 [多人识别组件许可](./Resources/MultitalkerNative/THIRD-PARTY-LICENSES.md)。livecaption 源码的单独许可仍需确认。
+Wenyi is based on [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) and retains its [Apache-2.0 license](./LICENSE) and [NOTICE](./NOTICE). See the separate notices for the [Swift SDKs](./Vendor/PROVENANCE.md), [ASR runtime](./Resources/ASR-Runtime-Notices.md), [livecaption source](./Resources/ASRProject/UPSTREAM.txt), and [multi-speaker components](./Resources/MultitalkerNative/THIRD-PARTY-LICENSES.md). The standalone license for the livecaption source still needs confirmation.
