@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1206）
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1207）
 </p>
 
 <p align="center">
@@ -47,6 +47,8 @@
 构建 1205 在本地翻译设置中加入 Index-Translate 9B 选项。使用前请在 LM Studio 下载该模型并开启本地 API。
 
 构建 1206 的本地翻译字幕在主窗口和悬浮窗口均先显示首个可用结果，确认后更新一次。
+
+构建 1207 恢复本地字幕的逐步预览，短译文也会立即显示，确认时补齐完整文字。
 
 ## 字幕记录
 

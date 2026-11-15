@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1206)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1207)
 </p>
 
 <p align="center">
@@ -47,6 +47,8 @@ Build 1204 lets local Japanese-to-Chinese translation reference up to two earlie
 Build 1205 adds an Index-Translate 9B preset to local translation settings. Download the model in LM Studio and enable the local API to use it.
 
 Build 1206 keeps the first visible local caption on screen and updates it once the segment is confirmed, in both the main window and floating captions.
+
+Build 1207 restores incremental local subtitle previews. Short translations appear immediately, and the preview grows at a controlled rate until confirmation.
 
 ## Saved transcripts
 

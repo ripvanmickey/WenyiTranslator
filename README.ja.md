@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1206）
+  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1207）
 </p>
 
 <p align="center">
@@ -47,6 +47,8 @@ Nemotron 0.6B、Granite Speech 2B、Qwen3-ASR、実験的な複数話者認識�
 ビルド 1205 では、ローカル翻訳の設定から Index-Translate 9B を選択できます。使用するには LM Studio でモデルをダウンロードして、ローカル API を有効にしてください。
 
 ビルド 1206 では、メインウインドウとフローティング字幕のローカル処理で、最初の字幕を表示し、確定時に一度だけ更新します。
+
+ビルド 1207 では、ローカル字幕を確定前にも順次表示します。短い訳文もすぐに表示し、確定時に全文を反映します。
 
 ## 保存した文字起こし
 

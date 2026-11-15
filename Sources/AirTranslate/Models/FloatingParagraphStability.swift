@@ -1,14 +1,26 @@
 import Foundation
 
-/// Keeps the first visible caption and publishes at most one confirmed replacement.
-struct FirstAndFinalCaptionText {
+/// Shows usable text immediately and coalesces subsequent provisional changes.
+struct LiveLocalCaptionText {
     private(set) var text = ""
     private var didConfirm = false
+    private var pending = ""
+    private var lastPresented: TimeInterval = 0
 
-    mutating func receive(_ value: String, confirmed: Bool) {
-        guard !didConfirm, !value.isEmpty else { return }
-        if text.isEmpty || confirmed { text = value }
-        if confirmed { didConfirm = true }
+    var nextUpdateAt: TimeInterval? {
+        guard !didConfirm, !pending.isEmpty, pending != text else { return nil }
+        return lastPresented + (pending.hasPrefix(text) ? 0.25 : 0.8)
+    }
+
+    mutating func receive(_ value: String, confirmed: Bool, now: TimeInterval) {
+        guard !didConfirm else { return }
+        pending = value
+        guard !value.isEmpty else { return }
+        didConfirm = confirmed
+        if text.isEmpty || confirmed || nextUpdateAt.map({ now >= $0 }) == true {
+            if text != value { lastPresented = now }
+            text = value
+        }
     }
 }
 
@@ -19,20 +31,18 @@ struct FloatingParagraphStability {
         private var pending = ""
         private var lastPresented: TimeInterval = 0
         private var pendingSince: TimeInterval = 0
-        private var confirmedText = FirstAndFinalCaptionText()
+        private var localPreview = LiveLocalCaptionText()
 
         mutating func receive(_ value: String, final: Bool, now: TimeInterval, minimumFirstLength: Int = 1,
-                              firstAndFinal: Bool = false) {
+                              usesLocalPreview: Bool = false) {
+            if usesLocalPreview {
+                localPreview.receive(value, confirmed: final, now: now)
+                text = localPreview.text
+                return
+            }
             if value != pending { pendingSince = now }
             pending = value
             guard !value.isEmpty else { return }
-            if firstAndFinal {
-                if final || value.count >= minimumFirstLength || now - pendingSince >= 0.5 {
-                    confirmedText.receive(value, confirmed: final)
-                    text = confirmedText.text
-                }
-                return
-            }
             if final || (text.isEmpty && value.count >= minimumFirstLength) {
                 if value != text { text = value; lastPresented = now }
                 return

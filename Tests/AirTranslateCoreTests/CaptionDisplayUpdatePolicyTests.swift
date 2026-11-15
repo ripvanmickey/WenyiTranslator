@@ -8,28 +8,42 @@ struct CaptionDisplayUpdatePolicyTests {
     private let start = Date(timeIntervalSinceReferenceDate: 0)
 
     @Test
-    func firstAndFinalDisplaysOnlyFirstUsableAndConfirmedText() {
-        var caption = FirstAndFinalCaptionText()
-        caption.receive("", confirmed: true)
-        caption.receive("今天天气", confirmed: false)
-        caption.receive("今天天气不错", confirmed: false)
-        caption.receive("明天的天气不错", confirmed: false)
-        #expect(caption.text == "今天天气")
-        caption.receive("明天的天气会很好。", confirmed: true)
-        caption.receive("明天天气晴朗。", confirmed: true)
-        #expect(caption.text == "明天的天气会很好。")
+    func localPreviewShowsFirstTextAndCoalescesAppends() {
+        var caption = LiveLocalCaptionText()
+        caption.receive("今", confirmed: false, now: 1)
+        #expect(caption.text == "今")
+        caption.receive("今天天气", confirmed: false, now: 1.1)
+        #expect(caption.text == "今")
+        #expect(caption.nextUpdateAt == 1.25)
+        caption.receive("今天天气不错", confirmed: false, now: 1.25)
+        #expect(caption.text == "今天天气不错")
+        caption.receive("明天天气不错", confirmed: false, now: 1.5)
+        #expect(caption.text == "今天天气不错")
+        caption.receive("明天天气不错", confirmed: false, now: 2.1)
+        #expect(caption.text == "明天天气不错")
+        caption.receive("明天天气会很好。", confirmed: true, now: 2.11)
+        caption.receive("明天天气晴朗。", confirmed: true, now: 3)
+        #expect(caption.text == "明天天气会很好。")
+        #expect(caption.nextUpdateAt == nil)
     }
 
     @Test
-    func floatingFirstAndFinalCanPublishShortOrLateFinal() {
+    func localFloatingPreviewDisplaysShortTextImmediately() {
         var channel = FloatingParagraphStability.Channel()
-        channel.receive("好的", final: false, now: 1, minimumFirstLength: 8, firstAndFinal: true)
-        #expect(channel.text.isEmpty)
-        channel.receive("好的", final: false, now: 1.5, minimumFirstLength: 8, firstAndFinal: true)
-        channel.receive("好的，让我们开始。", final: false, now: 2, minimumFirstLength: 8, firstAndFinal: true)
-        #expect(channel.text == "好的")
-        channel.receive("那就开始吧。", final: true, now: 2.1, minimumFirstLength: 8, firstAndFinal: true)
-        #expect(channel.text == "那就开始吧。")
+        channel.receive("好", final: false, now: 1, minimumFirstLength: 8, usesLocalPreview: true)
+        #expect(channel.text == "好")
+        channel.receive("好的，我们开始。", final: true, now: 1.1, minimumFirstLength: 8, usesLocalPreview: true)
+        #expect(channel.text == "好的，我们开始。")
+    }
+
+    @Test
+    func clearingUnconfirmedCandidateCancelsScheduledPreview() {
+        var caption = LiveLocalCaptionText()
+        caption.receive("今", confirmed: false, now: 1)
+        caption.receive("今天", confirmed: false, now: 1.1)
+        caption.receive("", confirmed: false, now: 1.2)
+        #expect(caption.text == "今")
+        #expect(caption.nextUpdateAt == nil)
     }
 
     @Test
