@@ -173,6 +173,7 @@ struct StartConfiguration: Equatable {
     let nemotronRecognitionEnabled: Bool
     let graniteRecognitionEnabled: Bool
     let multitalkerRecognitionEnabled: Bool
+    let speechActivity: SpeechActivitySettings
     let qwenASRModel: String
     let nemotronRuntimeFolder: String
     let audioOnlySystemCapture: Bool
@@ -210,6 +211,7 @@ struct StartConfiguration: Equatable {
         nemotronRecognitionEnabled: Bool = false,
         graniteRecognitionEnabled: Bool = false,
         multitalkerRecognitionEnabled: Bool = false,
+        speechActivity: SpeechActivitySettings = .balanced,
         qwenASRModel: String = "",
         nemotronRuntimeFolder: String = "",
         audioOnlySystemCapture: Bool = false,
@@ -244,6 +246,7 @@ struct StartConfiguration: Equatable {
         self.nemotronRecognitionEnabled = nemotronRecognitionEnabled
         self.graniteRecognitionEnabled = graniteRecognitionEnabled
         self.multitalkerRecognitionEnabled = multitalkerRecognitionEnabled
+        self.speechActivity = speechActivity
         self.qwenASRModel = qwenASRModel
         self.nemotronRuntimeFolder = nemotronRuntimeFolder
         self.audioOnlySystemCapture = audioOnlySystemCapture
@@ -1133,6 +1136,7 @@ final class TranslationSessionStore {
     var nemotronRuntimeFolder = NemotronSpeechTranscriber.defaultRuntimeFolder { didSet { persistSelectedSettings() } }
     var graniteRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
     var multitalkerRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
+    var speechActivity = SpeechActivitySettings.balanced { didSet { persistSelectedSettings() } }
     var qwenASRModel = "" { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
     var localRecognitionEngine: String {
         get { graniteRecognitionEnabled && whisperRecognitionEnabled ? "granite" : multitalkerRecognitionEnabled && whisperRecognitionEnabled ? "multitalker" : !whisperRecognitionEnabled ? "apple" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "nemotron" : "qwen") : "whisper") }
@@ -1287,6 +1291,15 @@ final class TranslationSessionStore {
 #endif
     private var transcriptCleanupTask: Task<Void, Never>?
     private var punctuatedDisplayByLine: [UUID: (source: String, display: String)] = [:]
+    var contextualCaptionCorrectionEnabled = true {
+        didSet {
+            if !contextualCaptionCorrectionEnabled { contextualCaptionCorrectionTask?.cancel() }
+            persistSelectedSettings()
+        }
+    }
+    @ObservationIgnored private var contextualCaptionCorrectionTask: Task<Void, Never>?
+    @ObservationIgnored private var lastReviewedCaptionID: UUID?
+    @ObservationIgnored private var lastCaptionReviewAt = ContinuousClock.Instant.now - .seconds(8)
     private var translationTask: Task<Void, Never>?
     private var translationDriverID: UUID?
     private var translationOperationTask: Task<String, Error>?
@@ -1895,6 +1908,7 @@ final class TranslationSessionStore {
             nemotronRecognitionEnabled: nemotronRecognitionEnabled,
             graniteRecognitionEnabled: graniteRecognitionEnabled,
             multitalkerRecognitionEnabled: multitalkerRecognitionEnabled,
+            speechActivity: speechActivity,
             qwenASRModel: qwenASRModel,
             nemotronRuntimeFolder: nemotronRuntimeFolder,
             audioOnlySystemCapture: audioOnlySystemCapture,
@@ -2137,6 +2151,7 @@ final class TranslationSessionStore {
             return
         }
 
+        contextualCaptionCorrectionTask?.cancel()
         flushPendingRecognizedCaption()
         flushPendingCaptionPresentation()
         transcriptCleanupTask?.cancel()
@@ -3573,7 +3588,7 @@ final class TranslationSessionStore {
 
     private func startNemotronSpeechTranscriber(configuration: StartConfiguration, generation: UInt64) async throws {
         stopCaptioners()
-        let candidate = NemotronSpeechTranscriber(qwenModel: configuration.qwenASRModel, multitalker: configuration.multitalkerRecognitionEnabled, granite: configuration.graniteRecognitionEnabled)
+        let candidate = NemotronSpeechTranscriber(qwenModel: configuration.qwenASRModel, multitalker: configuration.multitalkerRecognitionEnabled, granite: configuration.graniteRecognitionEnabled, speechActivity: configuration.speechActivity)
         let language = configuration.sourceLanguage
         do {
             statusMessage = configuration.graniteRecognitionEnabled ? "正在加载 Granite Speech 5.0…" : configuration.multitalkerRecognitionEnabled ? "正在加载 Multitalker Parakeet…" : configuration.qwenASRModel.isEmpty ? "正在加载 Nemotron 本地识别模型…" : "正在加载 Qwen3-ASR 本地识别模型…"
@@ -4362,6 +4377,8 @@ final class TranslationSessionStore {
     }
 
     private func resetLiveSessionState(clearsVisibleLines: Bool) {
+        lastReviewedCaptionID = nil
+        lastCaptionReviewAt = .now - .seconds(8)
         resetFloatingCaptionHistory(seedsCurrent: false)
         floatingRecognitionIdentity = nil
         floatingPresentedSourceIdentity = nil
@@ -4728,6 +4745,11 @@ final class TranslationSessionStore {
         whisperRecognitionEnabled = defaults.bool(forKey: "whisperRecognitionEnabled")
         graniteRecognitionEnabled = defaults.bool(forKey: "graniteRecognitionEnabled")
         multitalkerRecognitionEnabled = defaults.bool(forKey: "multitalkerRecognitionEnabled")
+        if let data = defaults.data(forKey: "speechActivity"),
+           let settings = try? JSONDecoder().decode(SpeechActivitySettings.self, from: data) {
+            speechActivity = settings.validated
+        }
+        contextualCaptionCorrectionEnabled = defaults.object(forKey: "contextualCaptionCorrectionEnabled") as? Bool ?? true
         qwenASRModel = defaults.string(forKey: "qwenASRModel") ?? ""
         nemotronRecognitionEnabled = defaults.bool(forKey: "nemotronRecognitionEnabled")
         if let folder = defaults.string(forKey: "nemotronRuntimeFolder"), !folder.isEmpty { nemotronRuntimeFolder = folder }
@@ -4904,6 +4926,8 @@ final class TranslationSessionStore {
         defaults.set(whisperRecognitionEnabled, forKey: "whisperRecognitionEnabled")
         defaults.set(graniteRecognitionEnabled, forKey: "graniteRecognitionEnabled")
         defaults.set(multitalkerRecognitionEnabled, forKey: "multitalkerRecognitionEnabled")
+        defaults.set(try? JSONEncoder().encode(speechActivity.validated), forKey: "speechActivity")
+        defaults.set(contextualCaptionCorrectionEnabled, forKey: "contextualCaptionCorrectionEnabled")
         defaults.set(qwenASRModel, forKey: "qwenASRModel")
         defaults.set(nemotronRecognitionEnabled, forKey: "nemotronRecognitionEnabled")
         defaults.set(nemotronRuntimeFolder, forKey: "nemotronRuntimeFolder")
@@ -5408,6 +5432,7 @@ final class TranslationSessionStore {
         lastRecognizedText = sourceText
         lastRecognizedWasFinal = isFinal
         lastRecognitionAt = now
+        contextualCaptionCorrectionTask?.cancel()
         transcriptCleanupTask?.cancel()
 
         if let currentLineID,
@@ -7652,6 +7677,7 @@ final class TranslationSessionStore {
         floatingCommittedSourceText = ""
         floatingCurrentPartialText = ""
         pendingFloatingParagraphBreakBeforePartial = false
+        scheduleContextualCaptionCorrection()
     }
 
     private func requestTranslation(
@@ -7682,6 +7708,7 @@ final class TranslationSessionStore {
             return
         }
 
+        contextualCaptionCorrectionTask?.cancel()
         let sourceText = line.sourceText
         let preservesOrdering = preservesOrdering ?? (isUsingMetaScribe || isUsingAzureMAI || isUsingNariSTT || isUsingGrokSTT)
         if appleIdentity?.isFinal == true, jevInput == nil,
@@ -7778,6 +7805,7 @@ final class TranslationSessionStore {
                 translationTask = nil
                 translationDriverID = nil
                 startTranslationDriverIfNeeded()
+                scheduleContextualCaptionCorrection()
             }
         }
         while !Task.isCancelled, generation == translationTaskGeneration,
@@ -7879,6 +7907,74 @@ final class TranslationSessionStore {
         }
     }
 
+    private var canReviewCaptionContext: Bool {
+        contextualCaptionCorrectionEnabled && isUsingLocalTranslation && isRunning && !isPaused
+            && translationTask == nil && latestTranslationRequest == nil && orderedTranslationRequests.isEmpty
+    }
+
+    private func scheduleContextualCaptionCorrection() {
+        guard contextualCaptionCorrectionTask == nil, canReviewCaptionContext,
+              let latest = lines.last, latest.isFinal, latest.isTranslationComplete,
+              latest.id != currentLineID, latest.id != lastReviewedCaptionID,
+              let language = sourceLanguageByLineID[latest.id]
+        else { return }
+        let candidates = Array(lines.suffix(4).reversed().prefix(while: { line in
+            line.id != currentLineID && line.isFinal && line.isTranslationComplete
+                && line.translatedSourceText == line.sourceText
+                && sourceLanguageByLineID[line.id] == language
+                && latest.createdAt.timeIntervalSince(line.createdAt) <= 45
+                && (1...180).contains(line.sourceText.count)
+        }).reversed())
+        guard candidates.count >= 2 else { return }
+
+        let configuration = localTranslation
+        let target = targetLanguage
+        let generation = pipelineLifecycle.generation
+        let startAfter = max(ContinuousClock.now + .milliseconds(1250), lastCaptionReviewAt + .seconds(8))
+        contextualCaptionCorrectionTask = Task(priority: .background) { @MainActor [weak self] in
+            defer {
+                self?.contextualCaptionCorrectionTask = nil
+                self?.scheduleContextualCaptionCorrection()
+            }
+            do {
+                try await Task.sleep(until: startAfter, clock: .continuous)
+                guard let self, canReviewCaptionContext, pipelineLifecycle.generation == generation,
+                      localTranslation == configuration, targetLanguage == target,
+                      Array(lines.suffix(candidates.count)) == candidates
+                else { return }
+
+                lastReviewedCaptionID = latest.id
+                lastCaptionReviewAt = .now
+                let correction = try await LocalTranslationService.shared.reviewCaptionContext(
+                    candidates.map(\.sourceText), source: language.id, target: target.id,
+                    configuration: configuration, apiKey: LocalTranslationAPIKeyStore.readAPIKey()
+                )
+                try Task.checkCancellation()
+                guard let correction, canReviewCaptionContext, pipelineLifecycle.generation == generation,
+                      localTranslation == configuration, targetLanguage == target,
+                      Array(lines.suffix(candidates.count)) == candidates,
+                      let index = lines.firstIndex(where: { $0.id == candidates[correction.index].id })
+                else { return }
+
+                let original = lines[index]
+                lines[index] = CaptionLine(
+                    id: original.id, sourceText: correction.source, translatedText: correction.translation,
+                    translatedSourceText: correction.source, createdAt: original.createdAt, isFinal: true,
+                    isTranslationComplete: true, revision: original.revision + 1,
+                    speakerLabel: original.speakerLabel, usesLongSessionDisplay: usesLongSessionMode
+                )
+                punctuatedDisplayByLine[original.id] = nil
+                if let identity = floatingIdentity(for: original.id) {
+                    floatingCaptionHistory.correctPrevious(identity: identity, source: correction.source,
+                                                            translation: correction.translation, now: Date())
+                }
+                // The next normal save checkpoint collects the finalized lines again.
+            } catch {
+                // Review is opportunistic. Keep the existing subtitle when it fails.
+            }
+        }
+    }
+
     private func acceptsTranslationUpdates(for request: TranslationRequest) -> Bool {
         !Task.isCancelled
             && request.generation == translationTaskGeneration
@@ -7904,6 +8000,7 @@ final class TranslationSessionStore {
     }
 
     private func cancelTranslationRequests() {
+        contextualCaptionCorrectionTask?.cancel()
         punctuatedDisplayByLine.removeAll()
         translationTaskGeneration &+= 1
         bufferedJevSelections.removeAll()

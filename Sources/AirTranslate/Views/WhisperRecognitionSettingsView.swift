@@ -13,6 +13,39 @@ struct WhisperRecognitionSettingsView: View {
     @State private var operation: Task<Void, Never>?
     private var locked: Bool { session.isRunning || session.isStarting || preparing || manager.isBusy }
 
+    private var speechActivityControls: some View {
+        DisclosureGroup("语音活动检测（VAD）") {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("预设", selection: Binding(
+                    get: { session.speechActivity.preset },
+                    set: { session.speechActivity.apply($0) }
+                )) {
+                    ForEach(SpeechActivitySettings.Preset.allCases.filter {
+                        $0 != .custom || session.speechActivity.preset == .custom
+                    }) { preset in
+                        Text(preset.title).tag(preset)
+                    }
+                }
+                Stepper(value: $session.speechActivity.sensitivity, in: 20...80, step: 5) {
+                    Text("人声检测灵敏度 · \(session.speechActivity.sensitivity)%")
+                }
+                Text("调高更容易保留轻声，也可能将背景音判为人声。")
+                    .font(.caption).foregroundStyle(.secondary)
+                Stepper(value: $session.speechActivity.pauseMilliseconds, in: 400...1600, step: 100) {
+                    Text("停顿收尾时间 · \(session.speechActivity.pauseMilliseconds) 毫秒")
+                }
+                Text("已有句末标点时按一半时间收尾。缩短等待可能让字幕分段更碎。")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("恢复默认") { session.speechActivity = .balanced }
+                    .disabled(session.speechActivity == .balanced)
+                Text("适用于 Nemotron 和 Qwen3-ASR，下次开始监听时生效。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.top, 6)
+            .disabled(locked)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsControlRow(title: "语音识别引擎", detail: "选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", systemImage: "waveform") {
@@ -30,6 +63,9 @@ struct WhisperRecognitionSettingsView: View {
                         Text("1.7B · 英语试用").tag("Qwen/Qwen3-ASR-1.7B")
                         Text("0.6B · 轻量试用").tag("Qwen/Qwen3-ASR-0.6B")
                     }.disabled(locked)
+                }
+                if session.localRecognitionEngine == "nemotron" || session.localRecognitionEngine == "qwen" {
+                    speechActivityControls
                 }
                 Text(selectedManagedModel.detail).font(.callout).foregroundStyle(.secondary)
                 HStack(spacing: 12) {

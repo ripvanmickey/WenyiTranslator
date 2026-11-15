@@ -2,6 +2,57 @@ import Foundation
 import AVFoundation
 import Darwin
 
+struct SpeechActivitySettings: Codable, Equatable, Sendable {
+    enum Preset: String, CaseIterable, Identifiable {
+        case balanced, lowLatency, noisy, custom
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .balanced: "均衡（默认）"
+            case .lowLatency: "低延迟"
+            case .noisy: "嘈杂环境"
+            case .custom: "自定义"
+            }
+        }
+    }
+
+    var sensitivity = 50
+    var pauseMilliseconds = 1200
+
+    static let balanced = Self()
+    static let lowLatency = Self(sensitivity: 50, pauseMilliseconds: 800)
+    static let noisy = Self(sensitivity: 35, pauseMilliseconds: 1200)
+
+    var preset: Preset {
+        switch self {
+        case .balanced: .balanced
+        case .lowLatency: .lowLatency
+        case .noisy: .noisy
+        default: .custom
+        }
+    }
+
+    var validated: Self {
+        Self(sensitivity: min(80, max(20, sensitivity)),
+             pauseMilliseconds: min(1600, max(400, pauseMilliseconds)))
+    }
+
+    mutating func apply(_ preset: Preset) {
+        switch preset {
+        case .balanced: self = .balanced
+        case .lowLatency: self = .lowLatency
+        case .noisy: self = .noisy
+        case .custom: break
+        }
+    }
+
+    var bridgeArguments: [String] {
+        let settings = validated
+        return ["--vad-threshold", String(Double(100 - settings.sensitivity) / 100),
+                "--vad-pause-ms", String(settings.pauseMilliseconds)]
+    }
+}
+
 final class NemotronSpeechTranscriber: LocalSpeechTranscriber, @unchecked Sendable {
     typealias Update = WhisperKitSpeechTranscriber.Update
     typealias Failure = WhisperKitSpeechTranscriber.Failure
@@ -35,8 +86,17 @@ final class NemotronSpeechTranscriber: LocalSpeechTranscriber, @unchecked Sendab
     private let modelData: URL
     private let granite: Bool
     private let multitalker: Bool
+    private let speechActivity: SpeechActivitySettings
     private let qwenModel: String
-    init(resources: URL? = nil, qwenModel: String = "", multitalker: Bool = false, granite: Bool = false, modelData: URL? = nil) { self.modelData = modelData ?? ManagedASRRuntime.data; self.granite = granite; self.multitalker = multitalker; self.resources = resources ?? Bundle.main.resourceURL ?? Bundle.main.bundleURL; self.qwenModel = qwenModel }
+    init(resources: URL? = nil, qwenModel: String = "", multitalker: Bool = false, granite: Bool = false,
+         modelData: URL? = nil, speechActivity: SpeechActivitySettings = .balanced) {
+        self.modelData = modelData ?? ManagedASRRuntime.data
+        self.granite = granite
+        self.multitalker = multitalker
+        self.resources = resources ?? Bundle.main.resourceURL ?? Bundle.main.bundleURL
+        self.qwenModel = qwenModel
+        self.speechActivity = speechActivity
+    }
 
 
     static var defaultRuntimeFolder: String { "" }
@@ -58,6 +118,7 @@ final class NemotronSpeechTranscriber: LocalSpeechTranscriber, @unchecked Sendab
         child.executableURL = resources.appendingPathComponent("ASRRuntime/bin/python3.12")
         child.arguments = ["-u", script.path, "--runtime", root.path, "--language", language.id]
         if !qwenModel.isEmpty { child.arguments! += ["--qwen-model", qwenModel] }
+        if !granite && !multitalker { child.arguments! += speechActivity.bridgeArguments }
         child.environment = ManagedASRRuntime.environment(engine: granite ? "granite" : qwenModel.isEmpty ? "nemotron" : "qwen", resourceRoot: resources, modelData: root)
         child.standardInput = stdin; child.standardOutput = stdout; child.standardError = stderr
         let token = UUID()

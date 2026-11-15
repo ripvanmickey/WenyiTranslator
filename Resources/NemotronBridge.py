@@ -10,7 +10,15 @@ def emit(value):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--runtime',required=True)
-    parser.add_argument('--language',required=True);parser.add_argument('--qwen-model',default='');args=parser.parse_args()
+    parser.add_argument('--language', required=True)
+    parser.add_argument('--qwen-model', default='')
+    parser.add_argument('--vad-threshold', type=float)
+    parser.add_argument('--vad-pause-ms', type=int)
+    args = parser.parse_args()
+    if args.vad_threshold is not None and not 0.2 <= args.vad_threshold <= 0.8:
+        parser.error('--vad-threshold must be between 0.2 and 0.8')
+    if args.vad_pause_ms is not None and not 400 <= args.vad_pause_ms <= 1600:
+        parser.error('--vad-pause-ms must be between 400 and 1600')
     root=Path(args.runtime);managed=os.environ.get('WENYI_MANAGED_ASR')=='1'
     project=Path(__file__).parent/'ASRProject' if managed else root/'.runtime/project'
     if not managed:
@@ -27,13 +35,17 @@ def main():
     # Never let upstream progress messages corrupt the JSON stdout protocol.
     with contextlib.redirect_stdout(sys.stderr):
         import numpy as np
+        from livecaption import config
+        if args.vad_threshold is not None:
+            config.VAD_THRESHOLD = args.vad_threshold
+        if args.vad_pause_ms is not None:
+            config.RULE2_MIN_TRAILING_SILENCE = args.vad_pause_ms / 1000
+            config.RULE2_PUNCT_SILENCE = args.vad_pause_ms / 2000
         if managed:
-            from livecaption import config
             config.VAD_MODEL=str(root/'models/vad/files')
         if args.qwen_model:
             if args.qwen_model not in ('Qwen/Qwen3-ASR-1.7B','Qwen/Qwen3-ASR-0.6B'):
                 raise RuntimeError('不支持的 Qwen ASR 模型')
-            from livecaption import config
             config.QWEN_CHUNK_SIZE_SEC=1.0
             config.QWEN_MAX_CONTEXT_SEC=12.0
             config.QWEN_FINALIZATION_MODE='latency'

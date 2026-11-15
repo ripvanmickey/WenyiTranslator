@@ -1,12 +1,14 @@
 # 文译（Wenyi）
 
-适用于 Apple Silicon Mac 的实时语音转写与翻译应用，基于 [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) 修改。当前源码对应 **1.16.0 / 构建 1200**。
+适用于 Apple Silicon Mac 的实时语音转写与翻译应用，基于 [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) 修改。当前源码对应 **1.16.0 / 构建 1202**。
 
 ## 功能与要求
 
 - macOS 14.0 及以上、M1 及以上；macOS 14.2 起支持纯系统音频 Tap。
 - 本地识别：Nemotron 0.6B、Granite Speech 2B、Qwen3-ASR；实验多人识别。识别模型在应用内按需下载、导入和删除。
+- Nemotron 和 Qwen3-ASR 提供 VAD 预设及高级调节，下次开始监听时生效。
 - 独立 LM Studio 提供本地文本翻译；支持流式字幕、原文/译文显示、悬浮字幕和延迟诊断。
+- 本地模型翻译支持跨段回看纠错。空闲时参考后文，成对修正近期已确认的原文与译文，可在设置中关闭。
 - 保存、编辑和重命名转写记录；可用本地模型整理标点、分段和生成标题。
 - macOS 26 保留 Apple Speech / 系统翻译；较旧系统使用第三方本地识别和 LM Studio 翻译。
 

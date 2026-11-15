@@ -47,6 +47,18 @@ struct FloatingCaptionHistory: Equatable {
         Self.present(text, identity: identity, current: &translation, previous: &previousTranslation, keepsHistory: keepsHistory, now: now)
     }
 
+    mutating func correctPrevious(identity: FloatingCaptionIdentity, source: String, translation: String, now: Date) {
+        expire(at: now)
+        if let previousSource, previousSource.caption.identity == identity {
+            self.previousSource = Previous(caption: Caption(identity: identity, text: source),
+                                           retiredAt: previousSource.retiredAt)
+        }
+        if let previousTranslation, previousTranslation.caption.identity == identity {
+            self.previousTranslation = Previous(caption: Caption(identity: identity, text: translation),
+                                                retiredAt: previousTranslation.retiredAt)
+        }
+    }
+
     mutating func expire(at now: Date) {
         if let previousSource, previousSource.expiresAt <= now { self.previousSource = nil }
         if let previousTranslation, previousTranslation.expiresAt <= now { self.previousTranslation = nil }

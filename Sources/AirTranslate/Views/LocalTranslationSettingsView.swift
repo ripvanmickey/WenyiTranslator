@@ -28,6 +28,10 @@ struct LocalTranslationSettingsView: View {
                 .labelsHidden().frame(width: 220).disabled(locked)
             }
             if session.localTranslation.enabled {
+                Toggle("跨段回看纠错", isOn: $session.contextualCaptionCorrectionEnabled)
+                    .disabled(locked)
+                Text("翻译空闲时用后文纠正近期字幕中的同音词。")
+                    .font(.caption).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
