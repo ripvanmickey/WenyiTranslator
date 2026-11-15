@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1204)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1205)
 </p>
 
 <p align="center">
@@ -43,6 +43,8 @@ Build 1202 adds **contextual caption correction**. While translation is idle, We
 Build 1203 checks local Japanese-to-Chinese subtitles for leftover kana and retries the affected segment once with a translation-only request. Valid subtitles still stream as before.
 
 Build 1204 lets local Japanese-to-Chinese translation reference up to two earlier confirmed bilingual captions for proper names. The translation request still streams and covers only the current caption.
+
+Build 1205 adds an Index-Translate 9B preset to local translation settings. Download the model in LM Studio and enable the local API to use it.
 
 ## Saved transcripts
 

@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1204）
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1205）
 </p>
 
 <p align="center">
@@ -43,6 +43,8 @@
 构建 1203 检查本地日译中字幕是否残留假名。发现残留时，仅重译受影响的片段一次。正常译文照常流式显示。
 
 构建 1204 的本地日译中会参考最多两条已确认的双语字幕处理专名，并继续流式输出当前段的译文。
+
+构建 1205 在本地翻译设置中加入 Index-Translate 9B 选项。使用前请在 LM Studio 下载该模型并开启本地 API。
 
 ## 字幕记录
 

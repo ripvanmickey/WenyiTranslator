@@ -1,5 +1,8 @@
 import SwiftUI
 
+private let indexTranslateModelID = "index-translate-9b"
+private let indexTranslateModelName = "Index-Translate 9B"
+
 struct LocalTranslationSettingsView: View {
     @Bindable var session: TranslationSessionStore
     @State private var showingConfiguration = false
@@ -35,7 +38,7 @@ struct LocalTranslationSettingsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(session.localTranslation.modelID.isEmpty ? "尚未配置本地模型" : session.localTranslation.modelID)
+                            Text(activeModelName)
                                 .font(.headline).textSelection(.enabled)
                             Text(session.localTranslation.baseURL).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                             Text(LocalTranslationAPIKeyStore.hasAPIKey() ? "本地服务密钥：已保存" : "本地服务密钥：未配置（无认证）")
@@ -90,6 +93,12 @@ struct LocalTranslationSettingsView: View {
         .onChange(of: session.sourceLanguage) { _, _ in message = "" }
         .onChange(of: session.targetLanguage) { _, _ in message = "" }
         .onDisappear { operation?.cancel() }
+    }
+
+    private var activeModelName: String {
+        let modelID = session.localTranslation.modelID
+        if modelID == indexTranslateModelID { return indexTranslateModelName }
+        return modelID.isEmpty ? "尚未配置本地模型" : modelID
     }
 
     private func runReplay() {
@@ -205,14 +214,19 @@ private struct LocalTranslationConfigurationSheet: View {
                     Button("读取模型列表", action: readModels)
                     if isReading { ProgressView().controlSize(.small) }
                 }
-                if !models.isEmpty {
-                    Picker("选择模型", selection: $draft.modelID) {
-                        Text("请选择模型").tag("")
-                        if !draft.modelID.isEmpty && !models.contains(draft.modelID) { Text(draft.modelID).tag(draft.modelID) }
-                        ForEach(models, id: \.self) { Text($0).tag($0) }
-                    }.labelsHidden().frame(maxWidth: .infinity, alignment: .leading)
-                }
+                Picker("选择模型", selection: $draft.modelID) {
+                    Text("请选择模型").tag("")
+                    Text(indexTranslateModelName).tag(indexTranslateModelID)
+                    if !draft.modelID.isEmpty && draft.modelID != indexTranslateModelID && !models.contains(draft.modelID) {
+                        Text(draft.modelID).tag(draft.modelID)
+                    }
+                    ForEach(models.filter { $0 != indexTranslateModelID }, id: \.self) { Text($0).tag($0) }
+                }.labelsHidden().frame(maxWidth: .infinity, alignment: .leading)
                 TextField("模型 ID", text: $draft.modelID).textFieldStyle(.roundedBorder)
+                if draft.modelID == indexTranslateModelID {
+                    Text("需要在 LM Studio 下载此模型并开启本地 API。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }.disabled(locked)
             VStack(alignment: .leading, spacing: 8) {
                 Text("本地服务密钥（可选）").font(.headline)
