@@ -21,6 +21,7 @@ struct FloatingCaptionWindowView: View {
 
     @State private var stable: [UUID: FloatingParagraphStability] = [:]
     @State private var visibility = FloatingParagraphVisibility()
+    @State private var retainedTranslation: CaptionLine?
     private static let previewID = UUID()
 
     private var paragraphs: [CaptionLine] {
@@ -33,7 +34,17 @@ struct FloatingCaptionWindowView: View {
     }
 
     private var visibleParagraphs: [CaptionLine] {
-        visibility.hidesPrevious ? Array(paragraphs.suffix(1)) : paragraphs
+        let recent = paragraphs
+        let ids = visibility.visibleIDs(recent: recent.map(\.id), retainedTranslationID: retainedTranslation?.id,
+            latestHasTranslation: recent.last.map { !translation($0).isEmpty } ?? false,
+            requiresTranslation: requiresTranslation)
+        return ids.compactMap { id in recent.first { $0.id == id } ?? (retainedTranslation?.id == id ? retainedTranslation : nil) }
+    }
+    private var requiresTranslation: Bool { session.floatingCaptionDisplayMode != .original }
+    private var waitingForSuccessor: Bool {
+        guard requiresTranslation, !session.isPreviewingFloatingCaptions,
+              let latest = paragraphs.last, let retainedTranslation, latest.id != retainedTranslation.id else { return false }
+        return translation(latest).isEmpty && !translation(retainedTranslation).isEmpty
     }
     private var preferredHeight: CGFloat { min(280, max(160, session.floatingCaptionPreferredWindowHeight)) }
     private var latestText: [String] {
@@ -44,7 +55,8 @@ struct FloatingCaptionWindowView: View {
     private var hasText: Bool {
         visibleParagraphs.contains { line in
             (session.floatingCaptionDisplayMode != .translation && !source(line).isEmpty)
-            || (session.floatingCaptionDisplayMode != .original && !translation(line).isEmpty)
+            || (requiresTranslation && !translation(line).isEmpty)
+            || (requiresTranslation && session.isUsingLocalTranslation && line.isTranslationInterrupted)
         }
     }
 
@@ -58,9 +70,19 @@ struct FloatingCaptionWindowView: View {
                     ScrollViewReader { reader in
                         ScrollView(.vertical) {
                             VStack(alignment: .leading, spacing: 18) {
-                                ForEach(visibleParagraphs) { line in
-                                    paragraph(line)
-                                        .id(line.id)
+                                if waitingForSuccessor, let retainedTranslation, let latest = paragraphs.last {
+                                    if session.floatingCaptionDisplayMode == .originalAndTranslation {
+                                        text(source(latest), primary: false)
+                                    }
+                                    if session.isUsingLocalTranslation {
+                                        Text("当前译文 · " + latest.localTranslationStatus)
+                                            .font(.caption).foregroundStyle(session.floatingCaptionTextColor.opacity(0.72))
+                                    }
+                                    translationBlock(retainedTranslation, primary: true, previous: true)
+                                } else {
+                                    ForEach(visibleParagraphs) { line in
+                                        paragraph(line).id(line.id)
+                                    }
                                 }
                             }
                             .overlay(alignment: .bottom) { Color.clear.frame(height: 1).id("live-bottom") }
@@ -85,7 +107,8 @@ struct FloatingCaptionWindowView: View {
                         }
                         .onChange(of: latestID) { _, id in
                             // Follow a new paragraph once. Revisions never reposition the reader.
-                            if let id { reader.scrollTo(id, anchor: .bottom) }
+                            if waitingForSuccessor { reader.scrollTo("live-bottom", anchor: .bottom) }
+                            else if let id { reader.scrollTo(id, anchor: .bottom) }
                         }
                     }
                 }
@@ -118,13 +141,17 @@ struct FloatingCaptionWindowView: View {
             session.floatingCaptionMeasuredContentHeight = max(0, size.height - 40)
         }
         .onChange(of: paragraphs, initial: true) { _, _ in refresh() }
+        .onChange(of: session.floatingCaptionDisplayMode) { _, _ in
+            visibility = FloatingParagraphVisibility()
+            refresh()
+        }
         .task {
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
                 refresh()
             }
         }
-        .onDisappear { stable.removeAll(); visibility = FloatingParagraphVisibility() }
+        .onDisappear { stable.removeAll(); visibility = FloatingParagraphVisibility(); retainedTranslation = nil }
         .wenyiWindowActivationEvents()
         .background(FloatingWindowConfigurator(preferredContentHeight: preferredHeight,
             minimumWindowSize: FloatingCaptionWindowController.minimumWindowSize,
@@ -144,26 +171,34 @@ struct FloatingCaptionWindowView: View {
     private func refresh() {
         let now = ProcessInfo.processInfo.systemUptime
         let rows = paragraphs
+        if rows.isEmpty || session.isPreviewingFloatingCaptions { retainedTranslation = nil }
         let usesLocalPreview = session.isUsingLocalTranslation
-        let live = Set(rows.map(\.id))
-        stable = stable.filter { live.contains($0.key) }
         for line in rows {
             // The legacy path freezes the preceding paragraph. Local translation can
             // still confirm it while it remains in the two-paragraph overlay.
             if !usesLocalPreview, line.id != rows.last?.id && stable[line.id] != nil { continue }
             var state = stable[line.id] ?? FloatingParagraphStability()
             state.source.receive(line.sourceDisplayText, final: line.isFinal, now: now, usesLocalPreview: usesLocalPreview)
-            let translated = line.translatedDisplayText == AppText.translating ? "" : line.translatedDisplayText
+            let translated = line.hasUsableTranslation ? line.translatedDisplayText : ""
             // ASR finality alone does not finalize a streaming translation.
             state.translation.receive(translated, final: line.hasConfirmedTranslation, now: now,
                 minimumFirstLength: 8, usesLocalPreview: usesLocalPreview)
             stable[line.id] = state
         }
+        if !session.isPreviewingFloatingCaptions, requiresTranslation,
+           let newestTranslated = rows.last(where: { !translation($0).isEmpty }) {
+            retainedTranslation = newestTranslated
+        } else if !requiresTranslation {
+            retainedTranslation = nil
+        }
+        var live = Set(rows.map(\.id))
+        if let retainedTranslation { live.insert(retainedTranslation.id) }
+        stable = stable.filter { live.contains($0.key) }
         let current = rows.last
         visibility.update(latestID: current?.id,
             hasSource: current.map { !source($0).isEmpty } ?? false,
             hasTranslation: current.map { !translation($0).isEmpty } ?? false,
-            requiresTranslation: session.floatingCaptionDisplayMode != .original, now: now)
+            requiresTranslation: requiresTranslation, now: now)
     }
 
     @ViewBuilder private func paragraph(_ line: CaptionLine) -> some View {
@@ -172,19 +207,29 @@ struct FloatingCaptionWindowView: View {
             case .original:
                 text(source(line), primary: true)
             case .translation:
-                text(translation(line), primary: true)
+                translationBlock(line, primary: true)
             case .originalAndTranslation:
                 if session.floatingCaptionStyle.translationFirst {
-                    text(translation(line), primary: true)
+                    translationBlock(line, primary: true)
                     text(source(line), primary: false)
                 } else {
                     text(source(line), primary: false)
-                    text(translation(line), primary: true)
+                    translationBlock(line, primary: true)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: session.floatingCaptionTextAlignment.frameAlignment(vertical: .top))
         .transaction { $0.animation = nil }
+    }
+
+    @ViewBuilder private func translationBlock(_ line: CaptionLine, primary: Bool, previous: Bool = false) -> some View {
+        let value = translation(line)
+        if session.isUsingLocalTranslation, !session.isPreviewingFloatingCaptions,
+           !value.isEmpty || line.isTranslationInterrupted {
+            Text((previous ? "上一段译文 · " : "译文 · ") + line.localTranslationStatus)
+                .font(.caption).foregroundStyle(session.floatingCaptionTextColor.opacity(0.72))
+        }
+        text(value, primary: primary)
     }
 
     @ViewBuilder private func text(_ value: String, primary: Bool) -> some View {

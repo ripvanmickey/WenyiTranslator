@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1207)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1208)
 </p>
 
 <p align="center">
@@ -49,6 +49,8 @@ Build 1205 adds an Index-Translate 9B preset to local translation settings. Down
 Build 1206 keeps the first visible local caption on screen and updates it once the segment is confirmed, in both the main window and floating captions.
 
 Build 1207 restores incremental local subtitle previews. Short translations appear immediately, and the preview grows at a controlled rate until confirmation.
+
+Build 1208 keeps the previous floating translation visible until a replacement arrives and labels local translations as preview, complete, or interrupted.
 
 ## Saved transcripts
 

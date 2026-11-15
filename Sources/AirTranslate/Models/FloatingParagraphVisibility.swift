@@ -16,12 +16,21 @@ struct FloatingParagraphVisibility {
         guard latestID != nil else { return }
         if hasSource && !sawSource {
             sawSource = true
-            expiresAt = now + (requiresTranslation ? 2 : 1)
+            if !requiresTranslation { expiresAt = now + 1 }
         }
-        if hasTranslation && !sawTranslation {
+        if requiresTranslation && hasTranslation && !sawTranslation {
             sawTranslation = true
             expiresAt = min(expiresAt ?? .infinity, now + 1)
         }
         if let expiresAt, now >= expiresAt { hidesPrevious = true }
+    }
+
+    func visibleIDs(recent: [UUID], retainedTranslationID: UUID?,
+                    latestHasTranslation: Bool, requiresTranslation: Bool) -> [UUID] {
+        if requiresTranslation, !latestHasTranslation,
+           let latest = recent.last, let retainedTranslationID, retainedTranslationID != latest {
+            return [retainedTranslationID, latest]
+        }
+        return hidesPrevious ? Array(recent.suffix(1)) : recent
     }
 }

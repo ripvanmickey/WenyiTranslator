@@ -1809,6 +1809,13 @@ final class TranslationSessionStore {
         flushOpenAITerminalTranscriptMailbox()
         flushPendingRecognizedCaption()
         flushPendingCaptionPresentation()
+        if isUsingLocalTranslation {
+            for index in lines.indices where !lines[index].hasConfirmedTranslation {
+                if !lines[index].isTranslationInterrupted {
+                    lines[index].isTranslationInterrupted = true
+                }
+            }
+        }
         let hadTranscriptToSave = isTranscriptPersistenceEnabled
             && (!visibleTranscript().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !activeAutosaveSourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -4480,7 +4487,7 @@ final class TranslationSessionStore {
     }
 
     private func clearPendingTranslationPlaceholders(message: String) {
-        for index in lines.indices where lines[index].translatedText == AppText.translating {
+        for index in lines.indices where lines[index].translatedText == AppText.translating && !lines[index].isTranslationInterrupted {
             let line = lines[index]
             lines[index] = CaptionLine(
                 id: line.id,
@@ -8362,6 +8369,14 @@ final class TranslationSessionStore {
             return
         }
         let currentSourceText = lines[index].sourceText
+        if isUsingLocalTranslation {
+            if currentSourceText == sourceText, !lines[index].hasConfirmedTranslation {
+                lines[index].isTranslationInterrupted = true
+            }
+            if pendingTranslationSourceText == sourceText { pendingTranslationSourceText = "" }
+            statusMessage = message
+            return
+        }
         guard Self.isCompatibleLiveSource(current: currentSourceText, requested: sourceText) else {
             if lines[index].translatedText == AppText.translating {
                 let line = lines[index]

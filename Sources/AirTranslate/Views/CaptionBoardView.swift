@@ -87,6 +87,7 @@ private struct ModernCaptionTranscriptFeed: View {
                                 showsTranslationPane: session.shouldShowTranslationPane,
                                 showsRecognitionState: session.whisperRecognitionEnabled && (session.isUsingLocalTranslation || session.isTranscribeOnlyMode),
                                 usesLocalPreview: session.isRunning && session.isUsingLocalTranslation,
+                                showsTranslationStatus: session.isUsingLocalTranslation,
                                 isLive: session.isRunning
                                     && line.id == session.lines.last?.id
                                     && !line.isFinal
@@ -397,6 +398,7 @@ private struct CaptionLineView: View, Equatable {
     let showsTranslationPane: Bool
     var showsRecognitionState = false
     var usesLocalPreview = false
+    var showsTranslationStatus = false
     let isLive: Bool
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
@@ -407,6 +409,8 @@ private struct CaptionLineView: View, Equatable {
             && lhs.showsRecognitionState == rhs.showsRecognitionState
             && lhs.line.isFinal == rhs.line.isFinal
             && lhs.usesLocalPreview == rhs.usesLocalPreview
+            && lhs.showsTranslationStatus == rhs.showsTranslationStatus
+            && lhs.line.isTranslationInterrupted == rhs.line.isTranslationInterrupted
     }
 
     var body: some View {
@@ -438,10 +442,11 @@ private struct CaptionLineView: View, Equatable {
                     TurnTranscriptText(
                         lineID: line.id,
                         title: AppText.translation,
-                        text: line.translatedText,
-                        displayText: line.translatedDisplayText,
+                        text: line.isTranslationInterrupted && !line.hasUsableTranslation ? "" : line.translatedText,
+                        displayText: line.isTranslationInterrupted && !line.hasUsableTranslation ? "" : line.translatedDisplayText,
                         holdsLiveRewrites: isLive,
                         confirmation: usesLocalPreview ? line.hasConfirmedTranslation : nil,
+                        status: showsTranslationStatus ? line.localTranslationStatus : nil,
                         font: AirTranslateDesign.Typography.captionTranslation,
                         lineSpacing: 6,
                         color: AirTranslateDesign.Palette.textPrimary
@@ -474,6 +479,7 @@ private struct TurnTranscriptText: View {
     let displayText: String
     let holdsLiveRewrites: Bool
     let confirmation: Bool?
+    var status: String? = nil
     let font: Font
     let lineSpacing: CGFloat
     let color: Color
@@ -495,7 +501,7 @@ private struct TurnTranscriptText: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
             HStack(spacing: AirTranslateDesign.Spacing.xs) {
-                Text(title.uppercased())
+                Text(status.map { title + " · " + $0 } ?? title.uppercased())
                     .font(.system(size: 12, weight: .medium))
                     .tracking(0.6)
                     .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
@@ -1176,6 +1182,7 @@ private struct LegacyCaptionTranscriptFeed: View {
                                 CaptionLineView(line: line, showsTranslationPane: session.shouldShowTranslationPane,
                                     showsRecognitionState: session.whisperRecognitionEnabled && (session.isUsingLocalTranslation || session.isTranscribeOnlyMode),
                                     usesLocalPreview: session.isRunning && session.isUsingLocalTranslation,
+                                    showsTranslationStatus: session.isUsingLocalTranslation,
                                     isLive: session.isRunning && line.id == session.lines.last?.id && !line.isFinal)
                                     .equatable().id(line.id)
                             }

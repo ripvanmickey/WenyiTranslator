@@ -28,21 +28,21 @@ mkdir -p "$APP/Contents/Resources/ThirdParty"
 cp "$ROOT_DIR/Vendor/silero-vad-swift-main/LICENSE" "$APP/Contents/Resources/ThirdParty/SileroSwift-LICENSE"
 cp "$ROOT_DIR/Vendor/silero-vad-swift-main/THIRD_PARTY_NOTICES" "$APP/Contents/Resources/ThirdParty/Silero-NOTICES"
 cp "$ROOT_DIR/LICENSE" "$ROOT_DIR/NOTICE" "$APP/Contents/Resources/"
-BUNDLE_ID=dev.appcaster.AirTranslate.LocalQwen BUILD_NUMBER=1207 \
+BUNDLE_ID=dev.appcaster.AirTranslate.LocalQwen BUILD_NUMBER=1208 \
   bash "$ROOT_DIR/script/write_info_plist.sh" "$APP/Contents/Info.plist" release
 /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName 文译' "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleName 文译' "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true' "$APP/Contents/Info.plist"
-python3 "$ROOT_DIR/script/audit_macos14_bundle.py" "$APP" > "$OUTPUT_DIR/Wenyi-1207-native-audit.json"
+python3 "$ROOT_DIR/script/audit_macos14_bundle.py" "$APP" > "$OUTPUT_DIR/Wenyi-1208-native-audit.json"
 python3 "$ROOT_DIR/script/sign_nested_runtime.py" "$APP"
 codesign --force --options runtime --timestamp=none --entitlements "$ROOT_DIR/Resources/AirTranslate.entitlements" --sign - "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 ln -s /Applications "$STAGING/Applications"
 cp "$ROOT_DIR/docs/LOCAL-LM-STUDIO.zh-CN.md" "$STAGING/安装与配置说明.md"
 hdiutil create -volname '文译' -srcfolder "$STAGING" -format UDZO \
-  "$OUTPUT_DIR/Wenyi-1.16.0-1207-arm64.dmg"
-hdiutil verify "$OUTPUT_DIR/Wenyi-1.16.0-1207-arm64.dmg"
-shasum -a 256 "$OUTPUT_DIR/Wenyi-1.16.0-1207-arm64.dmg" \
-  > "$OUTPUT_DIR/Wenyi-1.16.0-1207-arm64.dmg.sha256"
+  "$OUTPUT_DIR/Wenyi-1.16.0-1208-arm64.dmg"
+hdiutil verify "$OUTPUT_DIR/Wenyi-1.16.0-1208-arm64.dmg"
+shasum -a 256 "$OUTPUT_DIR/Wenyi-1.16.0-1208-arm64.dmg" \
+  > "$OUTPUT_DIR/Wenyi-1.16.0-1208-arm64.dmg.sha256"
 printf 'App staging folder: %s\n' "$STAGING"

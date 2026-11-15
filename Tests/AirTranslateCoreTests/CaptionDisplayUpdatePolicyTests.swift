@@ -47,6 +47,41 @@ struct CaptionDisplayUpdatePolicyTests {
     }
 
     @Test
+    func floatingRetainsLastTranslationAcrossUntranslatedParagraphs() {
+        let previous = UUID()
+        let pending = UUID()
+        let latest = UUID()
+        var visibility = FloatingParagraphVisibility()
+        visibility.update(latestID: latest, hasSource: true, hasTranslation: false, requiresTranslation: true, now: 1)
+        visibility.update(latestID: latest, hasSource: true, hasTranslation: false, requiresTranslation: true, now: 5)
+        #expect(!visibility.hidesPrevious)
+        #expect(visibility.visibleIDs(recent: [pending, latest], retainedTranslationID: previous,
+                                     latestHasTranslation: false, requiresTranslation: true) == [previous, latest])
+        visibility.update(latestID: latest, hasSource: true, hasTranslation: true, requiresTranslation: true, now: 6)
+        #expect(!visibility.hidesPrevious)
+        visibility.update(latestID: latest, hasSource: true, hasTranslation: true, requiresTranslation: true, now: 7)
+        #expect(visibility.hidesPrevious)
+    }
+
+    @Test
+    func localTranslationStatusSeparatesPreviewCompletionAndInterruption() {
+        var line = CaptionLine(sourceText: "原文", translatedText: "译文", translatedSourceText: "原文",
+                               createdAt: start, isFinal: true)
+        #expect(line.localTranslationStatus == "预览")
+        line.isTranslationInterrupted = true
+        #expect(line.localTranslationStatus == "中断")
+        #expect(line.hasUsableTranslation)
+        let completed = CaptionLine(sourceText: "原文", translatedText: "译文", translatedSourceText: "原文",
+                                    createdAt: start, isFinal: true, isTranslationComplete: true)
+        #expect(completed.localTranslationStatus == "已完成")
+        var waiting = CaptionLine(sourceText: "原文", translatedText: AppText.translating, createdAt: start, isFinal: true)
+        #expect(waiting.localTranslationStatus == "等待译文")
+        waiting.isTranslationInterrupted = true
+        #expect(waiting.localTranslationStatus == "中断")
+        #expect(!waiting.hasUsableTranslation)
+    }
+
+    @Test
     func firstCaptionAndPrefixAppendPublishWithoutHold() {
         var state = CaptionDisplayUpdatePolicy.State()
 

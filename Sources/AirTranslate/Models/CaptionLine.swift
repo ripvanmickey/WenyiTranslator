@@ -12,12 +12,24 @@ struct CaptionLine: Identifiable, Equatable {
     let translatedSourceText: String
     let createdAt: Date
     let isTranslationComplete: Bool
+    var isTranslationInterrupted = false
     let isFinal: Bool
     let revision: Int
     let speakerLabel: String?
 
     var hasConfirmedTranslation: Bool {
         isFinal && isTranslationComplete && translatedSourceText == sourceText
+    }
+
+    var hasUsableTranslation: Bool {
+        !translatedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && translatedText != AppText.translating && translatedText != AppText.translationCancelled
+    }
+
+    var localTranslationStatus: String {
+        if isTranslationInterrupted { return "中断" }
+        if hasConfirmedTranslation && hasUsableTranslation { return "已完成" }
+        return hasUsableTranslation ? "预览" : "等待译文"
     }
 
     init(

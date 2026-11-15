@@ -22,7 +22,7 @@ struct FloatingCaptionSettingsView: View {
                     Picker("窗口高度参考", selection: $session.floatingCaptionLineCount) {
                         ForEach(FloatingCaptionLineCount.allCases) { Text($0.title).tag($0) }
                     }
-                    Text("悬浮字幕与主窗口共用段落，旧段在新译文出现后约 1 秒退出；长段落在有限高度内滚动，完整历史留在主窗口。").font(.caption).foregroundStyle(.secondary)
+                    Text("新译文出现前保留上一段译文。长段落可在悬浮窗口内滚动查看。").font(.caption).foregroundStyle(.secondary)
                     Picker(AppText.captionAlignment, selection: $session.floatingCaptionTextAlignment) {
                         ForEach(FloatingCaptionTextAlignment.allCases) { Text($0.title).tag($0) }
                     }
