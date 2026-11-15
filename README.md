@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1203)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1204)
 </p>
 
 <p align="center">
@@ -41,6 +41,8 @@ Wenyi sends the recognized text to LM Studio on the same Mac. The settings inclu
 Build 1202 adds **contextual caption correction**. While translation is idle, Wenyi uses later speech to check recent finalized captions for homophone mistakes and updates the original and translation together when it finds a correction. New captions take priority. You can turn this feature off under Settings → General.
 
 Build 1203 checks local Japanese-to-Chinese subtitles for leftover kana and retries the affected segment once with a translation-only request. Valid subtitles still stream as before.
+
+Build 1204 lets local Japanese-to-Chinese translation reference up to two earlier confirmed bilingual captions for proper names. The translation request still streams and covers only the current caption.
 
 ## Saved transcripts
 

@@ -1341,6 +1341,7 @@ final class TranslationSessionStore {
     private var floatingTranslationHoldTask: Task<Void, Never>?
     private var floatingPresentationTask: Task<Void, Never>?
     private var sourceLanguageByLineID: [UUID: LanguageOption] = [:]
+    private var recentLocalTranslationLineIDs: [UUID] = []
     private var pendingTranslationSourceText = ""
     private var translationSegmentCache = TranslationSegmentCache(
         capacity: TranslationSessionStore.maxTranslationCacheEntries
@@ -6807,6 +6808,7 @@ final class TranslationSessionStore {
         source: LanguageOption,
         target: LanguageOption,
         incrementalIdentity: String? = nil,
+        confirmedCaptions: [ConfirmedCaptionContext] = [],
         punctuation: LocalTranslationService.Progress? = nil,
         progress: @escaping @MainActor @Sendable (String) -> Void = { _ in }
     ) async throws -> String {
@@ -6827,7 +6829,8 @@ final class TranslationSessionStore {
         if isUsingLocalTranslation, let identity = incrementalIdentity {
             return try await IncrementalLocalTranslator.shared.translate(text, identity: identity,
                 source: source.id, target: target.id, configuration: localTranslation,
-                apiKey: LocalTranslationAPIKeyStore.readAPIKey(), punctuation: punctuation, progress: progress)
+                apiKey: LocalTranslationAPIKeyStore.readAPIKey(), confirmedCaptions: confirmedCaptions,
+                punctuation: punctuation, progress: progress)
         }
         let translationOptions = appleTranslationOptions
         let segmentationOptions = isUsingAppleTextTranslation ? translationOptions : AppleTranslationOptions()
@@ -7006,6 +7009,7 @@ final class TranslationSessionStore {
 
     private func resetTranslationCache() {
         translationSegmentCache.removeAll()
+        recentLocalTranslationLineIDs.removeAll()
     }
 
     private func updateRealtimeTranslationSourceTranscript(_ text: String) {
@@ -7852,6 +7856,7 @@ final class TranslationSessionStore {
                     source: request.source,
                     target: request.target,
                     incrementalIdentity: "\(request.pipelineGeneration):\(request.line.id.uuidString)",
+                    confirmedCaptions: confirmedLocalCaptionContext(for: request),
                     punctuation: { [weak self] candidate in
                         guard let self, self.acceptsTranslationUpdates(for: request),
                               let index = self.lines.firstIndex(where: { $0.id == request.line.id }),
@@ -7905,6 +7910,19 @@ final class TranslationSessionStore {
             translationOperationTask = nil
             activeTranslationRequest = nil
         }
+    }
+
+    private func confirmedLocalCaptionContext(for request: TranslationRequest) -> [ConfirmedCaptionContext] {
+        guard isUsingLocalTranslation, LocalTranslationService.isJapaneseToChinese(source: request.source.id, target: request.target.id),
+              !recentLocalTranslationLineIDs.isEmpty,
+              let index = lines.firstIndex(where: { $0.id == request.line.id }) else { return [] }
+        let eligible = Set(recentLocalTranslationLineIDs)
+        let recent = lines[..<index].reversed().lazy.filter { line in
+            eligible.contains(line.id) && line.isFinal && line.isTranslationComplete
+                && line.translatedSourceText == line.sourceText && !line.translatedText.isEmpty
+                && self.sourceLanguageByLineID[line.id] == request.source
+        }.prefix(2)
+        return recent.reversed().map { ConfirmedCaptionContext(source: $0.sourceText, translation: $0.translatedText) }
     }
 
     private var canReviewCaptionContext: Bool {
@@ -8294,6 +8312,13 @@ final class TranslationSessionStore {
 
         if let punctuated = punctuatedDisplayByLine[line.id], punctuated.source == currentSourceText {
             lines[index].sourceDisplayText = punctuated.display
+        }
+
+        if finalizesRequest, isUsingLocalTranslation, let request,
+           LocalTranslationService.isJapaneseToChinese(source: request.source.id, target: request.target.id) {
+            recentLocalTranslationLineIDs.removeAll { $0 == line.id }
+            recentLocalTranslationLineIDs.append(line.id)
+            if recentLocalTranslationLineIDs.count > 16 { recentLocalTranslationLineIDs.removeFirst() }
         }
 
         if let request {

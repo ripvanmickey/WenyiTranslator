@@ -4,6 +4,7 @@ final class Mock: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var calls = 0
     nonisolated(unsafe) static var raw = "今天晴天。明天呢？\n[WENYI_JA]今日は晴れています。明日はどうでしょうか？"
     nonisolated(unsafe) static var retry: String?
+    nonisolated(unsafe) static var checkRequest: (([String: Any]) -> Void)?
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -13,6 +14,7 @@ final class Mock: URLProtocol, @unchecked Sendable {
             while stream.hasBytesAvailable { let count = stream.read(&bytes, maxLength: bytes.count); if count <= 0 { break }; data.append(contentsOf: bytes.prefix(count)) }; return data
         }!
         let body = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+        Self.checkRequest?(body)
         let usesFooter = (body["system_prompt"] as? String)?.contains("[WENYI_JA]") == true
         let output = usesFooter ? Self.raw : Self.retry!
         precondition(body["reasoning"] as? String == "off")
@@ -81,7 +83,30 @@ final class Mock: URLProtocol, @unchecked Sendable {
         Mock.raw = "今日は晴れています。"
         let japanese = try await client.translate(original, source: "ja-JP", target: "ja-JP", configuration: model)
         precondition(japanese == Mock.raw && Mock.calls == count + 5)
+
+        Mock.raw = "今天介绍 J-POP 新歌。"
+        let current = "今日はJポップの新曲を紹介します。"
+        Mock.checkRequest = { body in
+            let prompt = body["system_prompt"] as! String
+            let lines = (body["input"] as! String).components(separatedBy: "\n")
+            let reference = try! JSONSerialization.jsonObject(with: Data(lines[1].utf8)) as! [String: Any]
+            let captions = reference["confirmedCaptions"] as! [[String: String]]
+            precondition(try! JSONDecoder().decode(String.self, from: Data(lines[3].utf8)) == current)
+            precondition(body["stream"] as? Bool == true && lines[2].hasPrefix("CURRENT CAPTION"))
+            precondition(captions.count == 2 && captions[0]["translation"] == "上一段介绍了日本音乐。")
+            precondition(captions[1]["source"]?.count == 120)
+            precondition(prompt.contains("Latin-script labels") && prompt.contains("labeled CURRENT CAPTION"))
+        }
+        let contextual = try await incremental.translate(current, identity: "context", source: "ja-JP", target: "zh-CN",
+            configuration: model, apiKey: nil, confirmedCaptions: [
+                .init(source: "古い", translation: "较早字幕"),
+                .init(source: "日本の音楽を紹介しました。", translation: "上一段介绍了日本音乐。"),
+                .init(source: String(repeating: "音", count: 150), translation: "上一条字幕")
+            ], progress: { _ in })
+        precondition(contextual == Mock.raw && Mock.calls == count + 6)
+        Mock.checkRequest = nil
         print("PASS joint response, one request, streaming marker fragmentation, no footer leak, source validation and incremental cache reuse")
         print("PASS mixed Japanese hidden from progress, one translation-only retry, halfwidth kana rejected and Japanese target preserved")
+        print("PASS two bounded confirmed captions and name policy are sent with the same streaming request")
     }
 }
