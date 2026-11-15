@@ -8,6 +8,31 @@ struct CaptionDisplayUpdatePolicyTests {
     private let start = Date(timeIntervalSinceReferenceDate: 0)
 
     @Test
+    func firstAndFinalDisplaysOnlyFirstUsableAndConfirmedText() {
+        var caption = FirstAndFinalCaptionText()
+        caption.receive("", confirmed: true)
+        caption.receive("今天天气", confirmed: false)
+        caption.receive("今天天气不错", confirmed: false)
+        caption.receive("明天的天气不错", confirmed: false)
+        #expect(caption.text == "今天天气")
+        caption.receive("明天的天气会很好。", confirmed: true)
+        caption.receive("明天天气晴朗。", confirmed: true)
+        #expect(caption.text == "明天的天气会很好。")
+    }
+
+    @Test
+    func floatingFirstAndFinalCanPublishShortOrLateFinal() {
+        var channel = FloatingParagraphStability.Channel()
+        channel.receive("好的", final: false, now: 1, minimumFirstLength: 8, firstAndFinal: true)
+        #expect(channel.text.isEmpty)
+        channel.receive("好的", final: false, now: 1.5, minimumFirstLength: 8, firstAndFinal: true)
+        channel.receive("好的，让我们开始。", final: false, now: 2, minimumFirstLength: 8, firstAndFinal: true)
+        #expect(channel.text == "好的")
+        channel.receive("那就开始吧。", final: true, now: 2.1, minimumFirstLength: 8, firstAndFinal: true)
+        #expect(channel.text == "那就开始吧。")
+    }
+
+    @Test
     func firstCaptionAndPrefixAppendPublishWithoutHold() {
         var state = CaptionDisplayUpdatePolicy.State()
 

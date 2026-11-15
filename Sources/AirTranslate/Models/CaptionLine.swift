@@ -16,6 +16,10 @@ struct CaptionLine: Identifiable, Equatable {
     let revision: Int
     let speakerLabel: String?
 
+    var hasConfirmedTranslation: Bool {
+        isFinal && isTranslationComplete && translatedSourceText == sourceText
+    }
+
     init(
         id: UUID = UUID(),
         sourceText: String,

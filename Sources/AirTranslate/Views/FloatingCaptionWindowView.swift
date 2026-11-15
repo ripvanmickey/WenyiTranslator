@@ -144,19 +144,19 @@ struct FloatingCaptionWindowView: View {
     private func refresh() {
         let now = ProcessInfo.processInfo.systemUptime
         let rows = paragraphs
+        let firstAndFinal = session.isUsingLocalTranslation
         let live = Set(rows.map(\.id))
         stable = stable.filter { live.contains($0.key) }
         for line in rows {
-            // Once a newer paragraph exists, preserve the old visible snapshot.
-            // Its late corrections still update the full transcript, not this overlay.
-            if line.id != rows.last?.id && stable[line.id] != nil { continue }
+            // The legacy path freezes the preceding paragraph. Local translation can
+            // still confirm it while it remains in the two-paragraph overlay.
+            if !firstAndFinal, line.id != rows.last?.id && stable[line.id] != nil { continue }
             var state = stable[line.id] ?? FloatingParagraphStability()
-            state.source.receive(line.sourceDisplayText, final: line.isFinal, now: now)
+            state.source.receive(line.sourceDisplayText, final: line.isFinal, now: now, firstAndFinal: firstAndFinal)
             let translated = line.translatedDisplayText == AppText.translating ? "" : line.translatedDisplayText
             // ASR finality alone does not finalize a streaming translation.
-            let finalTranslation = line.isFinal && line.isTranslationComplete
-                && line.translatedSourceText == line.sourceText
-            state.translation.receive(translated, final: finalTranslation, now: now, minimumFirstLength: 8)
+            state.translation.receive(translated, final: line.hasConfirmedTranslation, now: now,
+                minimumFirstLength: 8, firstAndFinal: firstAndFinal)
             stable[line.id] = state
         }
         let current = rows.last

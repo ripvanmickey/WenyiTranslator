@@ -86,6 +86,7 @@ private struct ModernCaptionTranscriptFeed: View {
                                 line: line,
                                 showsTranslationPane: session.shouldShowTranslationPane,
                                 showsRecognitionState: session.whisperRecognitionEnabled && (session.isUsingLocalTranslation || session.isTranscribeOnlyMode),
+                                firstAndFinal: session.isRunning && session.isUsingLocalTranslation,
                                 isLive: session.isRunning
                                     && line.id == session.lines.last?.id
                                     && !line.isFinal
@@ -395,6 +396,7 @@ private struct CaptionLineView: View, Equatable {
     let line: CaptionLine
     let showsTranslationPane: Bool
     var showsRecognitionState = false
+    var firstAndFinal = false
     let isLive: Bool
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
@@ -404,6 +406,7 @@ private struct CaptionLineView: View, Equatable {
             && lhs.isLive == rhs.isLive
             && lhs.showsRecognitionState == rhs.showsRecognitionState
             && lhs.line.isFinal == rhs.line.isFinal
+            && lhs.firstAndFinal == rhs.firstAndFinal
     }
 
     var body: some View {
@@ -426,6 +429,7 @@ private struct CaptionLineView: View, Equatable {
                         text: line.sourceText,
                         displayText: line.sourceDisplayText,
                         holdsLiveRewrites: isLive,
+                        confirmation: firstAndFinal ? line.isFinal : nil,
                         font: AirTranslateDesign.Typography.captionOriginal,
                         lineSpacing: 4,
                         color: AirTranslateDesign.Palette.textSecondary
@@ -437,6 +441,7 @@ private struct CaptionLineView: View, Equatable {
                         text: line.translatedText,
                         displayText: line.translatedDisplayText,
                         holdsLiveRewrites: isLive,
+                        confirmation: firstAndFinal ? line.hasConfirmedTranslation : nil,
                         font: AirTranslateDesign.Typography.captionTranslation,
                         lineSpacing: 6,
                         color: AirTranslateDesign.Palette.textPrimary
@@ -448,6 +453,7 @@ private struct CaptionLineView: View, Equatable {
                         text: line.sourceText,
                         displayText: line.sourceDisplayText,
                         holdsLiveRewrites: isLive,
+                        confirmation: firstAndFinal ? line.isFinal : nil,
                         font: AirTranslateDesign.Typography.captionTranslation,
                         lineSpacing: 6,
                         color: AirTranslateDesign.Palette.textPrimary
@@ -467,11 +473,13 @@ private struct TurnTranscriptText: View {
     let text: String
     let displayText: String
     let holdsLiveRewrites: Bool
+    let confirmation: Bool?
     let font: Font
     let lineSpacing: CGFloat
     let color: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var displayState = CaptionDisplayUpdatePolicy.State()
+    @State private var confirmedDisplay = FirstAndFinalCaptionText()
     @State private var didInitializeDisplayState = false
     @State private var displayHoldTask: Task<Void, Never>?
     @State private var isTextOverflowing = false
@@ -560,6 +568,9 @@ private struct TurnTranscriptText: View {
         .onChange(of: holdsLiveRewrites) { _, canHoldRewrite in
             applyDisplayUpdate(displayText, canHoldRewrite: canHoldRewrite)
         }
+        .onChange(of: confirmation) { _, _ in
+            applyDisplayUpdate(displayText, canHoldRewrite: holdsLiveRewrites)
+        }
         .onDisappear {
             displayHoldTask?.cancel()
             displayHoldTask = nil
@@ -614,6 +625,15 @@ private struct TurnTranscriptText: View {
         }
 
         displayHoldTask?.cancel()
+        if let confirmation {
+            let text = candidateText == AppText.translating ? "" : candidateText
+            confirmedDisplay.receive(text, confirmed: confirmation)
+            displayState.visibleText = confirmedDisplay.text.isEmpty ? candidateText : confirmedDisplay.text
+            displayHoldTask = nil
+            recordDisplayChange(from: previousText)
+            return
+        }
+        confirmedDisplay = FirstAndFinalCaptionText()
 
         let decision = displayPolicy.receive(
             candidateText,
@@ -1146,6 +1166,7 @@ private struct LegacyCaptionTranscriptFeed: View {
                             ForEach(session.lines.suffix(12)) { line in
                                 CaptionLineView(line: line, showsTranslationPane: session.shouldShowTranslationPane,
                                     showsRecognitionState: session.whisperRecognitionEnabled && (session.isUsingLocalTranslation || session.isTranscribeOnlyMode),
+                                    firstAndFinal: session.isRunning && session.isUsingLocalTranslation,
                                     isLive: session.isRunning && line.id == session.lines.last?.id && !line.isFinal)
                                     .equatable().id(line.id)
                             }

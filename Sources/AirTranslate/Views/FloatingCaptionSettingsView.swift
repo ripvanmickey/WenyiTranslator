@@ -29,7 +29,7 @@ struct FloatingCaptionSettingsView: View {
                     if session.floatingCaptionDisplayMode == .originalAndTranslation {
                         Toggle(CaptionStyleCopy.translationFirst, isOn: $session.floatingCaptionStyle.translationFirst)
                     }
-                    Text("首个可用结果先显示，确认后更新；长句每隔至少 0.5 秒追加内容，避免反复改写。")
+                    Text(session.isUsingLocalTranslation ? "本地翻译先显示首个可用结果，确认后更新一次。" : "首个可用结果先显示，确认后更新；长句每隔至少 0.5 秒追加内容。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(8)
