@@ -10,6 +10,9 @@ struct CaptionBoardView: View {
             if #available(macOS 15.0, *) { ModernCaptionTranscriptFeed(session: session, viewportState: $viewportState) }
             else { LegacyCaptionTranscriptFeed(session: session, viewportState: $viewportState) }
         }
+            .onChange(of: session.lines.first?.id) { _, id in
+                if id == nil { viewportState.returnToLatest() }
+            }
             .frame(maxWidth: 928, maxHeight: .infinity)
             .padding(.horizontal, AirTranslateDesign.Spacing.lg)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -18,8 +21,6 @@ struct CaptionBoardView: View {
 
 @available(macOS 15.0, *)
 private struct ModernCaptionTranscriptFeed: View {
-    private static let stageVisibleLineLimit = 12
-
     @Bindable var session: TranslationSessionStore
     @Binding var viewportState: CaptionFeedViewportState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -28,6 +29,7 @@ private struct ModernCaptionTranscriptFeed: View {
     @State private var lineFrames: [UUID: CGRect] = [:]
     @State private var scrollMetrics: CaptionFeedScrollMetrics?
     @State private var restorationAnchor: CaptionFeedReadingAnchor?
+    @State private var prependAnchor: CaptionFeedReadingAnchor?
     @State private var initialScrollAnchor: UnitPoint
 
     init(session: TranslationSessionStore, viewportState: Binding<CaptionFeedViewportState>) {
@@ -45,6 +47,8 @@ private struct ModernCaptionTranscriptFeed: View {
     private var latestLineKey: LatestLineKey? {
         session.lines.last.map { LatestLineKey(id: $0.id, revision: $0.revision) }
     }
+
+    private var firstVisibleIndex: Int { viewportState.history.firstIndex(in: session.lines) }
 
     var body: some View {
         if !session.hasTranscriptContent && !session.isRunning {
@@ -81,7 +85,11 @@ private struct ModernCaptionTranscriptFeed: View {
                                 .frame(maxWidth: .infinity, minHeight: 96)
                         }
 
-                        ForEach(session.lines.suffix(Self.stageVisibleLineLimit)) { line in
+                        if firstVisibleIndex > 0 {
+                            CaptionFeedHistoryButton(action: loadEarlierCaptions)
+                        }
+
+                        ForEach(session.lines[firstVisibleIndex...]) { line in
                             CaptionLineView(
                                 line: line,
                                 showsTranslationPane: session.shouldShowTranslationPane,
@@ -114,6 +122,12 @@ private struct ModernCaptionTranscriptFeed: View {
                 .onPreferenceChange(CaptionFeedLineFramesKey.self) { frames in
                     guard !frames.isEmpty else { return }
                     lineFrames = frames
+                    if let prependAnchor, firstVisibleIndex < session.lines.count,
+                       frames[session.lines[firstVisibleIndex].id] != nil, let frame = frames[prependAnchor.lineID] {
+                        self.prependAnchor = nil
+                        scrollPosition.scrollTo(y: frame.minY + prependAnchor.offsetWithinLine)
+                        return
+                    }
                     restoreOrRecordReadingPosition()
                 }
                 .onScrollGeometryChange(for: CaptionFeedScrollMetrics.self) { geometry in
@@ -123,9 +137,13 @@ private struct ModernCaptionTranscriptFeed: View {
                         maximumY: max(-geometry.contentInsets.top,
                                       geometry.contentSize.height - geometry.containerSize.height + geometry.contentInsets.bottom)
                     )
-                } action: { _, metrics in
+                } action: { previous, metrics in
                     scrollMetrics = metrics
                     restoreOrRecordReadingPosition()
+                    if viewportState.followState.isUserScrolling, metrics.offsetY < previous.offsetY,
+                       metrics.offsetY - metrics.minimumY <= 48 {
+                        loadEarlierCaptions()
+                    }
                 }
                 .onScrollPhaseChange { _, phase in
                     switch phase {
@@ -140,6 +158,12 @@ private struct ModernCaptionTranscriptFeed: View {
                     case .animating:
                         break
                     }
+                }
+                .onChange(of: viewportState.followState.isFollowingLatest) { _, following in
+                    if !following { viewportState.history.pin(in: session.lines) }
+                }
+                .onChange(of: session.lines.first?.id) { _, id in
+                    if id == nil { prependAnchor = nil; viewportState.returnToLatest() }
                 }
                 .onChange(of: latestLineKey) { oldValue, newValue in
                     guard let newValue, viewportState.followState.shouldFollowUpdates else { return }
@@ -160,6 +184,7 @@ private struct ModernCaptionTranscriptFeed: View {
                             longSessionAutoScrollTask?.cancel()
                             longSessionAutoScrollTask = nil
                             restorationAnchor = nil
+                            prependAnchor = nil
                             viewportState.returnToLatest()
                             scrollPosition.scrollTo(edge: .bottom)
                         } label: {
@@ -181,6 +206,15 @@ private struct ModernCaptionTranscriptFeed: View {
             longSessionAutoScrollTask = nil
             viewportState.followState.suspendInteraction()
         }
+    }
+
+    private func loadEarlierCaptions() {
+        guard prependAnchor == nil, firstVisibleIndex > 0, let scrollMetrics else { return }
+        restorationAnchor = nil
+        viewportState.followState.stopFollowingLatest()
+        viewportState.recordReadingPosition(offsetY: scrollMetrics.offsetY, lineFrames: lineFrames)
+        prependAnchor = viewportState.readingAnchor
+        viewportState.history.prepend(in: session.lines)
     }
 
     private func restoreOrRecordReadingPosition() {
@@ -219,7 +253,7 @@ private struct ModernCaptionTranscriptFeed: View {
 struct CaptionFeedFollowState: Equatable {
     private(set) var isFollowingLatest = true
     private var isLatestVisible = true
-    private var isUserScrolling = false
+    private(set) var isUserScrolling = false
 
     var shouldFollowUpdates: Bool { isFollowingLatest && !isUserScrolling }
 
@@ -243,6 +277,11 @@ struct CaptionFeedFollowState: Equatable {
         isUserScrolling = false
     }
 
+    mutating func stopFollowingLatest() {
+        isLatestVisible = false
+        isFollowingLatest = false
+    }
+
     mutating func suspendInteraction() {
         isUserScrolling = false
     }
@@ -250,6 +289,7 @@ struct CaptionFeedFollowState: Equatable {
 
 struct CaptionFeedViewportState: Equatable {
     var followState = CaptionFeedFollowState()
+    var history = CaptionFeedHistory()
     private(set) var readingAnchor: CaptionFeedReadingAnchor?
 
     var restorationAnchor: CaptionFeedReadingAnchor? {
@@ -269,7 +309,40 @@ struct CaptionFeedViewportState: Equatable {
 
     mutating func returnToLatest() {
         readingAnchor = nil
+        history = CaptionFeedHistory()
         followState.returnToLatest()
+    }
+}
+
+struct CaptionFeedHistory: Equatable {
+    private(set) var oldestID: UUID?
+
+    func firstIndex(in lines: [CaptionLine]) -> Int {
+        guard let oldestID else { return max(0, lines.count - 12) }
+        return lines.firstIndex { $0.id == oldestID } ?? max(0, lines.count - 12)
+    }
+
+    mutating func pin(in lines: [CaptionLine]) {
+        oldestID = lines.dropFirst(firstIndex(in: lines)).first?.id
+    }
+
+    mutating func prepend(in lines: [CaptionLine]) {
+        let start = max(0, firstIndex(in: lines) - 24)
+        oldestID = lines.dropFirst(start).first?.id
+    }
+}
+
+private struct CaptionFeedHistoryButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(AppText.localized(english: "Load earlier captions", korean: "이전 자막 불러오기",
+                japanese: "前の字幕を読み込む", chineseSimplified: "加载更早的字幕"), systemImage: "arrow.up")
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -1169,6 +1242,9 @@ private struct LegacyCaptionTranscriptFeed: View {
     @Bindable var session: TranslationSessionStore
     @Binding var viewportState: CaptionFeedViewportState
     @State private var latestVisible = true
+    @State private var previousTop: CGFloat?
+    @State private var prependID: UUID?
+    private var firstVisibleIndex: Int { viewportState.history.firstIndex(in: session.lines) }
     private var latestKey: String { session.lines.last.map { $0.id.uuidString + ":" + String($0.revision) } ?? "" }
     var body: some View {
         if !session.hasTranscriptContent && !session.isRunning {
@@ -1178,7 +1254,10 @@ private struct LegacyCaptionTranscriptFeed: View {
                 ScrollViewReader { reader in
                     ScrollView {
                         VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
-                            ForEach(session.lines.suffix(12)) { line in
+                            if firstVisibleIndex > 0 {
+                                CaptionFeedHistoryButton(action: loadEarlierCaptions)
+                            }
+                            ForEach(session.lines[firstVisibleIndex...]) { line in
                                 CaptionLineView(line: line, showsTranslationPane: session.shouldShowTranslationPane,
                                     showsRecognitionState: session.whisperRecognitionEnabled && (session.isUsingLocalTranslation || session.isTranscribeOnlyMode),
                                     usesLocalPreview: session.isRunning && session.isUsingLocalTranslation,
@@ -1190,22 +1269,42 @@ private struct LegacyCaptionTranscriptFeed: View {
                         }
                         .padding(.vertical, AirTranslateDesign.Spacing.lg)
                         .frame(minHeight: viewport.size.height, alignment: .bottom)
+                        .background {
+                            GeometryReader { content in
+                                Color.clear.preference(key: LegacyCaptionContentKey.self,
+                                    value: content.frame(in: .named("legacy-caption-viewport")))
+                            }
+                        }
+                    }
                     .background(LegacyCaptionScrollObserver { scrolling in
                         viewportState.followState.updateLatestVisibility(latestVisible)
                         viewportState.followState.setUserScrolling(scrolling)
                     })
-                        .background {
-                            GeometryReader { content in
-                                Color.clear.preference(key: LegacyCaptionBottomKey.self,
-                                    value: content.frame(in: .named("legacy-caption-viewport")).maxY)
-                            }
-                        }
-                    }
                     .coordinateSpace(name: "legacy-caption-viewport")
                     .defaultScrollAnchor(.bottom)
-                    .onPreferenceChange(LegacyCaptionBottomKey.self) { bottom in
-                        latestVisible = bottom <= viewport.size.height + 32
+                    .onPreferenceChange(LegacyCaptionContentKey.self) { frame in
+                        guard let frame else { return }
+                        let movedUp = frame.minY > (previousTop ?? frame.minY)
+                        previousTop = frame.minY
+                        latestVisible = frame.maxY <= viewport.size.height + 32
                         viewportState.followState.updateLatestVisibility(latestVisible)
+                        if viewportState.followState.isUserScrolling, movedUp, frame.minY >= -48 {
+                            loadEarlierCaptions()
+                        }
+                    }
+                    .onChange(of: viewportState.followState.isFollowingLatest) { _, following in
+                        if !following { viewportState.history.pin(in: session.lines) }
+                    }
+                    .onChange(of: session.lines.first?.id) { _, id in
+                        if id == nil { prependID = nil; viewportState.returnToLatest() }
+                    }
+                    .task(id: viewportState.history.oldestID) {
+                        if let prependID {
+                            reader.scrollTo(prependID, anchor: .top)
+                            self.prependID = nil
+                        } else if viewportState.followState.shouldFollowUpdates {
+                            reader.scrollTo("legacy-latest", anchor: .bottom)
+                        }
                     }
                     .task(id: latestKey) {
                         guard viewportState.followState.shouldFollowUpdates else { return }
@@ -1215,7 +1314,11 @@ private struct LegacyCaptionTranscriptFeed: View {
                     }
                     .overlay(alignment: .bottomTrailing) {
                         if !viewportState.followState.isFollowingLatest {
-                            Button { viewportState.returnToLatest(); reader.scrollTo("legacy-latest", anchor: .bottom) }
+                            Button {
+                                prependID = nil
+                                viewportState.returnToLatest()
+                                reader.scrollTo("legacy-latest", anchor: .bottom)
+                            }
                             label: { Label("跳转到最新字幕", systemImage: "arrow.down.to.line") }
                                 .buttonStyle(.borderedProminent).padding(12)
                         }
@@ -1225,10 +1328,17 @@ private struct LegacyCaptionTranscriptFeed: View {
             .onDisappear { viewportState.followState.suspendInteraction() }
         }
     }
+
+    private func loadEarlierCaptions() {
+        guard prependID == nil, firstVisibleIndex > 0 else { return }
+        prependID = session.lines[firstVisibleIndex].id
+        viewportState.followState.stopFollowingLatest()
+        viewportState.history.prepend(in: session.lines)
+    }
 }
-private struct LegacyCaptionBottomKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+private struct LegacyCaptionContentKey: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) { value = nextValue() ?? value }
 }
 
 private struct LegacyCaptionScrollObserver: NSViewRepresentable {

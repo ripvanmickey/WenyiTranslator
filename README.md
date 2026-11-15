@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1208)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1212)
 </p>
 
 <p align="center">
@@ -42,8 +42,6 @@ Build 1202 adds **contextual caption correction**. While translation is idle, We
 
 Build 1203 checks local Japanese-to-Chinese subtitles for leftover kana and retries the affected segment once with a translation-only request. Valid subtitles still stream as before.
 
-Build 1204 lets local Japanese-to-Chinese translation reference up to two earlier confirmed bilingual captions for proper names. The translation request still streams and covers only the current caption.
-
 Build 1205 adds an Index-Translate 9B preset to local translation settings. Download the model in LM Studio and enable the local API to use it.
 
 Build 1206 keeps the first visible local caption on screen and updates it once the segment is confirmed, in both the main window and floating captions.
@@ -51,6 +49,14 @@ Build 1206 keeps the first visible local caption on screen and updates it once t
 Build 1207 restores incremental local subtitle previews. Short translations appear immediately, and the preview grows at a controlled rate until confirmation.
 
 Build 1208 keeps the previous floating translation visible until a replacement arrives and labels local translations as preview, complete, or interrupted.
+
+Build 1209 loads older captions as you scroll up in the main window, renders escaped line breaks as new lines, and removes the earlier bilingual references and dedicated naming instructions from local Japanese-to-Chinese translation.
+
+Build 1210 recognizes Japanese sentence-final punctuation in Nemotron and allows a brief extra pause after common unfinished clauses.
+
+Build 1211 stops sending adjacent source fragments with Index-Translate Japanese-to-Chinese subtitle requests. Short multi-block captions receive one complete translation when confirmed.
+
+Build 1212 adds the optional Index online translation engine. Speech recognition stays on the Mac, and only the current caption text is sent to Bilibili for translation.
 
 ## Saved transcripts
 

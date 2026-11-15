@@ -58,6 +58,11 @@ _MEL_LCTX = 4
 # letters, so abbreviations ("U.S.", "Dr.") don't trigger a premature split; "?" / "!"
 # always count. Allows trailing closing quotes/brackets.
 _SENT_END_RE = re.compile(r"(?:[A-Za-z]{3,}\.|[!?])[\"'”’)\]]*\s*$")
+_JA_SENT_END_RE = re.compile(r"(?:[A-Za-z]{3,}\.|[!?。！？])[\"'”’)\]」』）】〉》]*\s*$")
+_JA_TERMINAL = ".?!。！？"
+_JA_CLOSERS = "\"'”’)]」』）】〉》"
+_JA_CONTINUATIONS = ("けど", "けれど", "けれども", "ので", "のに")
+_JA_CONTINUATION_GRACE_SEC = 0.32
 # Audio back-off for the soft-max cut. RNNT token timestamps lag acoustics (emission
 # delay, worst for punctuation, which is only decided once the next words are heard), so
 # cutting at the punctuation token's own timestamp bleeds the next sentence's first word
@@ -253,7 +258,18 @@ def _diff_tokenize(text: str) -> list[str]:
     return _DIFF_TOKEN_RE.findall(text)
 
 
-def _truncate_after_sentence(text: str, tokens: list, old_end: float, cut_sec: float):
+def _include_japanese_closers(tokens: list, index: int) -> int:
+    while index + 1 < len(tokens):
+        next_text = tokens[index + 1].text.strip()
+        if not next_text or next_text.strip(_JA_CLOSERS):
+            break
+        index += 1
+    return index
+
+
+def _truncate_after_sentence(
+    text: str, tokens: list, old_end: float, cut_sec: float, *, japanese: bool = False
+):
     """Drop second-pass tokens decoded from the overlap audio past the soft-max cut.
 
     Prefer cutting after the sentence-end token nearest in time to the streaming-pass
@@ -268,13 +284,16 @@ def _truncate_after_sentence(text: str, tokens: list, old_end: float, cut_sec: f
     )
 
     best = None
+    terminal = _JA_TERMINAL if japanese else ".?!"
     for i, t in enumerate(tokens):
         if (
-            any(c in ".?!" for c in t.text)
+            any(c in terminal for c in t.text)
             and abs(t.end - old_end) <= 0.6
             and (best is None or abs(t.end - old_end) < abs(tokens[best].end - old_end))
         ):
             best = i
+    if best is not None and japanese:
+        best = _include_japanese_closers(tokens, best)
     kept = tokens[: best + 1] if best is not None else [t for t in tokens if t.start < cut_sec]
     if not kept or len(kept) == len(tokens):
         return text, tokens
@@ -350,6 +369,7 @@ class OnlineStream:
         self._vad_state = rec.vad.initial_state(sample_rate=config.SAMPLE_RATE)
         self._vad_leftover = np.empty(0, dtype=np.float32)
         self._encoder = _StreamingEncoder(rec.model, rec.language)
+        self._japanese_endpointing = rec.language.casefold().split("-")[0] == "ja"
         n_preroll = max(1, round(config.VAD_PRE_ROLL_MS / 1000 / _VAD_FRAME_SEC))
         self._preroll: deque[np.ndarray] = deque(maxlen=n_preroll)
         # Diarization: state persists throughout (spkcache keeps speaker numbers stable
@@ -463,14 +483,7 @@ class OnlineStream:
                 return events + self._finalize(split_token=cut)
 
         silence_sec = self._silence_frames * _VAD_FRAME_SEC
-        # rule2: cut sooner once the text already ends a sentence (. ? !), otherwise wait the
-        # longer silence so a mid-sentence pause doesn't fragment the utterance
-        ends_sentence = self._text.rstrip()[-1:] in ".?!"
-        rule2_silence = (
-            config.RULE2_PUNCT_SILENCE
-            if ends_sentence
-            else config.RULE2_MIN_TRAILING_SILENCE
-        )
+        rule2_silence = self._endpoint_silence()
         if self._text and silence_sec >= rule2_silence:
             events += self._finalize()
         elif not self._text and silence_sec >= config.RULE1_MIN_TRAILING_SILENCE:
@@ -480,20 +493,34 @@ class OnlineStream:
             events += self._finalize()
         return events
 
+    def _endpoint_silence(self) -> float:
+        text = self._text.rstrip()
+        if self._japanese_endpointing:
+            text = text.rstrip(_JA_CLOSERS).rstrip()
+            if text[-1:] and text[-1] in _JA_TERMINAL:
+                return config.RULE2_PUNCT_SILENCE
+            if text.rstrip("、，, ").endswith(_JA_CONTINUATIONS):
+                # Keep streaming partials. Extend only the silence required to finalize.
+                return config.RULE2_MIN_TRAILING_SILENCE + _JA_CONTINUATION_GRACE_SEC
+        elif text.endswith((".", "?", "!")):
+            return config.RULE2_PUNCT_SILENCE
+        return config.RULE2_MIN_TRAILING_SILENCE
+
     def _last_sentence_end(self) -> int | None:
         """Index of the most recent hypothesis token that ends a sentence, or None.
 
-        A token containing . ? ! only counts when the text up to it passes _SENT_END_RE
-        (the 3+-letter-word guard against abbreviations / decimals); a few preceding
-        tokens are enough context since they concatenate into the trailing words.
+        Match punctuation at a token boundary. Keep the Latin-period abbreviation
+        guard and allow Japanese sentence marks when the recognizer is using Japanese.
         """
         hyp = self._hypothesis
+        terminal = _JA_TERMINAL if self._japanese_endpointing else ".?!"
+        sentence_end = _JA_SENT_END_RE if self._japanese_endpointing else _SENT_END_RE
         for i in range(len(hyp) - 1, -1, -1):
-            if not any(c in ".?!" for c in hyp[i].text):
+            if not any(c in terminal for c in hyp[i].text):
                 continue
             prefix = "".join(t.text for t in hyp[max(0, i - 3) : i + 1])
-            if _SENT_END_RE.search(prefix):
-                return i
+            if sentence_end.search(prefix):
+                return _include_japanese_closers(hyp, i) if self._japanese_endpointing else i
         return None
 
     def _finalize(self, split_token: int | None = None) -> list[tuple]:
@@ -559,7 +586,7 @@ class OnlineStream:
             text, tokens = self._second_pass(audio, text, tokens)
             if cut_sec is not None:
                 text, tokens = _truncate_after_sentence(
-                    text, tokens, split_punct_end, cut_sec
+                    text, tokens, split_punct_end, cut_sec, japanese=self._japanese_endpointing
                 )
         # diarization must consume each audio sample exactly once across finals, so it
         # gets only the head slice; the tail is fed again as part of the next utterance

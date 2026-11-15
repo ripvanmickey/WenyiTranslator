@@ -48,7 +48,8 @@ struct CaptionLine: Identifiable, Equatable {
         self.sourceText = sourceText
         self.sourceDisplayText = Self.displayText(for: sourceText, usesLongSessionDisplay: usesLongSessionDisplay)
         self.translatedText = translatedText
-        self.translatedDisplayText = Self.displayText(for: translatedText, usesLongSessionDisplay: usesLongSessionDisplay)
+        self.translatedDisplayText = Self.displayText(for: translatedText, usesLongSessionDisplay: usesLongSessionDisplay,
+            preservesLineBreaks: true)
         self.translatedSourceText = translatedSourceText
         self.createdAt = createdAt
         self.isTranslationComplete = isTranslationComplete
@@ -57,15 +58,16 @@ struct CaptionLine: Identifiable, Equatable {
         self.speakerLabel = speakerLabel
     }
 
-    private static func displayText(for raw: String, usesLongSessionDisplay: Bool) -> String {
+    private static func displayText(for raw: String, usesLongSessionDisplay: Bool, preservesLineBreaks: Bool = false) -> String {
         // Apply at the shared presentation boundary, including native ASR paths that
         // intentionally bypass transcript rewriting. Raw source and translation remain intact.
-        let text: String
-        if JapaneseCaptionLayout.containsKana(raw) {
-            text = JapaneseCaptionLayout.format(raw)
-        } else if raw.contains(where: { "。！？".contains($0) }) {
-            text = TranscriptTextProcessor.organizeTranscript(raw, languageID: "ja-JP")
-        } else { text = raw }
+        let text = if preservesLineBreaks && raw.contains(where: \.isNewline) {
+            raw.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+                .map { formattedDisplayText(String($0)) }
+                .joined(separator: "\n")
+        } else {
+            formattedDisplayText(raw)
+        }
         guard usesLongSessionDisplay
             || text.utf8.count > Self.maxDisplayCharacters && text.count > Self.maxDisplayCharacters
         else {
@@ -76,5 +78,14 @@ struct CaptionLine: Identifiable, Equatable {
             from: text,
             maxCharacters: Self.maxDisplayCharacters
         )
+    }
+
+    private static func formattedDisplayText(_ raw: String) -> String {
+        if JapaneseCaptionLayout.containsKana(raw) {
+            return JapaneseCaptionLayout.format(raw)
+        } else if raw.contains(where: { "。！？".contains($0) }) {
+            return TranscriptTextProcessor.organizeTranscript(raw, languageID: "ja-JP")
+        }
+        return raw
     }
 }

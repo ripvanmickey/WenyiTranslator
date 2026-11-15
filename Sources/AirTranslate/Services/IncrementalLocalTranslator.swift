@@ -36,13 +36,27 @@ struct IncrementalCaptionPlan: Sendable {
 
 actor IncrementalLocalTranslator {
     static let shared = IncrementalLocalTranslator()
+    private static let wholeFinalCaptionLimit = 120
+
+    nonisolated static func omitsNeighboringContext(source: String, target: String, configuration: LocalTranslationConfiguration) -> Bool {
+        configuration.usesOnlineIndex || (configuration.modelID.lowercased().contains("index-translate")
+            && LocalTranslationService.isJapaneseToChinese(source: source, target: target))
+    }
+
+    nonisolated static func needsWholeFinalCaption(_ text: String, source: String, target: String,
+                                                   configuration: LocalTranslationConfiguration) -> Bool {
+        omitsNeighboringContext(source: source, target: target, configuration: configuration)
+            && text.count <= wholeFinalCaptionLimit
+            && IncrementalCaptionPlan(text: text, previous: []).blocks.count > 1
+    }
+
     private var previous: [String: [IncrementalCaptionPlan.Chunk]] = [:]
     private var revisions: [String: UUID] = [:]
     private var order: [String] = []
     private var submittedCharacters: [String: Int] = [:]
     private var reusedClauses: [String: Int] = [:]
     func statistics(identity: String, source: String, target: String, configuration: LocalTranslationConfiguration) -> (Int, Int) {
-        let key = identity + "\t" + source + "\t" + target + "\t" + configuration.baseURL + "\t" + configuration.modelID
+        let key = identity + "\t" + source + "\t" + target + "\t" + configuration.activeBaseURL + "\t" + configuration.activeModelID
         return (submittedCharacters[key] ?? 0, reusedClauses[key] ?? 0)
     }
     private let client: LocalTranslationService
@@ -50,17 +64,33 @@ actor IncrementalLocalTranslator {
 
     func translate(_ text: String, identity: String, source: String, target: String,
                    configuration: LocalTranslationConfiguration, apiKey: String?,
-                   confirmedCaptions: [ConfirmedCaptionContext] = [],
+                   isFinal: Bool = false,
                    punctuation: LocalTranslationService.Progress? = nil,
                    progress: @escaping LocalTranslationService.Progress) async throws -> String {
-        let key = identity + "\t" + source + "\t" + target + "\t" + configuration.baseURL + "\t" + configuration.modelID
+        let key = identity + "\t" + source + "\t" + target + "\t" + configuration.activeBaseURL + "\t" + configuration.activeModelID
         let revision = UUID()
         revisions[key] = revision
         if !order.contains(key) { order.append(key) }
         while order.count > 32 {
             let old = order.removeFirst(); previous[old] = nil; revisions[old] = nil; submittedCharacters[old] = nil; reusedClauses[old] = nil
         }
+        if isFinal && Self.needsWholeFinalCaption(text, source: source, target: target, configuration: configuration) {
+            previous[key] = nil
+            submittedCharacters[key, default: 0] += text.count
+            // Keep the existing preview visible while this replacement streams from the model.
+            let translation = try await client.translate(text, source: source, target: target,
+                configuration: configuration, apiKey: apiKey, asSingleCaption: true, progress: { _ in })
+            try Task.checkCancellation()
+            guard revisions[key] == revision else { throw CancellationError() }
+            if let punctuation, let restored = await client.punctuatedSource(text, configuration: configuration) {
+                try Task.checkCancellation()
+                guard revisions[key] == revision else { throw CancellationError() }
+                await punctuation(restored)
+            }
+            return translation
+        }
         let plan = IncrementalCaptionPlan(text: text, previous: previous[key] ?? [])
+        let includesContext = !Self.omitsNeighboringContext(source: source, target: target, configuration: configuration)
         reusedClauses[key, default: 0] += plan.reusable.count
         var completed = plan.reusable
         previous[key] = completed
@@ -74,11 +104,12 @@ actor IncrementalLocalTranslator {
             let prefix = rendered(completed)
             let before = String(plan.blocks.prefix(index).joined().suffix(100))
             let after = IncrementalCaptionPlan.following(plan.blocks, at: index)
-            let context = before.isEmpty && after.isEmpty ? "" : "Before: " + before + "\nAfter: " + after
+            let context = includesContext && (!before.isEmpty || !after.isEmpty)
+                ? "Before: " + before + "\nAfter: " + after : ""
             submittedCharacters[key, default: 0] += block.count
             let translated = try await client.translate(block, source: source, target: target,
                 configuration: configuration, apiKey: apiKey,
-                context: context, confirmedCaptions: confirmedCaptions,
+                context: context,
                 progress: { partial in
                     let value = [prefix, partial].filter { !$0.isEmpty }.joined(separator: "\n")
                     if !value.isEmpty { progress(value) }

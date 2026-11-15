@@ -12,40 +12,58 @@ struct LocalTranslationSettingsView: View {
     @State private var isWorking = false
     @State private var operation: Task<Void, Never>?
     private var locked: Bool { session.isRunning || session.isStarting || isWorking }
+    private enum Engine: Hashable { case apple, local, indexOnline }
+    private var selectedEngine: Engine {
+        guard session.localTranslation.enabled else { return .apple }
+        return session.localTranslation.usesOnlineIndex ? .indexOnline : .local
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             WhisperRecognitionSettingsView(session: session)
             SettingsControlRow(title: "本地模式 · 翻译引擎", detail: "先由选定的本地引擎识别语音，再选择译文的处理方式。", systemImage: "character.bubble") {
                 Picker("翻译引擎", selection: Binding(
-                    get: { session.localTranslation.enabled },
-                    set: { local in
+                    get: { selectedEngine },
+                    set: { engine in
                         message = ""
-                        if local { showingConfiguration = true }
-                        else { session.enableLocalTranslation(local) }
+                        switch engine {
+                        case .apple: session.enableLocalTranslation(false)
+                        case .local: showingConfiguration = true
+                        case .indexOnline: session.enableOnlineIndexTranslation()
+                        }
                     }
                 )) {
-                    if PlatformSupport.supportsAppleSpeech { Text("Apple 翻译").tag(false) }
-                    Text("本地模型翻译").tag(true)
+                    if PlatformSupport.supportsAppleSpeech { Text("Apple 翻译").tag(Engine.apple) }
+                    Text("本地模型翻译").tag(Engine.local)
+                    Text("Index 在线翻译").tag(Engine.indexOnline)
                 }
                 .labelsHidden().frame(width: 220).disabled(locked)
             }
             if session.localTranslation.enabled {
-                Toggle("跨段回看纠错", isOn: $session.contextualCaptionCorrectionEnabled)
-                    .disabled(locked)
-                Text("翻译空闲时用后文纠正近期字幕中的同音词。")
-                    .font(.caption).foregroundStyle(.secondary)
+                if !session.localTranslation.usesOnlineIndex {
+                    Toggle("跨段回看纠错", isOn: $session.contextualCaptionCorrectionEnabled)
+                        .disabled(locked)
+                    Text("翻译空闲时用后文纠正近期字幕中的同音词。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(activeModelName)
                                 .font(.headline).textSelection(.enabled)
-                            Text(session.localTranslation.baseURL).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
-                            Text(LocalTranslationAPIKeyStore.hasAPIKey() ? "本地服务密钥：已保存" : "本地服务密钥：未配置（无认证）")
-                                .font(.caption).foregroundStyle(.secondary)
+                            Text(session.localTranslation.activeBaseURL).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                            if session.localTranslation.usesOnlineIndex {
+                                Text("语音在本机识别，待译字幕文字发送到哔哩哔哩。")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            } else {
+                                Text(LocalTranslationAPIKeyStore.hasAPIKey() ? "本地服务密钥：已保存" : "本地服务密钥：未配置（无认证）")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                         Spacer()
-                        Button("配置…") { showingConfiguration = true }.disabled(locked)
+                        if !session.localTranslation.usesOnlineIndex {
+                            Button("配置…") { showingConfiguration = true }.disabled(locked)
+                        }
                     }
                     HStack {
                         Button("测试翻译") { run(longSample: false) }
@@ -55,7 +73,7 @@ struct LocalTranslationSettingsView: View {
                         Spacer()
                         Text(session.languageSummary).font(.caption).foregroundStyle(.secondary)
                     }
-                    .disabled(locked || session.localTranslation.modelID.isEmpty || session.sourceLanguage == session.targetLanguage)
+                    .disabled(locked || session.localTranslation.activeModelID.isEmpty || session.sourceLanguage == session.targetLanguage)
                     if !message.isEmpty {
                         Text(message).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     }
@@ -96,7 +114,7 @@ struct LocalTranslationSettingsView: View {
     }
 
     private var activeModelName: String {
-        let modelID = session.localTranslation.modelID
+        let modelID = session.localTranslation.activeModelID
         if modelID == indexTranslateModelID { return indexTranslateModelName }
         return modelID.isEmpty ? "尚未配置本地模型" : modelID
     }
@@ -108,7 +126,7 @@ struct LocalTranslationSettingsView: View {
         operation = Task { @MainActor in
             defer { isWorking = false }
             do {
-                let key = try LocalTranslationAPIKeyStore.readAPIKey()
+                let key = configuration.usesOnlineIndex ? nil : try LocalTranslationAPIKeyStore.readAPIKey()
                 let fixtures: [(String, [String])] = [
                     ("en-US", ["Today we discuss live captions.", "Today we discuss live captions. They should",
                                "Today we discuss live captions. They should appear while the speaker continues.",
@@ -159,7 +177,7 @@ struct LocalTranslationSettingsView: View {
                 let result = try await LocalTranslationService.shared.translate(
                     LocalTranslationTestText.sample(languageID: source.id, long: longSample),
                     source: source.id, target: target.id, configuration: configuration,
-                    apiKey: LocalTranslationAPIKeyStore.readAPIKey(),
+                    apiKey: configuration.usesOnlineIndex ? nil : LocalTranslationAPIKeyStore.readAPIKey(),
                     progress: { partial in
                         guard !partial.isEmpty else { return }
                         if firstTextAt == nil { firstTextAt = ProcessInfo.processInfo.systemUptime }
@@ -192,7 +210,9 @@ private struct LocalTranslationConfigurationSheet: View {
 
     init(session: TranslationSessionStore) {
         self.session = session
-        _draft = State(initialValue: session.localTranslation)
+        var configuration = session.localTranslation
+        configuration.onlineIndex = nil
+        _draft = State(initialValue: configuration)
     }
 
     var body: some View {

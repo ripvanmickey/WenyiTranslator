@@ -141,6 +141,26 @@ struct CaptionFeedFollowStateTests {
 
 @Suite
 struct CaptionFeedViewportStateTests {
+    @Test func historyLoadsEarlierPagesWithoutDroppingRowsAsNewCaptionsArrive() {
+        var viewport = CaptionFeedViewportState()
+        let line = {
+            CaptionLine(sourceText: "原文", translatedText: "译文", createdAt: Date(), isFinal: true)
+        }
+        var lines = (0..<80).map { _ in line() }
+        #expect(viewport.history.firstIndex(in: lines) == 68)
+        viewport.history.pin(in: lines)
+        lines.append(line())
+        #expect(viewport.history.firstIndex(in: lines) == 68)
+        viewport.history.prepend(in: lines)
+        #expect(viewport.history.firstIndex(in: lines) == 44)
+        viewport.history.prepend(in: lines)
+        #expect(viewport.history.firstIndex(in: lines) == 20)
+        viewport.history.prepend(in: lines)
+        #expect(viewport.history.firstIndex(in: lines) == 0)
+        viewport.returnToLatest()
+        #expect(viewport.history.firstIndex(in: lines) == 69)
+    }
+
     @Test func readingPositionSurvivesRemountAndEarlierCaptionHeightChanges() throws {
         let first = UUID()
         let reading = UUID()

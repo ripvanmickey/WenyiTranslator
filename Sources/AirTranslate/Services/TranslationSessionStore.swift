@@ -937,7 +937,7 @@ final class TranslationSessionStore {
             return String(format: "P50 %.0f ms · P95 %.0f ms · %d 个样本", median, p95, sorted.count)
         }
         let whisperReport = whisperRecognitionEnabled ? "\n\n" + whisperTranscriber.diagnosticsSummary() : ""
-        return "识别引擎：\(recognitionEngineTitle)\n采集：\(audioOnlySystemCapture ? "纯音频 Tap" : "兼容方式")\n模型：\(localTranslation.modelID)\n语言：\(languageSummary)\n识别（音频帧末端→文字）：\(summary(readings.compactMap(\.recognitionMS)))\n排队：\(summary(readings.compactMap(\.queueMS)))\n翻译请求→首段译文：\(summary(readings.compactMap(\.translationFirstMS)))\n音频帧末端→首段译文：\(summary(readings.compactMap(\.frameToTranslationMS)))\n\n这是识别音频范围末端的时序估算，不是人工标注的句尾延迟。暂停、重启或切换模型后应清空再测。只保留最近 1000 条数字样本，不含音频、原文、译文或密钥。" + whisperReport
+        return "识别引擎：\(recognitionEngineTitle)\n采集：\(audioOnlySystemCapture ? "纯音频 Tap" : "兼容方式")\n模型：\(localTranslation.activeModelID)\n语言：\(languageSummary)\n识别（音频帧末端→文字）：\(summary(readings.compactMap(\.recognitionMS)))\n排队：\(summary(readings.compactMap(\.queueMS)))\n翻译请求→首段译文：\(summary(readings.compactMap(\.translationFirstMS)))\n音频帧末端→首段译文：\(summary(readings.compactMap(\.frameToTranslationMS)))\n\n这是识别音频范围末端的时序估算，不是人工标注的句尾延迟。暂停、重启或切换模型后应清空再测。只保留最近 1000 条数字样本，不含音频、原文、译文或密钥。" + whisperReport
     }
 
     private var storedLocalTranslation = LocalTranslationConfiguration()
@@ -969,6 +969,18 @@ final class TranslationSessionStore {
             isDubbingEnabled = false
         }
         localTranslation.enabled = enabled
+    }
+
+    func enableOnlineIndexTranslation() {
+        guard !isRunning, !isStarting else { return }
+        enableLocalTranslation(true)
+        localTranslation.onlineIndex = true
+    }
+
+    private var savedRecordLocalTranslation: LocalTranslationConfiguration {
+        var configuration = localTranslation
+        configuration.onlineIndex = nil
+        return configuration
     }
 
     private var storedAppleTranslationQuality: AppleTranslationQuality = .realtime
@@ -1025,7 +1037,10 @@ final class TranslationSessionStore {
     var processingEngineTitle: String {
         let quality = isUsingAppleTextTranslation && appleTranslationOptions.effectiveQuality == .highQuality
             ? " · " + (isUsingAppleRealtimeFallback ? AppleTranslationCopy.fallbackTitle : AppleTranslationCopy.title(for: .highQuality)) : ""
-        if isUsingLocalTranslation { return "\(recognitionEngineTitle) + LM Studio · \(localTranslation.modelID)" }
+        if isUsingLocalTranslation {
+            let provider = localTranslation.usesOnlineIndex ? "Index 在线翻译" : "LM Studio"
+            return "\(recognitionEngineTitle) + \(provider) · \(localTranslation.activeModelID)"
+        }
         if whisperRecognitionEnabled && isTranscribeOnlyMode { return recognitionEngineTitle }
         return ProcessingEngine.current(for: self).title + (isUsingJevSelection ? " + Jev" : "") + quality
     }
@@ -1341,7 +1356,6 @@ final class TranslationSessionStore {
     private var floatingTranslationHoldTask: Task<Void, Never>?
     private var floatingPresentationTask: Task<Void, Never>?
     private var sourceLanguageByLineID: [UUID: LanguageOption] = [:]
-    private var recentLocalTranslationLineIDs: [UUID] = []
     private var pendingTranslationSourceText = ""
     private var translationSegmentCache = TranslationSegmentCache(
         capacity: TranslationSessionStore.maxTranslationCacheEntries
@@ -3266,7 +3280,7 @@ final class TranslationSessionStore {
         let initialTitle = savedDraftTitle
         let text = translation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? original : translation + "\n原文参考：\n" + original
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let configuration = localTranslation
+        let configuration = savedRecordLocalTranslation
         do { try configuration.validateModel(); _ = try configuration.validatedBaseURL() }
         catch { savedTitleMessage = "请先在通用设置中配置本地翻译模型，再生成标题。"; return }
         let requestID = UUID(); savedTitleRequestID = requestID
@@ -3300,7 +3314,7 @@ final class TranslationSessionStore {
               let record = selectedSavedTranscript else { return }
         let source = savedDraftSourceText, translation = savedDraftTranslationText
         guard !(source + translation).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let configuration = localTranslation
+        let configuration = savedRecordLocalTranslation
         do { try configuration.validateModel(); _ = try configuration.validatedBaseURL() }
         catch { statusMessage = "请先在通用设置中配置本地翻译模型，再整理正文。"; return }
         let requestID = UUID(); transcriptCleanupRequestID = requestID
@@ -6815,7 +6829,7 @@ final class TranslationSessionStore {
         source: LanguageOption,
         target: LanguageOption,
         incrementalIdentity: String? = nil,
-        confirmedCaptions: [ConfirmedCaptionContext] = [],
+        isFinalCaption: Bool = false,
         punctuation: LocalTranslationService.Progress? = nil,
         progress: @escaping @MainActor @Sendable (String) -> Void = { _ in }
     ) async throws -> String {
@@ -6836,7 +6850,7 @@ final class TranslationSessionStore {
         if isUsingLocalTranslation, let identity = incrementalIdentity {
             return try await IncrementalLocalTranslator.shared.translate(text, identity: identity,
                 source: source.id, target: target.id, configuration: localTranslation,
-                apiKey: LocalTranslationAPIKeyStore.readAPIKey(), confirmedCaptions: confirmedCaptions,
+                apiKey: localTranslation.usesOnlineIndex ? nil : LocalTranslationAPIKeyStore.readAPIKey(), isFinal: isFinalCaption,
                 punctuation: punctuation, progress: progress)
         }
         let translationOptions = appleTranslationOptions
@@ -6871,7 +6885,7 @@ final class TranslationSessionStore {
 
                 let translatedSegment: String
                 if isUsingLocalTranslation {
-                    let key = try LocalTranslationAPIKeyStore.readAPIKey()
+                    let key = localTranslation.usesOnlineIndex ? nil : try LocalTranslationAPIKeyStore.readAPIKey()
                     let completedParagraphs = translatedParagraphs
                     let completedSegments = translatedSegments
                     translatedSegment = try await LocalTranslationService.shared.translate(
@@ -7003,7 +7017,7 @@ final class TranslationSessionStore {
     }
 
     private var translationEngineCacheID: String {
-        if isUsingLocalTranslation { return "local:\(localTranslation.baseURL):\(localTranslation.modelID)" }
+        if isUsingLocalTranslation { return "text:\(localTranslation.activeBaseURL):\(localTranslation.activeModelID)" }
         if openAITranslationModel.isEnabled {
             return "openai:\(openAITranslationModel.id)"
         }
@@ -7016,7 +7030,6 @@ final class TranslationSessionStore {
 
     private func resetTranslationCache() {
         translationSegmentCache.removeAll()
-        recentLocalTranslationLineIDs.removeAll()
     }
 
     private func updateRealtimeTranslationSourceTranscript(_ text: String) {
@@ -7722,7 +7735,10 @@ final class TranslationSessionStore {
         contextualCaptionCorrectionTask?.cancel()
         let sourceText = line.sourceText
         let preservesOrdering = preservesOrdering ?? (isUsingMetaScribe || isUsingAzureMAI || isUsingNariSTT || isUsingGrokSTT)
-        if appleIdentity?.isFinal == true, jevInput == nil,
+        let needsWholeFinal = appleIdentity?.isFinal == true && isUsingLocalTranslation
+            && IncrementalLocalTranslator.needsWholeFinalCaption(
+                sourceText, source: source.id, target: target.id, configuration: localTranslation)
+        if appleIdentity?.isFinal == true, !needsWholeFinal, jevInput == nil,
            let active = activeTranslationRequest,
            active.request.line.id == line.id,
            active.request.sourceText == sourceText,
@@ -7863,7 +7879,7 @@ final class TranslationSessionStore {
                     source: request.source,
                     target: request.target,
                     incrementalIdentity: "\(request.pipelineGeneration):\(request.line.id.uuidString)",
-                    confirmedCaptions: confirmedLocalCaptionContext(for: request),
+                    isFinalCaption: request.appleIdentity?.isFinal ?? request.line.isFinal,
                     punctuation: { [weak self] candidate in
                         guard let self, self.acceptsTranslationUpdates(for: request),
                               let index = self.lines.firstIndex(where: { $0.id == request.line.id }),
@@ -7919,21 +7935,8 @@ final class TranslationSessionStore {
         }
     }
 
-    private func confirmedLocalCaptionContext(for request: TranslationRequest) -> [ConfirmedCaptionContext] {
-        guard isUsingLocalTranslation, LocalTranslationService.isJapaneseToChinese(source: request.source.id, target: request.target.id),
-              !recentLocalTranslationLineIDs.isEmpty,
-              let index = lines.firstIndex(where: { $0.id == request.line.id }) else { return [] }
-        let eligible = Set(recentLocalTranslationLineIDs)
-        let recent = lines[..<index].reversed().lazy.filter { line in
-            eligible.contains(line.id) && line.isFinal && line.isTranslationComplete
-                && line.translatedSourceText == line.sourceText && !line.translatedText.isEmpty
-                && self.sourceLanguageByLineID[line.id] == request.source
-        }.prefix(2)
-        return recent.reversed().map { ConfirmedCaptionContext(source: $0.sourceText, translation: $0.translatedText) }
-    }
-
     private var canReviewCaptionContext: Bool {
-        contextualCaptionCorrectionEnabled && isUsingLocalTranslation && isRunning && !isPaused
+        contextualCaptionCorrectionEnabled && isUsingLocalTranslation && !localTranslation.usesOnlineIndex && isRunning && !isPaused
             && translationTask == nil && latestTranslationRequest == nil && orderedTranslationRequests.isEmpty
     }
 
@@ -8319,13 +8322,6 @@ final class TranslationSessionStore {
 
         if let punctuated = punctuatedDisplayByLine[line.id], punctuated.source == currentSourceText {
             lines[index].sourceDisplayText = punctuated.display
-        }
-
-        if finalizesRequest, isUsingLocalTranslation, let request,
-           LocalTranslationService.isJapaneseToChinese(source: request.source.id, target: request.target.id) {
-            recentLocalTranslationLineIDs.removeAll { $0 == line.id }
-            recentLocalTranslationLineIDs.append(line.id)
-            if recentLocalTranslationLineIDs.count > 16 { recentLocalTranslationLineIDs.removeFirst() }
         }
 
         if let request {

@@ -15,6 +15,27 @@ final class Mock: URLProtocol, @unchecked Sendable {
         }!
         let body = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
         Self.checkRequest?(body)
+        if body["messages"] != nil {
+            if request.url?.host == "index-translate.bilibili.com" {
+                precondition(request.url?.absoluteString == LocalTranslationConfiguration.indexBaseURL + "/chat/completions")
+                precondition(request.value(forHTTPHeaderField: "Authorization") == nil)
+                precondition(body["model"] as? String == LocalTranslationConfiguration.indexModelID)
+            }
+            let streaming = body["stream"] as? Bool == true
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": streaming ? "text/event-stream" : "application/json"])!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            if streaming {
+                let payload = ["choices": [["delta": ["content": Self.raw], "finish_reason": "stop"]]]
+                let json = String(decoding: try! JSONSerialization.data(withJSONObject: payload), as: UTF8.self)
+                client?.urlProtocol(self, didLoad: Data("data: \(json)\n\ndata: [DONE]\n\n".utf8))
+            } else {
+                let payload = ["choices": [["message": ["content": Self.raw], "finish_reason": "stop"]]]
+                client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: payload))
+            }
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
         let usesFooter = (body["system_prompt"] as? String)?.contains("[WENYI_JA]") == true
         let output = usesFooter ? Self.raw : Self.retry!
         precondition(body["reasoning"] as? String == "off")
@@ -84,29 +105,80 @@ final class Mock: URLProtocol, @unchecked Sendable {
         let japanese = try await client.translate(original, source: "ja-JP", target: "ja-JP", configuration: model)
         precondition(japanese == Mock.raw && Mock.calls == count + 5)
 
-        Mock.raw = "今天介绍 J-POP 新歌。"
-        let current = "今日はJポップの新曲を紹介します。"
+        let current = "次の話題に移りましょう。"
+        let context = "Before: これまでのお話。"
+        Mock.raw = #"进入下一个话题\n这是第二行\r\n还有第三行。"# + "\n[WENYI_JA]" + current
         Mock.checkRequest = { body in
             let prompt = body["system_prompt"] as! String
-            let lines = (body["input"] as! String).components(separatedBy: "\n")
-            let reference = try! JSONSerialization.jsonObject(with: Data(lines[1].utf8)) as! [String: Any]
-            let captions = reference["confirmedCaptions"] as! [[String: String]]
-            precondition(try! JSONDecoder().decode(String.self, from: Data(lines[3].utf8)) == current)
-            precondition(body["stream"] as? Bool == true && lines[2].hasPrefix("CURRENT CAPTION"))
-            precondition(captions.count == 2 && captions[0]["translation"] == "上一段介绍了日本音乐。")
-            precondition(captions[1]["source"]?.count == 120)
-            precondition(prompt.contains("Latin-script labels") && prompt.contains("labeled CURRENT CAPTION"))
+            let input = body["input"] as! String
+            let fields = try! JSONDecoder().decode([String: String].self, from: Data(input.utf8))
+            precondition(fields == ["context": context, "text": current])
+            precondition(!prompt.contains("Translation naming policy") && !prompt.contains("standard Latin-script labels"))
         }
-        let contextual = try await incremental.translate(current, identity: "context", source: "ja-JP", target: "zh-CN",
-            configuration: model, apiKey: nil, confirmedCaptions: [
-                .init(source: "古い", translation: "较早字幕"),
-                .init(source: "日本の音楽を紹介しました。", translation: "上一段介绍了日本音乐。"),
-                .init(source: String(repeating: "音", count: 150), translation: "上一条字幕")
-            ], progress: { _ in })
-        precondition(contextual == Mock.raw && Mock.calls == count + 6)
-        Mock.checkRequest = nil
+        var multiline: [String] = []
+        let normalized = try await client.translate(current, source: "ja-JP", target: "zh-CN",
+            configuration: model, context: context, progress: { multiline.append($0) })
+        let expected = "进入下一个话题\n这是第二行\n还有第三行。"
+        precondition(normalized == expected && Mock.calls == count + 6)
+        precondition(multiline.contains(expected) && multiline.allSatisfy { !$0.contains("\\") })
+        model.modelID = "index-translate-9b"
+        Mock.checkRequest = { body in
+            let messages = body["messages"] as! [[String: String]]
+            precondition(messages[1]["content"] == current)
+            precondition(messages[0]["content"]?.contains("[WENYI_JA]") == true)
+            precondition(messages[0]["content"]?.contains("Translation naming policy") == false)
+        }
+        let compatible = try await client.translate(current, source: "ja-JP", target: "zh-CN", configuration: model)
+        precondition(compatible == expected && Mock.calls == count + 7)
+
+        let firstClause = String(repeating: "この資料を確認します", count: 7) + "、"
+        let lastClause = "次の作業を始めます。"
+        let whole = firstClause + lastClause
+        let start = Mock.calls
+        Mock.raw = "完成。"
+        Mock.checkRequest = { body in
+            precondition(body["stream"] as? Bool == true)
+            let messages = body["messages"] as! [[String: String]]
+            let expectedInput = [firstClause, lastClause, whole][Mock.calls - start - 1]
+            precondition(messages[1]["content"] == expectedInput, "Index should send only the current block or whole final")
+        }
+        var previews: [String] = []
+        _ = try await incremental.translate(whole, identity: "index-confirmation", source: "ja-JP", target: "zh-CN",
+            configuration: model, apiKey: nil, progress: { previews.append($0) })
+        precondition(Mock.calls == start + 2 && !previews.isEmpty)
+        let previewCount = previews.count
+        let final = try await incremental.translate(whole, identity: "index-confirmation", source: "ja-JP", target: "zh-CN",
+            configuration: model, apiKey: nil, isFinal: true, progress: { previews.append($0) })
+        precondition(final == "完成。" && Mock.calls == start + 3 && previews.count == previewCount)
+
+        let legacy = try JSONDecoder().decode(LocalTranslationConfiguration.self,
+            from: Data(#"{"enabled":true,"baseURL":"http://localhost:1235/v1","modelID":"index-translate-9b"}"#.utf8))
+        precondition(!legacy.usesOnlineIndex && legacy.activeModelID == "index-translate-9b")
+        var online = legacy
+        online.onlineIndex = true
+        online.baseURL = "https://example.invalid/v1"
+        Mock.raw = "田中下周去东京。"
+        Mock.checkRequest = { body in
+            let messages = body["messages"] as! [[String: String]]
+            precondition(messages.count == 1 && messages[0]["role"] == "user")
+            precondition(messages[0]["content"]?.hasSuffix(current) == true)
+            precondition(messages[0]["content"]?.contains(context) == false)
+            precondition(messages[0]["content"]?.contains("[WENYI_JA]") == false)
+        }
+        var onlinePreview = ""
+        let onlineResult = try await client.translate(current, source: "ja-JP", target: "zh-CN",
+            configuration: online, apiKey: "local-test-key", context: context,
+            progress: { onlinePreview = $0 })
+        precondition(onlineResult == Mock.raw && onlinePreview == Mock.raw)
+        online.onlineIndex = nil
+        do {
+            _ = try online.validatedBaseURL()
+            preconditionFailure("Local mode must reject a non-loopback URL")
+        } catch LocalTranslationError.invalidURL {}
         print("PASS joint response, one request, streaming marker fragmentation, no footer leak, source validation and incremental cache reuse")
         print("PASS mixed Japanese hidden from progress, one translation-only retry, halfwidth kana rejected and Japanese target preserved")
-        print("PASS two bounded confirmed captions and name policy are sent with the same streaming request")
+        print("PASS escaped line breaks in previews and final output; no previous bilingual captions or naming policy")
+        print("PASS Index previews omit neighboring source; final replaces the preview using one whole-caption request")
+        print("PASS explicit online Index route uses a fixed host, current fragment only, and no local credentials")
     }
 }

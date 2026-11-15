@@ -1,4 +1,11 @@
 import Foundation
+
+// Standalone layout check substitutes the two app-only translation status labels.
+enum AppText {
+    static let translating = "Translating…"
+    static let translationCancelled = "Translation cancelled"
+}
+
 @main struct Checks {
     static func main() {
         func check(_ value: Bool, _ message: String) { precondition(value, message) }
@@ -20,6 +27,8 @@ import Foundation
         check(line.sourceText == sample, "raw ASR unchanged")
         check(line.sourceDisplayText.contains("\n"), "shared CaptionLine path applies layout")
         check(line.translatedDisplayText == "我明白了。\n这是下一句。", "Chinese punctuation splits too")
+        let multiline = CaptionLine(sourceText: sample, translatedText: "第一行\n第二行。\n第三行", createdAt: Date(), isFinal: true)
+        check(multiline.translatedDisplayText == multiline.translatedText, "explicit line breaks survive caption display formatting")
         let english = CaptionLine(sourceText: "A natural English sentence.", translatedText: "A translation.", createdAt: Date(), isFinal: true)
         check(english.sourceDisplayText == english.sourceText, "English unchanged")
         let start = ProcessInfo.processInfo.systemUptime
