@@ -29,6 +29,7 @@ enum SidebarSegmentedControlPresentation: Equatable {
 
 enum ProcessingEngine: String, CaseIterable, Identifiable {
     case apple
+    case indexOnline
     case openAI
     case gemini
     case meta
@@ -42,6 +43,12 @@ enum ProcessingEngine: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .apple: AppText.appleProcessingMode
+        case .indexOnline: AppText.localized(
+            english: "Index online translation (Bilibili, free & open source)",
+            korean: "Index 온라인 번역 (빌리빌리, 무료·오픈 소스)",
+            japanese: "Index オンライン翻訳（Bilibili、無料・オープンソース）",
+            chineseSimplified: "Index 在线翻译（B 站免费开源）"
+        )
         case .openAI: AppText.openAIAudio
         case .gemini: AppText.geminiModels
         case .azure: AzureMAICopy.title
@@ -63,7 +70,7 @@ enum ProcessingEngine: String, CaseIterable, Identifiable {
             return .openAI
         }
         if session.isUsingGemini { return .gemini }
-        return .apple
+        return session.localTranslation.usesOnlineIndex ? .indexOnline : .apple
     }
 }
 
@@ -140,6 +147,7 @@ struct StageHeaderView: View {
         case .nari: !session.hasNariAPIKey
         case .meta: !session.hasMetaAPIKey
         case .apple: session.isUsingJevSelection && !session.hasJevAPIKey
+        case .indexOnline: false
         }
     }
 
@@ -153,6 +161,7 @@ struct StageHeaderView: View {
         case .nari: NariCopy.configurationRequired
         case .meta: AppText.metaAPIKeyNotConfigured
         case .apple: session.isUsingJevSelection ? JevCopy.keyRequired : AppText.configureTranslationSettings
+        case .indexOnline: AppText.configureTranslationSettings
         }
     }
 }
@@ -611,7 +620,8 @@ struct ConsoleBarView: View {
     }
 
     private var usesAPIModeOutputControl: Bool {
-        ProcessingEngine.current(for: session) != .apple
+        let engine = ProcessingEngine.current(for: session)
+        return engine != .apple && engine != .indexOnline
     }
 
     private var sourceOnlyOutputTitle: String {

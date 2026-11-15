@@ -5,6 +5,7 @@ private let indexTranslateModelName = "Index-Translate 9B"
 
 struct LocalTranslationSettingsView: View {
     @Bindable var session: TranslationSessionStore
+    let isOnlineIndex: Bool
     @State private var showingConfiguration = false
     @State private var showingDiagnostics = false
     @State private var replayMessage = ""
@@ -12,35 +13,27 @@ struct LocalTranslationSettingsView: View {
     @State private var isWorking = false
     @State private var operation: Task<Void, Never>?
     private var locked: Bool { session.isRunning || session.isStarting || isWorking }
-    private enum Engine: Hashable { case apple, local, indexOnline }
-    private var selectedEngine: Engine {
-        guard session.localTranslation.enabled else { return .apple }
-        return session.localTranslation.usesOnlineIndex ? .indexOnline : .local
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             WhisperRecognitionSettingsView(session: session)
-            SettingsControlRow(title: "本地模式 · 翻译引擎", detail: "先由选定的本地引擎识别语音，再选择译文的处理方式。", systemImage: "character.bubble") {
-                Picker("翻译引擎", selection: Binding(
-                    get: { selectedEngine },
-                    set: { engine in
-                        message = ""
-                        switch engine {
-                        case .apple: session.enableLocalTranslation(false)
-                        case .local: showingConfiguration = true
-                        case .indexOnline: session.enableOnlineIndexTranslation()
+            if !isOnlineIndex {
+                SettingsControlRow(title: "本地模式 · 翻译引擎", detail: "先由选定的本地引擎识别语音，再选择译文的处理方式。", systemImage: "character.bubble") {
+                    Picker("翻译引擎", selection: Binding(
+                        get: { session.localTranslation.enabled },
+                        set: { enabled in
+                            message = ""
+                            if enabled { showingConfiguration = true }
+                            else { session.enableLocalTranslation(false) }
                         }
+                    )) {
+                        if PlatformSupport.supportsAppleSpeech { Text("Apple 翻译").tag(false) }
+                        Text("本地模型翻译").tag(true)
                     }
-                )) {
-                    if PlatformSupport.supportsAppleSpeech { Text("Apple 翻译").tag(Engine.apple) }
-                    Text("本地模型翻译").tag(Engine.local)
-                    Text("Index 在线翻译").tag(Engine.indexOnline)
+                    .labelsHidden().frame(width: 220).disabled(locked)
                 }
-                .labelsHidden().frame(width: 220).disabled(locked)
             }
-            if session.localTranslation.enabled {
-                if !session.localTranslation.usesOnlineIndex {
+            if isOnlineIndex || session.localTranslation.enabled {
+                if !isOnlineIndex {
                     Toggle("跨段回看纠错", isOn: $session.contextualCaptionCorrectionEnabled)
                         .disabled(locked)
                     Text("翻译空闲时用后文纠正近期字幕中的同音词。")
@@ -52,7 +45,7 @@ struct LocalTranslationSettingsView: View {
                             Text(activeModelName)
                                 .font(.headline).textSelection(.enabled)
                             Text(session.localTranslation.activeBaseURL).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
-                            if session.localTranslation.usesOnlineIndex {
+                            if isOnlineIndex {
                                 Text("语音在本机识别，待译字幕文字发送到哔哩哔哩。")
                                     .font(.caption).foregroundStyle(.secondary)
                             } else {
@@ -61,7 +54,7 @@ struct LocalTranslationSettingsView: View {
                             }
                         }
                         Spacer()
-                        if !session.localTranslation.usesOnlineIndex {
+                        if !isOnlineIndex {
                             Button("配置…") { showingConfiguration = true }.disabled(locked)
                         }
                     }

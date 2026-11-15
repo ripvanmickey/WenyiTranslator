@@ -118,7 +118,7 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 .labelsHidden()
-                .frame(minWidth: 190, idealWidth: 220, maxWidth: 260)
+                .frame(minWidth: 190, idealWidth: 250, maxWidth: 320)
                 .allowsHitTesting(segmentedControlAllowsHitTesting())
                 .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
                 .opacity(isSessionConfigurationLocked ? 0.6 : 1)
@@ -132,11 +132,13 @@ struct SettingsView: View {
                 )
             }
 
-            if processingModeSelection.wrappedValue == .apple {
-                LocalTranslationSettingsView(session: session)
+            let mode = selectedProcessingMode
+            if mode == .apple || mode == .indexOnline {
+                LocalTranslationSettingsView(session: session, isOnlineIndex: mode == .indexOnline)
+                    .id(mode)
             }
 
-            if processingModeSelection.wrappedValue != .apple || !session.localTranslation.enabled {
+            if mode != .indexOnline && (mode != .apple || !session.localTranslation.enabled) {
             SettingsToggleRow(
                 title: JevCopy.title,
                 detail: session.isJevSelectionAvailable ? JevCopy.detail : JevCopy.appleOnly,
@@ -754,7 +756,7 @@ struct SettingsView: View {
         if session.isUsingGemini {
             return .gemini
         }
-        return .apple
+        return session.localTranslation.usesOnlineIndex ? .indexOnline : .apple
     }
 
     private var azureConfigurationIssue: String? {
@@ -818,10 +820,12 @@ struct SettingsView: View {
         Binding {
             selectedProcessingMode
         } set: { mode in
-            guard !isSessionConfigurationLocked else { return }
+            guard !isSessionConfigurationLocked, mode != selectedProcessingMode else { return }
             switch mode {
             case .apple:
                 session.useAppleDefaultMode()
+            case .indexOnline:
+                session.enableOnlineIndexTranslation()
             case .openAI:
                 session.useOpenAIMode()
             case .gemini:
@@ -942,6 +946,7 @@ struct SettingsView: View {
 
 private enum SettingsProcessingMode: String, CaseIterable, Identifiable {
     case apple
+    case indexOnline
     case openAI
     case gemini
     case meta
@@ -956,6 +961,8 @@ private enum SettingsProcessingMode: String, CaseIterable, Identifiable {
         switch self {
         case .apple:
             AppText.appleProcessingMode
+        case .indexOnline:
+            ProcessingEngine.indexOnline.title
         case .openAI:
             AppText.openAIAudio
         case .gemini:
@@ -1109,10 +1116,10 @@ enum SettingsCopy {
     static let modeSettings = AppText.localized(english: "Mode Settings", korean: "모드 설정", chineseSimplified: "模式设置")
     static let processingEngine = AppText.localized(english: "Processing Mode", korean: "처리 방식", chineseSimplified: "处理模式")
     static let processingEngineDetail = AppText.localized(
-        english: "Choose exactly one active engine: local Apple mode, OpenAI Audio, Gemini Live, Meta Scribe, Azure MAI, Nari STT, Grok STT, or Qwen LiveTranslate.",
-        korean: "Apple 기본 모드, OpenAI 음성, Gemini Live, Meta 스크라이브, Azure MAI, Nari STT, Grok STT, Qwen LiveTranslate 중 하나만 활성화합니다.",
-        japanese: "Appleローカルモード、OpenAI音声、Gemini Live、Meta Scribe、Azure MAI、Nari STT、Grok STT、Qwen LiveTranslateから1つだけ有効にします。",
-        chineseSimplified: "仅启用一种处理方式：本地模式、OpenAI 语音、Gemini Live、Meta Scribe、Azure MAI、Nari STT、Grok STT 或 Qwen LiveTranslate。"
+        english: "Choose a processing mode for speech recognition and translation.",
+        korean: "음성 인식 및 번역에 사용할 처리 방식을 선택합니다.",
+        japanese: "音声認識と翻訳に使う処理モードを選択します。",
+        chineseSimplified: "选择语音识别和翻译的处理方式。"
     )
     static let enterOpenAIAPIKey = AppText.localized(
         english: "Enter OpenAI API key",

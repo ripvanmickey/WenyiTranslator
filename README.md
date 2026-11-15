@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1212)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1213)
 </p>
 
 <p align="center">
@@ -56,7 +56,7 @@ Build 1210 recognizes Japanese sentence-final punctuation in Nemotron and allows
 
 Build 1211 stops sending adjacent source fragments with Index-Translate Japanese-to-Chinese subtitle requests. Short multi-block captions receive one complete translation when confirmed.
 
-Build 1212 adds the optional Index online translation engine. Speech recognition stays on the Mac, and only the current caption text is sent to Bilibili for translation.
+In build 1213, Index online translation appears alongside Local Mode under Settings → General → Processing Mode. Speech recognition stays on the Mac, and only the current caption text is sent to Bilibili for translation.
 
 ## Saved transcripts
 
@@ -68,7 +68,7 @@ Requires Apple Silicon (M1 or later) and macOS 14.0 or later. This repository ho
 
 1. Open the DMG and drag Wenyi into Applications. If you have the ZIP, extract it and move the app into Applications.
 2. In Settings → General, select local mode and a speech recognition engine. Download the model when prompted and grant the permissions required by your audio source.
-3. For translation, load a text model in LM Studio and start its local API. In Wenyi, enter the service address, such as `http://localhost:1235/v1`, fetch the model list, and choose the model ID shown there. Enter a key if the local server requires authentication.
+3. For translation, load a text model in LM Studio and start its local API. In Wenyi, enter the service address, such as `http://localhost:1235/v1`, fetch the model list, and choose the model ID shown there. Enter a key if the local server requires authentication. Alternatively, select Index online translation under Processing Mode. It requires neither LM Studio nor an API key.
 4. Test translation, choose the source and target languages, and start listening. Select original-only output for transcription.
 
 The test packages use a local ad hoc signature and have yet to be notarized by Apple.

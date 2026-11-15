@@ -30,6 +30,10 @@ struct ProcessingModeInfo {
         switch engine {
         case .qwen:
             return Self(modelID: qwenModel.rawValue, summary: QwenCopy.detail(for: qwenModel), price: QwenCopy.price(for: qwenModel))
+        case .indexOnline:
+            return Self(modelID: LocalTranslationConfiguration.indexModelID,
+                 summary: copy("On-device speech recognition · online text translation", "기기 내 음성 인식 · 온라인 텍스트 번역", "端末内の音声認識 · オンラインテキスト翻訳", "本机语音识别 · 在线文字翻译"),
+                 price: copy("Bilibili free public API", "빌리빌리 무료 공개 API", "Bilibili 無料公開 API", "哔哩哔哩免费公开 API"))
         case .apple:
             return Self(modelID: "apple-system",
                  summary: copy("On-device transcription & translation", "기기 내 음성 전사·번역", "デバイス内で文字起こし・翻訳", "设备端语音转写与翻译"),

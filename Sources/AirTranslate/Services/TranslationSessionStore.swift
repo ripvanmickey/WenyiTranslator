@@ -954,7 +954,7 @@ final class TranslationSessionStore {
     }
     // Local translation only replaces the Apple workflow, never a cloud audio engine.
     var isUsingLocalTranslation: Bool {
-        localTranslation.enabled && !isTranscribeOnlyMode
+        (localTranslation.enabled || localTranslation.usesOnlineIndex) && !isTranscribeOnlyMode
             && !openAITranslationModel.isEnabled && !openAITranscriptionModel.isEnabled
             && !geminiTranslationModel.isEnabled && !isUsingQwenTranslation
             && !isUsingAzureMAI && !isUsingMetaScribe && !isUsingNariSTT && !isUsingGrokSTT
@@ -973,7 +973,8 @@ final class TranslationSessionStore {
 
     func enableOnlineIndexTranslation() {
         guard !isRunning, !isStarting else { return }
-        enableLocalTranslation(true)
+        useAppleDefaultMode()
+        isJevSelectionEnabled = false
         localTranslation.onlineIndex = true
     }
 
@@ -2441,6 +2442,7 @@ final class TranslationSessionStore {
         metaTranscriptionModel = .off
         applyAppleVoiceOutputDefault()
         restoreFloatingCaptionDisplayModeAfterTranscribeOnly()
+        if localTranslation.usesOnlineIndex { localTranslation.onlineIndex = nil }
     }
 
     // 제공자는 OpenAI로 유지하고 출력 목적에 맞는 기존 음성 모델을 선택한다.

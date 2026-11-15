@@ -3,7 +3,7 @@ import Foundation
 extension ProcessingEngine {
     var credentialProvider: CredentialProvider? {
         switch self {
-        case .apple: nil
+        case .apple, .indexOnline: nil
         case .openAI: .openAI
         case .gemini: .gemini
         case .meta: .meta
@@ -17,7 +17,7 @@ extension ProcessingEngine {
     @MainActor
     func hasRequiredKey(in session: TranslationSessionStore) -> Bool {
         switch self {
-        case .apple: true
+        case .apple, .indexOnline: true
         case .openAI: session.hasOpenAIAPIKey
         case .gemini: session.hasGeminiAPIKey
         case .meta: session.hasMetaAPIKey
@@ -42,6 +42,7 @@ extension ProcessingEngine {
         guard self != Self.current(for: session) else { return true }
         switch self {
         case .apple: session.useAppleDefaultMode()
+        case .indexOnline: session.enableOnlineIndexTranslation()
         case .openAI: session.useOpenAIMode()
         case .gemini: session.usePreferredGeminiMode()
         case .meta: session.useMetaScribeMode()
