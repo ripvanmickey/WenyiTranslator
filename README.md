@@ -7,7 +7,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ripvanmickey/WenyiTranslator/actions/workflows/release-verify.yml"><img src="https://github.com/ripvanmickey/WenyiTranslator/actions/workflows/release-verify.yml/badge.svg?branch=master" alt="Release Verify"></a>
+  <img src="https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&logoColor=white" alt="Swift 6.2">
+  <img src="https://img.shields.io/badge/UI-SwiftUI-147EFB?logo=apple&logoColor=white" alt="SwiftUI">
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
 </p>
 
 <p align="center">
