@@ -5,6 +5,7 @@ CHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/airtranslate-local-check.XXXXXX")"
 # Keep compiler caches and the check executable inside this temporary folder.
 swiftc -swift-version 6 -module-cache-path "$CHECK_DIR/module-cache" \
   "$ROOT_DIR/Sources/AirTranslate/Services/LocalTranslationService.swift" \
+  "$ROOT_DIR/Sources/AirTranslate/Services/JapaneseTranslationEnvelope.swift" \
   "$ROOT_DIR/Sources/AirTranslate/Services/IncrementalLocalTranslator.swift" \
   "$ROOT_DIR/Sources/AirTranslate/Services/AudioInputTimeline.swift" \
   "$ROOT_DIR/script/LocalTranslationChecks.swift" -o "$CHECK_DIR/check"

@@ -3,6 +3,7 @@ import Foundation
 final class Mock: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var calls = 0
     nonisolated(unsafe) static var raw = "今天晴天。明天呢？\n[WENYI_JA]今日は晴れています。明日はどうでしょうか？"
+    nonisolated(unsafe) static var retry: String?
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -12,21 +13,22 @@ final class Mock: URLProtocol, @unchecked Sendable {
             while stream.hasBytesAvailable { let count = stream.read(&bytes, maxLength: bytes.count); if count <= 0 { break }; data.append(contentsOf: bytes.prefix(count)) }; return data
         }!
         let body = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
-        precondition((body["system_prompt"] as? String)?.contains("[WENYI_JA]") == true)
+        let usesFooter = (body["system_prompt"] as? String)?.contains("[WENYI_JA]") == true
+        let output = usesFooter ? Self.raw : Self.retry!
         precondition(body["reasoning"] as? String == "off")
         let streaming = body["stream"] as? Bool == true
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": streaming ? "text/event-stream" : "application/json"])!, cacheStoragePolicy: .notAllowed)
         if streaming {
-            for character in Self.raw {
+            for character in output {
                 let event: [String: Any] = ["type": "message.delta", "content": String(character)]
                 let json = String(data: try! JSONSerialization.data(withJSONObject: event), encoding: .utf8)!
                 client?.urlProtocol(self, didLoad: Data("data: \(json)\n\n".utf8))
             }
-            let event: [String: Any] = ["type": "chat.end", "result": ["output": [["type": "message", "content": Self.raw]]]]
+            let event: [String: Any] = ["type": "chat.end", "result": ["output": [["type": "message", "content": output]]]]
             let json = String(data: try! JSONSerialization.data(withJSONObject: event), encoding: .utf8)!
             client?.urlProtocol(self, didLoad: Data("data: \(json)\n\n".utf8))
         } else {
-            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["output": [["type": "message", "content": Self.raw]]]))
+            client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: ["output": [["type": "message", "content": output]]]))
         }
         client?.urlProtocolDidFinishLoading(self)
     }
@@ -58,6 +60,28 @@ final class Mock: URLProtocol, @unchecked Sendable {
         _ = try await incremental.translate(original, identity: "test", source: "ja-JP", target: "zh-Hans", configuration: model, apiKey: nil,
             punctuation: { punctuated = $0 }, progress: { _ in })
         precondition(Mock.calls == count, "Cached clauses retain punctuation without extra requests")
+
+        Mock.raw = "こうちょっと、今天晴天。明天呢？[ こうちょっと"
+        Mock.retry = translated
+        var mixedProgress: [String] = []
+        let repaired = try await client.translate(original, source: "ja-JP", target: "zh-Hans", configuration: model,
+            progress: { mixedProgress.append($0) })
+        precondition(repaired == translated && Mock.calls == count + 2)
+        precondition(mixedProgress.isEmpty, "A stream starting in Japanese must never reach the UI")
+
+        Mock.raw = "今天晴天。明天呢？[ こうちょっと"
+        Mock.retry = "今天晴天。ﾊｲ"
+        do {
+            _ = try await client.translate(original, source: "ja-JP", target: "zh-Hans", configuration: model,
+                progress: { mixedProgress.append($0) })
+            preconditionFailure("Kana in the retry must fail, even in halfwidth form")
+        } catch LocalTranslationError.untranslatedJapanese {}
+        precondition(Mock.calls == count + 4 && mixedProgress.allSatisfy { !$0.contains("こう") && !$0.contains("[") })
+
+        Mock.raw = "今日は晴れています。"
+        let japanese = try await client.translate(original, source: "ja-JP", target: "ja-JP", configuration: model)
+        precondition(japanese == Mock.raw && Mock.calls == count + 5)
         print("PASS joint response, one request, streaming marker fragmentation, no footer leak, source validation and incremental cache reuse")
+        print("PASS mixed Japanese hidden from progress, one translation-only retry, halfwidth kana rejected and Japanese target preserved")
     }
 }

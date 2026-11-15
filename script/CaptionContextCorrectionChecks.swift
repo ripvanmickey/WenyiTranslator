@@ -1,6 +1,7 @@
 import Foundation
 
 private final class ReviewProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var translation = "我把机器送去修了。"
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
@@ -9,7 +10,7 @@ private final class ReviewProtocol: URLProtocol, @unchecked Sendable {
         precondition(request.url?.path == "/api/v1/chat")
         let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
                                        headerFields: ["Content-Type": "application/json"])!
-        let answer = #"{"segment":0,"original":"機会","replacement":"機械","evidence":"機械の修理の話です","translation":"我把机器送去修了。"}"#
+        let answer = #"{"segment":0,"original":"機会","replacement":"機械","evidence":"機械の修理の話です","translation":"\#(Self.translation)"}"#
         let body = try! JSONSerialization.data(withJSONObject: ["output": [["type": "message", "content": answer]]])
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body)
@@ -28,6 +29,10 @@ private final class ReviewProtocol: URLProtocol, @unchecked Sendable {
                                                             configuration: config, apiKey: nil)
         precondition(result?.index == 0 && result?.source == "機械を修理に出しました。")
         precondition(result?.translation == "我把机器送去修了。")
+        ReviewProtocol.translation = "我把机器送去修了。ちょっと"
+        let mixed = try await service.reviewCaptionContext(sources, source: "ja-JP", target: "zh-CN",
+                                                           configuration: config, apiKey: nil)
+        precondition(mixed == nil)
 
         func checked(_ index: Int, _ old: String, _ new: String, _ quote: String, sources: [String]) -> Bool {
             CaptionContextCorrection(segment: index, original: old, replacement: new,

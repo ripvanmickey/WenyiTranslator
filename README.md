@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1202)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1203)
 </p>
 
 <p align="center">
@@ -39,6 +39,8 @@ Choose Nemotron 0.6B, Granite Speech 2B, Qwen3-ASR, or experimental multi-speake
 Wenyi sends the recognized text to LM Studio on the same Mac. The settings include short- and long-sentence translation tests and caption latency diagnostics. With local recognition and local translation selected, audio and text are processed on your Mac.
 
 Build 1202 adds **contextual caption correction**. While translation is idle, Wenyi uses later speech to check recent finalized captions for homophone mistakes and updates the original and translation together when it finds a correction. New captions take priority. You can turn this feature off under Settings → General.
+
+Build 1203 checks local Japanese-to-Chinese subtitles for leftover kana and retries the affected segment once with a translation-only request. Valid subtitles still stream as before.
 
 ## Saved transcripts
 

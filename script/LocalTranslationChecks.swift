@@ -57,8 +57,8 @@ func check(_ value: Bool, _ message: String) { if !value { fatalError(message) }
             check(json["model"] as? String == "local/test", "model request")
             check(json["stream"] as? Bool == false, "stream option")
             let messages = json["messages"] as! [[String: String]]
-            check(messages.last?["content"] == "今日はいい天気です。\n/no_think", "source content")
-            check(messages.first!["content"]!.contains("ja-JP to zh-CN"), "translation direction")
+            check(messages.last?["content"] == "今日はいい天気です。", "source content for non-Qwen model")
+            check(messages.first!["content"]!.contains("Japanese text to zh-CN"), "translation direction")
             return (200, #"{"choices":[{"message":{"content":"<think>reasoning</think>今天天气很好。"},"finish_reason":"stop"}]}"#)
         }
         check(try await client.translate("今日はいい天気です。", source: "ja-JP", target: "zh-CN", configuration: config) == "今天天气很好。", "translation")
