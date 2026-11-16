@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1216）
+  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1217）
 </p>
 
 <p align="center">
@@ -67,6 +67,8 @@ Nemotron 0.6B、Qwen3-ASR、実験的な複数話者認識に対応していま�
 ビルド 1214 では、通常の長さの字幕をまとめて送信します。配信の中断、出力の打ち切り、日本語から中国語への翻訳で原文が返った場合には、条件に応じて一度だけ再試行します。
 
 ビルド 1216 では Granite Speech と専用の実行環境を削除しました。以前 Granite を選択していた場合は Nemotron に切り替わります。
+
+ビルド 1217 では、配布用 Python ランタイムから未使用の pip コードと一部のテスト・文書を削除しました。
 
 ## 謝辞
 

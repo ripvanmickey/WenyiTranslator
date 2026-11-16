@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1216)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1217)
 </p>
 
 <p align="center">
@@ -67,6 +67,8 @@ In build 1213, Index online translation appears alongside Local Mode under Setti
 Build 1214 sends ordinary online captions as a single request and retries interrupted or truncated streams and Japanese source echoes once.
 
 Build 1216 removes Granite Speech and its separate runtime. Existing Granite selections migrate to Nemotron.
+
+Build 1217 removes unused Python installer code and selected third-party tests and documentation from the distributable runtime.
 
 ## Acknowledgments
 

@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1216）
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1217）
 </p>
 
 <p align="center">
@@ -67,6 +67,8 @@
 构建 1214 将常见长度的在线字幕整段提交。流式中断、输出截断或日译中回显日语时，按情况重试一次。
 
 构建 1216 移除了 Granite Speech 及其独立运行环境。旧版选用 Granite 的设置会切到 Nemotron。
+
+构建 1217 从安装包内的 Python 运行环境清理未使用的 pip 安装代码和部分第三方测试及文档。
 
 ## 致谢
 

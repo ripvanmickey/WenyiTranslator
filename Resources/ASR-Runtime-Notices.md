@@ -4,6 +4,9 @@ CPython 3.12：许可证见 ASRRuntime/lib/python3.12/LICENSE.txt。
 各 Python 依赖的许可证及原始元数据保留在对应 packages/<环境>/*.dist-info 中。
 运行时不包含语音识别模型权重；下载时固定模型版本并校验大型文件。
 
+打包时仅从安装包暂存副本移除 pip 的运行代码、指定第三方测试和手册。
+随包保留许可证、软件包元数据、运行资源及原生库。
+
 ## 内置软件包
 
 ### legacy
@@ -33,7 +36,6 @@ CPython 3.12：许可证见 ASRRuntime/lib/python3.12/LICENSE.txt。
 - mlx-metal 0.31.2
 - numpy 2.4.6
 - packaging 26.2
-- pip 25.0.1
 - protobuf 7.35.0
 - pycparser 3.0
 - Pygments 2.20.0
@@ -54,7 +56,6 @@ CPython 3.12：许可证见 ASRRuntime/lib/python3.12/LICENSE.txt。
 ### qwen
 
 - mlx-qwen3-asr 0.3.5
-- pip 25.0.1
 
 ## 识别适配源码
 
