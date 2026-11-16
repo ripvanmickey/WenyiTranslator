@@ -16,8 +16,6 @@ enum AirTranslateDesign {
         static let dangerFill = danger.opacity(0.14)
         static let warning = dynamicColor(light: 0xB97600, dark: 0xF2B53D)
         static let canvas = dynamicColor(light: 0xF4F5F7, dark: 0x121417)
-        static let captureBarBackground = Color(nsColor: nsColor(hex: 0xF0F0F0))
-        static let captureBarBorder = Color(nsColor: nsColor(hex: 0xD4D4D4))
         static let raised = dynamicColor(light: 0xFFFFFF, dark: 0x1B1E23)
         static let raisedHover = dynamicColor(light: 0xF8FAFB, dark: 0x22262C)
         static let hairline = dynamicColor(light: 0xE5E7EA, dark: 0x2B3037)
