@@ -8,7 +8,6 @@ struct ASRManagedModel: Identifiable {
     let downloadSize: String
     static let all: [Self] = [
         .init(id: "nemotron", title: AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）"), detail: AppText.ui("按当前实测，英语和日语的速度、识别效果最好，适合实时字幕。", "Recommended for live English and Japanese captions based on our tests.", "実測では英語と日本語の速度と認識精度が良好で、リアルタイム字幕に適しています。"), downloadSize: AppText.ui("约 1.2 GB", "About 1.2 GB", "約 1.2 GB")),
-        .init(id: "granite", title: "Granite Speech 5.0 · 2B", detail: AppText.ui("第二推荐。英语和日语可用，分段识别会有一定延迟。", "Supports English and Japanese, with some delay due to segmented recognition.", "英語と日本語に対応します。区間ごとに認識するため、多少の遅延があります。"), downloadSize: AppText.ui("约 5 GB", "About 5 GB", "約 5 GB")),
         .init(id: "qwen17", title: "Qwen3-ASR · 1.7B", detail: AppText.ui("英语识别可用；按当前实测，日语效果不佳，不推荐用于日语。", "Suitable for English. Our tests found weak Japanese recognition.", "英語向けです。実測では日本語の認識精度が十分ではありませんでした。"), downloadSize: AppText.ui("约 4.4 GB", "About 4.4 GB", "約 4.4 GB")),
         .init(id: "qwen06", title: "Qwen3-ASR · 0.6B", detail: AppText.ui("更轻量的对比选项。建议仅用于英语试用，不推荐用于日语。", "A lighter model for English trials.", "英語の試用向けの軽量モデルです。"), downloadSize: AppText.ui("约 1.8 GB", "About 1.8 GB", "約 1.8 GB")),
         .init(id: "multitalker", title: AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）"), detail: AppText.ui("仅英语；实时单路草稿，段尾多人校正，不保证比 Nemotron 更快。", "English only. Shows a live draft and corrects speaker turns at the end of each segment.", "英語のみ対応。暫定字幕を表示し、区間の確定時に話者の区切りを修正します。"), downloadSize: AppText.ui("约 833 MB", "About 833 MB", "約 833 MB"))
@@ -32,7 +31,7 @@ private final class ASRModelOperation: @unchecked Sendable {
         let process = Process(); let pipe = Pipe()
         process.executableURL = resources.appendingPathComponent("ASRRuntime/bin/python3.12")
         process.arguments = [resources.appendingPathComponent("ASRModels.py").path] + arguments
-        process.environment = ManagedASRRuntime.environment(engine: "granite", online: true, resourceRoot: resources, modelData: data)
+        process.environment = ManagedASRRuntime.environment(engine: "nemotron", online: true, resourceRoot: resources, modelData: data)
         process.standardOutput = pipe; process.standardError = FileHandle.nullDevice
         lock.lock()
         if cancelled { lock.unlock(); throw CancellationError() }
@@ -70,7 +69,7 @@ private final class ASRModelOperation: @unchecked Sendable {
         let catalog = catalogData.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: [String: String]] } ?? [:]
         for model in ASRManagedModel.all {
             let folder = ManagedASRRuntime.data.appendingPathComponent("models/" + model.id)
-            if !["granite", "multitalker"].contains(model.id),
+            if model.id != "multitalker",
                !FileManager.default.fileExists(atPath: ManagedASRRuntime.data.appendingPathComponent("models/vad/ready.json").path) { continue }
             guard let data = try? Data(contentsOf: folder.appendingPathComponent("ready.json")),
                   let record = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

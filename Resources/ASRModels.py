@@ -2,7 +2,7 @@
 import argparse,hashlib,json,os,shutil,sys,time,ctypes,threading
 from pathlib import Path
 CATALOG=json.loads(Path(__file__).with_name('ASRModelCatalog.json').read_text())
-PUBLIC=('nemotron','granite','qwen17','qwen06','multitalker')
+PUBLIC=('nemotron','qwen17','qwen06','multitalker')
 OUTPUT_LOCK=threading.Lock()
 def emit(**x):
  with OUTPUT_LOCK:print(json.dumps(x,ensure_ascii=False),flush=True)
@@ -107,7 +107,7 @@ def main():
   if dest.is_symlink():raise ValueError('模型目录无效')
   if dest.exists():shutil.rmtree(dest)
  else:
-  for key in ([a.model,'vad'] if a.model not in ('granite','multitalker') else [a.model]):
+  for key in ([a.model,'vad'] if a.model != 'multitalker' else [a.model]):
    if state(root,key):continue
    if a.action=='import':
     if not a.old:raise ValueError('未选择旧版模型目录')

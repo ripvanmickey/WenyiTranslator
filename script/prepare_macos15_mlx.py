@@ -3,7 +3,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parent.parent
 base=root/'Resources/ASRRuntime/packages';cache=root.parent/'macos15-wheels';cache.mkdir(exist_ok=True)
 manifest=[]
-for profile,version in [('legacy','0.31.2'),('granite','0.32.4')]:
+for profile,version in [('legacy','0.31.2')]:
  dest=base/profile
  for project in ['mlx','mlx-metal']:
   data=json.load(urllib.request.urlopen(f'https://pypi.org/pypi/{project}/{version}/json'))

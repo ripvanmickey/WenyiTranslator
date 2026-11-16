@@ -84,14 +84,12 @@ final class NemotronSpeechTranscriber: LocalSpeechTranscriber, @unchecked Sendab
     private var deliveryTask: Task<Void, Never>?
     private let resources: URL
     private let modelData: URL
-    private let granite: Bool
     private let multitalker: Bool
     private let speechActivity: SpeechActivitySettings
     private let qwenModel: String
-    init(resources: URL? = nil, qwenModel: String = "", multitalker: Bool = false, granite: Bool = false,
+    init(resources: URL? = nil, qwenModel: String = "", multitalker: Bool = false,
          modelData: URL? = nil, speechActivity: SpeechActivitySettings = .balanced) {
         self.modelData = modelData ?? ManagedASRRuntime.data
-        self.granite = granite
         self.multitalker = multitalker
         self.resources = resources ?? Bundle.main.resourceURL ?? Bundle.main.bundleURL
         self.qwenModel = qwenModel
@@ -104,12 +102,11 @@ final class NemotronSpeechTranscriber: LocalSpeechTranscriber, @unchecked Sendab
     static func validate(folder: String) throws { try ManagedASRRuntime.validate("nemotron") }
     static func multitalkerFolder(nemotronFolder: String) -> URL { ManagedASRRuntime.data }
     static func validateMultitalker(folder: String) throws { try ManagedASRRuntime.validate("multitalker") }
-    static func validateGranite(folder: String) throws { try ManagedASRRuntime.validate("granite") }
     func start(folder: String, language: LanguageOption, update: @escaping Update,
                recovery: (@Sendable () -> Void)?, failure: @escaping Failure) async throws {
         stop()
-        try ManagedASRRuntime.validate(multitalker ? "multitalker" : ManagedASRRuntime.modelID(granite: granite, qwen: qwenModel), resourceRoot: resources, modelData: modelData)
-        let script = resources.appendingPathComponent(granite ? "GraniteBridge.py" : multitalker ? "MultitalkerBridge.py" : "NemotronBridge.py")
+        try ManagedASRRuntime.validate(multitalker ? "multitalker" : ManagedASRRuntime.modelID(qwen: qwenModel), resourceRoot: resources, modelData: modelData)
+        let script = resources.appendingPathComponent(multitalker ? "MultitalkerBridge.py" : "NemotronBridge.py")
         guard FileManager.default.fileExists(atPath: script.path) else {
             throw WhisperKitSpeechTranscriber.Problem(message: "应用缺少 Nemotron 桥接组件，请重新解压安装。")
         }
@@ -118,8 +115,8 @@ final class NemotronSpeechTranscriber: LocalSpeechTranscriber, @unchecked Sendab
         child.executableURL = resources.appendingPathComponent("ASRRuntime/bin/python3.12")
         child.arguments = ["-u", script.path, "--runtime", root.path, "--language", language.id]
         if !qwenModel.isEmpty { child.arguments! += ["--qwen-model", qwenModel] }
-        if !granite && !multitalker { child.arguments! += speechActivity.bridgeArguments }
-        child.environment = ManagedASRRuntime.environment(engine: granite ? "granite" : qwenModel.isEmpty ? "nemotron" : "qwen", resourceRoot: resources, modelData: root)
+        if !multitalker { child.arguments! += speechActivity.bridgeArguments }
+        child.environment = ManagedASRRuntime.environment(engine: qwenModel.isEmpty ? "nemotron" : "qwen", resourceRoot: resources, modelData: root)
         child.standardInput = stdin; child.standardOutput = stdout; child.standardError = stderr
         let token = UUID()
         lock.withLock {
@@ -299,7 +296,7 @@ final class NemotronSpeechTranscriber: LocalSpeechTranscriber, @unchecked Sendab
     }
     func diagnosticsSummary() -> String {
         lock.withLock {
-            String(format: (granite ? "Granite Speech 5.0 · 2B（分段）" : multitalker ? "Multitalker Parakeet · 实时草稿＋段尾多人校正" : (qwenModel.isEmpty ? "Nemotron 3.5" : "Qwen3-ASR")) + " 本地流式识别\n已接收 %.2f 秒 · 已处理至 %.2f 秒 · 写入队列 %.2f 秒\n累计识别计算 %.2f 秒 · 字幕更新 %d 次\n音频队列恢复 %d 次 · 跳过 %.2f 秒\n识别时序按输入块末端估算，不包含准确的词级声学对齐。", Double(frames)/16000, Double(processedFrame)/16000, Double(pendingFrames)/16000, computeSeconds, textCount, resets, Double(skippedFrames)/16000)
+            String(format: (multitalker ? "Multitalker Parakeet · 实时草稿＋段尾多人校正" : (qwenModel.isEmpty ? "Nemotron 3.5" : "Qwen3-ASR")) + " 本地流式识别\n已接收 %.2f 秒 · 已处理至 %.2f 秒 · 写入队列 %.2f 秒\n累计识别计算 %.2f 秒 · 字幕更新 %d 次\n音频队列恢复 %d 次 · 跳过 %.2f 秒\n识别时序按输入块末端估算，不包含准确的词级声学对齐。", Double(frames)/16000, Double(processedFrame)/16000, Double(pendingFrames)/16000, computeSeconds, textCount, resets, Double(skippedFrames)/16000)
         }
     }
 }

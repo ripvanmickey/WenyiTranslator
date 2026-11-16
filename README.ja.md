@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1215）
+  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1216）
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@
 
 ### ローカル音声認識と発話区間の検出
 
-Nemotron 0.6B、Granite Speech 2B、Qwen3-ASR、実験的な複数話者認識に対応しています。アプリ内で認識モデルのダウンロード、読み込み、削除ができます。Nemotron と Qwen3-ASR では音声区間検出（VAD）のプリセットと詳細設定を使えます。変更は次回のセッション開始時に適用されます。Apple Speech と Apple のシステム翻訳には macOS 26 以降が必要です。
+Nemotron 0.6B、Qwen3-ASR、実験的な複数話者認識に対応しています。アプリ内で認識モデルのダウンロード、読み込み、削除ができます。Nemotron と Qwen3-ASR では音声区間検出（VAD）のプリセットと詳細設定を使えます。変更は次回のセッション開始時に適用されます。Apple Speech と Apple のシステム翻訳には macOS 26 以降が必要です。
 
 ### LM Studio によるローカル翻訳
 
@@ -65,6 +65,8 @@ Nemotron 0.6B、Granite Speech 2B、Qwen3-ASR、実験的な複数話者認識�
 ビルド 1213 では「設定 → 一般 → 処理モード」で、ローカルモードと並んで Index オンライン翻訳を選択できます。音声認識は Mac 内で行い、翻訳対象の字幕テキストだけを Bilibili に送信します。
 
 ビルド 1214 では、通常の長さの字幕をまとめて送信します。配信の中断、出力の打ち切り、日本語から中国語への翻訳で原文が返った場合には、条件に応じて一度だけ再試行します。
+
+ビルド 1216 では Granite Speech と専用の実行環境を削除しました。以前 Granite を選択していた場合は Nemotron に切り替わります。
 
 ## 謝辞
 

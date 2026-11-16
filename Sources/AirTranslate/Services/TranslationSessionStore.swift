@@ -171,7 +171,6 @@ struct StartConfiguration: Equatable {
     let whisperRecognitionEnabled: Bool
     let whisperModelFolder: String
     let nemotronRecognitionEnabled: Bool
-    let graniteRecognitionEnabled: Bool
     let multitalkerRecognitionEnabled: Bool
     let speechActivity: SpeechActivitySettings
     let qwenASRModel: String
@@ -209,7 +208,6 @@ struct StartConfiguration: Equatable {
         whisperRecognitionEnabled: Bool = false,
         whisperModelFolder: String = "",
         nemotronRecognitionEnabled: Bool = false,
-        graniteRecognitionEnabled: Bool = false,
         multitalkerRecognitionEnabled: Bool = false,
         speechActivity: SpeechActivitySettings = .balanced,
         qwenASRModel: String = "",
@@ -244,7 +242,6 @@ struct StartConfiguration: Equatable {
         self.whisperRecognitionEnabled = whisperRecognitionEnabled
         self.whisperModelFolder = whisperModelFolder
         self.nemotronRecognitionEnabled = nemotronRecognitionEnabled
-        self.graniteRecognitionEnabled = graniteRecognitionEnabled
         self.multitalkerRecognitionEnabled = multitalkerRecognitionEnabled
         self.speechActivity = speechActivity
         self.qwenASRModel = qwenASRModel
@@ -1150,18 +1147,16 @@ final class TranslationSessionStore {
     var whisperRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
     var nemotronRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
     var nemotronRuntimeFolder = NemotronSpeechTranscriber.defaultRuntimeFolder { didSet { persistSelectedSettings() } }
-    var graniteRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
     var multitalkerRecognitionEnabled = false { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
     var speechActivity = SpeechActivitySettings.balanced { didSet { persistSelectedSettings() } }
     var qwenASRModel = "" { didSet { persistSelectedSettings(); captionLatencyReadings.removeAll() } }
     var localRecognitionEngine: String {
-        get { graniteRecognitionEnabled && whisperRecognitionEnabled ? "granite" : multitalkerRecognitionEnabled && whisperRecognitionEnabled ? "multitalker" : !whisperRecognitionEnabled ? "apple" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "nemotron" : "qwen") : "whisper") }
+        get { multitalkerRecognitionEnabled && whisperRecognitionEnabled ? "multitalker" : !whisperRecognitionEnabled ? "apple" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "nemotron" : "qwen") : "whisper") }
         set {
             guard newValue != "apple" || PlatformSupport.supportsAppleSpeech else { return }
-            graniteRecognitionEnabled = newValue == "granite"
             multitalkerRecognitionEnabled = newValue == "multitalker"
             if newValue == "qwen" { if qwenASRModel.isEmpty { qwenASRModel = "Qwen/Qwen3-ASR-1.7B" } } else { qwenASRModel = "" }
-            nemotronRecognitionEnabled = newValue == "nemotron" || newValue == "qwen" || newValue == "multitalker" || newValue == "granite"
+            nemotronRecognitionEnabled = newValue == "nemotron" || newValue == "qwen" || newValue == "multitalker"
             whisperRecognitionEnabled = newValue != "apple"
         }
     }
@@ -1182,7 +1177,7 @@ final class TranslationSessionStore {
             persistSelectedSettings()
         }
     }
-    var recognitionEngineTitle: String { graniteRecognitionEnabled && whisperRecognitionEnabled ? AppText.ui("Granite Speech 5.0 · 2B（分段）", "Granite Speech 5.0 · 2B (Segmented)", "Granite Speech 5.0 · 2B（区間認識）") : multitalkerRecognitionEnabled && whisperRecognitionEnabled ? AppText.ui("Multitalker Parakeet · 0.6B（段尾校正）", "Multitalker Parakeet · 0.6B (Segment-End Correction)", "Multitalker Parakeet · 0.6B（区間確定時に補正）") : !whisperRecognitionEnabled ? "Apple Speech" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "Nemotron 3.5 · 0.6B" : "Qwen3-ASR · " + (qwenASRModel.contains("1.7B") ? "1.7B" : "0.6B")) : "WhisperKit · \(whisperModel)") }
+    var recognitionEngineTitle: String { multitalkerRecognitionEnabled && whisperRecognitionEnabled ? AppText.ui("Multitalker Parakeet · 0.6B（段尾校正）", "Multitalker Parakeet · 0.6B (Segment-End Correction)", "Multitalker Parakeet · 0.6B（区間確定時に補正）") : !whisperRecognitionEnabled ? "Apple Speech" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "Nemotron 3.5 · 0.6B" : "Qwen3-ASR · " + (qwenASRModel.contains("1.7B") ? "1.7B" : "0.6B")) : "WhisperKit · \(whisperModel)") }
     var whisperModelsDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("AirTranslate/WhisperKit", isDirectory: true)
@@ -1532,6 +1527,10 @@ final class TranslationSessionStore {
         self.transcriptsDirectoryOverride = transcriptsDirectoryURL
         self.transcriptCheckpointInterval = transcriptCheckpointInterval
         restoreSelectedSettings()
+        if settingsDefaults.bool(forKey: "graniteRecognitionEnabled") {
+            if whisperRecognitionEnabled { localRecognitionEngine = "nemotron" }
+            settingsDefaults.removeObject(forKey: "graniteRecognitionEnabled")
+        }
         if !PlatformSupport.supportsAudioTap { audioOnlySystemCapture = false }
         if !PlatformSupport.supportsAppleSpeech {
             if !whisperRecognitionEnabled { localRecognitionEngine = "nemotron" }
@@ -1608,9 +1607,8 @@ final class TranslationSessionStore {
             }
             if nemotronRecognitionEnabled {
                 do {
-                    if graniteRecognitionEnabled { try NemotronSpeechTranscriber.validateGranite(folder: nemotronRuntimeFolder) }
-                    else if multitalkerRecognitionEnabled { try NemotronSpeechTranscriber.validateMultitalker(folder: nemotronRuntimeFolder) }
-                    else { try ManagedASRRuntime.validate(qwenASRModel.isEmpty ? "nemotron" : qwenASRModel.contains("1.7B") ? "qwen17" : "qwen06") }
+                    if multitalkerRecognitionEnabled { try NemotronSpeechTranscriber.validateMultitalker(folder: nemotronRuntimeFolder) }
+                    else { try ManagedASRRuntime.validate(ManagedASRRuntime.modelID(qwen: qwenASRModel)) }
                 }
                 catch { statusMessage = error.localizedDescription; return }
             }
@@ -1929,7 +1927,6 @@ final class TranslationSessionStore {
             whisperRecognitionEnabled: whisperRecognitionEnabled,
             whisperModelFolder: whisperModelFolder,
             nemotronRecognitionEnabled: nemotronRecognitionEnabled,
-            graniteRecognitionEnabled: graniteRecognitionEnabled,
             multitalkerRecognitionEnabled: multitalkerRecognitionEnabled,
             speechActivity: speechActivity,
             qwenASRModel: qwenASRModel,
@@ -3612,10 +3609,10 @@ final class TranslationSessionStore {
 
     private func startNemotronSpeechTranscriber(configuration: StartConfiguration, generation: UInt64) async throws {
         stopCaptioners()
-        let candidate = NemotronSpeechTranscriber(qwenModel: configuration.qwenASRModel, multitalker: configuration.multitalkerRecognitionEnabled, granite: configuration.graniteRecognitionEnabled, speechActivity: configuration.speechActivity)
+        let candidate = NemotronSpeechTranscriber(qwenModel: configuration.qwenASRModel, multitalker: configuration.multitalkerRecognitionEnabled, speechActivity: configuration.speechActivity)
         let language = configuration.sourceLanguage
         do {
-            statusMessage = configuration.graniteRecognitionEnabled ? AppText.ui("正在加载 Granite Speech 5.0…", "Loading Granite Speech 5.0…", "Granite Speech 5.0 を読み込み中…") : configuration.multitalkerRecognitionEnabled ? AppText.ui("正在加载 Multitalker Parakeet…", "Loading Multitalker Parakeet…", "Multitalker Parakeet を読み込み中…") : configuration.qwenASRModel.isEmpty ? AppText.ui("正在加载 Nemotron 本地识别模型…", "Loading the local Nemotron model…", "ローカルの Nemotron モデルを読み込み中…") : AppText.ui("正在加载 Qwen3-ASR 本地识别模型…", "Loading the local Qwen3-ASR model…", "ローカルの Qwen3-ASR モデルを読み込み中…")
+            statusMessage = configuration.multitalkerRecognitionEnabled ? AppText.ui("正在加载 Multitalker Parakeet…", "Loading Multitalker Parakeet…", "Multitalker Parakeet を読み込み中…") : configuration.qwenASRModel.isEmpty ? AppText.ui("正在加载 Nemotron 本地识别模型…", "Loading the local Nemotron model…", "ローカルの Nemotron モデルを読み込み中…") : AppText.ui("正在加载 Qwen3-ASR 本地识别模型…", "Loading the local Qwen3-ASR model…", "ローカルの Qwen3-ASR モデルを読み込み中…")
             try await candidate.start(folder: configuration.nemotronRuntimeFolder, language: language,
                 update: { [weak self, weak candidate] text, metadata in
                     guard let self, let candidate, candidate === self.whisperTranscriber,
@@ -4767,7 +4764,6 @@ final class TranslationSessionStore {
             sessionDurationMode = durationMode
         }
         whisperRecognitionEnabled = defaults.bool(forKey: "whisperRecognitionEnabled")
-        graniteRecognitionEnabled = defaults.bool(forKey: "graniteRecognitionEnabled")
         multitalkerRecognitionEnabled = defaults.bool(forKey: "multitalkerRecognitionEnabled")
         if let data = defaults.data(forKey: "speechActivity"),
            let settings = try? JSONDecoder().decode(SpeechActivitySettings.self, from: data) {
@@ -4948,7 +4944,6 @@ final class TranslationSessionStore {
         defaults.set(savedTranscriptContentMode.id, forKey: SettingsKey.savedTranscriptContentMode)
         defaults.set(sessionDurationMode.id, forKey: SettingsKey.sessionDurationMode)
         defaults.set(whisperRecognitionEnabled, forKey: "whisperRecognitionEnabled")
-        defaults.set(graniteRecognitionEnabled, forKey: "graniteRecognitionEnabled")
         defaults.set(multitalkerRecognitionEnabled, forKey: "multitalkerRecognitionEnabled")
         defaults.set(try? JSONEncoder().encode(speechActivity.validated), forKey: "speechActivity")
         defaults.set(contextualCaptionCorrectionEnabled, forKey: "contextualCaptionCorrectionEnabled")

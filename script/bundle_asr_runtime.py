@@ -1,7 +1,7 @@
 """Produce a relocatable CPython runtime from verified local installations (no pip at user startup)."""
 import argparse, json, os, shutil, subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--python-home',required=True);p.add_argument('--legacy',required=True);p.add_argument('--qwen',required=True);p.add_argument('--granite',required=True);p.add_argument('--output',required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--python-home',required=True);p.add_argument('--legacy',required=True);p.add_argument('--qwen',required=True);p.add_argument('--output',required=True);a=p.parse_args()
 base=Path(a.python_home);out=Path(a.output)
 if out.exists():shutil.rmtree(out)
 (out/'bin').mkdir(parents=True);(out/'lib').mkdir()
@@ -11,7 +11,7 @@ def ignore(folder,names):
 shutil.copytree(base/'lib/python3.12',out/'lib/python3.12',ignore=ignore)
 # Some extension modules use the shared interpreter library.
 shutil.copy2(base/'lib/libpython3.12.dylib',out/'lib/libpython3.12.dylib')
-for name,source in [('legacy',a.legacy),('qwen',a.qwen),('granite',a.granite)]:
+for name,source in [('legacy',a.legacy),('qwen',a.qwen)]:
  source=Path(source);site=next((source/'lib').glob('python*/site-packages'))
  dest=out/'packages'/name
  shutil.copytree(site,dest,ignore=lambda folder,names:[x for x in names if x=='__pycache__' or x.endswith(('.pyc','.pth')) or x in ['direct_url.json']])
@@ -39,5 +39,5 @@ for file in out.rglob('*'):
     selected=min(candidates,key=lambda p:len(os.path.relpath(p,file.parent)))
     subprocess.run(['install_name_tool','-change',target,'@loader_path/'+os.path.relpath(selected,file.parent),str(file)],check=True)
   native.append(str(file.relative_to(out)))
-(out/'runtime.json').write_text(json.dumps({'python':'3.12','native_files':native,'engines':['legacy','qwen','granite']},indent=2))
+(out/'runtime.json').write_text(json.dumps({'python':'3.12','native_files':native,'engines':['legacy','qwen']},indent=2))
 print('Bundled',out,'native files:',len(native))

@@ -23,7 +23,12 @@ final class Recorder: @unchecked Sendable {
   try fm.createSymbolicLink(at:fixtureRuntime.appendingPathComponent("bin/python3.12"),withDestinationURL:packagedRuntime.appendingPathComponent("bin/python3.12"))
   for part in ["lib","packages"] { try fm.createSymbolicLink(at:fixtureRuntime.appendingPathComponent(part),withDestinationURL:packagedRuntime.appendingPathComponent(part)) }
   let modelData=root.appendingPathComponent("managed")
-  for key in ["nemotron","vad","qwen17","granite","multitalker"] {
+  let downloadEnvironment = ManagedASRRuntime.environment(engine: "nemotron", online: true,
+      resourceRoot: root, modelData: modelData)
+  precondition(downloadEnvironment["PYTHONPATH"]?.split(separator: ":").first
+      == Substring(fixtureRuntime.appendingPathComponent("packages/legacy").path))
+  precondition(downloadEnvironment["HF_HUB_OFFLINE"] == "0")
+  for key in ["nemotron","vad","qwen17","multitalker"] {
    let folder=modelData.appendingPathComponent("models/"+key)
    try fm.createDirectory(at:folder.appendingPathComponent("files"),withIntermediateDirectories:true)
    try "{}".write(to:folder.appendingPathComponent("ready.json"),atomically:true,encoding:.utf8)
@@ -109,17 +114,6 @@ for line in sys.stdin:
   for _ in 0..<100 {if mr.count>=2{break};try await Task.sleep(for:.milliseconds(20))}
   precondition(mr.count==2 && multi.diagnosticsSummary().contains("Multitalker Parakeet"));multi.stop()
   print("PASS Multitalker runtime routing, process startup and paragraph revisions")
-  try fm.createDirectory(at:root.appendingPathComponent(".runtime/granite-env/bin"),withIntermediateDirectories:true)
-  try fm.createSymbolicLink(atPath:root.appendingPathComponent(".runtime/granite-env/bin/python").path,withDestinationPath:root.appendingPathComponent(".runtime/env/bin/python").path)
-  try "{}".write(to:root.appendingPathComponent(".runtime/granite-ready.json"),atomically:true,encoding:.utf8)
-  try script.write(to:root.appendingPathComponent("GraniteBridge.py"),atomically:true,encoding:.utf8)
-  let granite=NemotronSpeechTranscriber(resources:root,granite:true,modelData:modelData);let gr=Recorder()
-  try await granite.start(folder:root.path,language:.init(id:"ja-JP"),update:{_,meta in gr.add(meta)},recovery:nil,failure:{_ in gr.fail()})
-  granite.append(sample);granite.append(sample)
-  for _ in 0..<100 {if gr.count>=2{break};try await Task.sleep(for:.milliseconds(20))}
-  precondition(gr.count==2 && granite.diagnosticsSummary().contains("Granite Speech"));granite.stop()
-  print("PASS Granite isolated environment, Japanese startup and subtitle revisions")
-
 
  }
 }

@@ -5,9 +5,10 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct ProcessingModePickerTests {
-    private func withSession(_ body: (TranslationSessionStore) throws -> Void) throws {
+    private func withSession(preferences: [String: Any] = [:], _ body: (TranslationSessionStore) throws -> Void) throws {
         let name = "ProcessingModePickerTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
+        for (key, value) in preferences { defaults.set(value, forKey: key) }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(name)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] },
@@ -30,6 +31,21 @@ struct ProcessingModePickerTests {
         session.hasNariAPIKey = enabled
         session.hasGrokAPIKey = enabled
         session.hasQwenAPIKey = enabled
+    }
+
+    @Test func retiredGraniteSelectionRestoresNemotronWithoutChangingOnlineTranslation() throws {
+        var configuration = LocalTranslationConfiguration()
+        configuration.onlineIndex = true
+        try withSession(preferences: [
+            "whisperRecognitionEnabled": true,
+            "nemotronRecognitionEnabled": true,
+            "graniteRecognitionEnabled": true,
+            "localTranslationConfiguration": try JSONEncoder().encode(configuration),
+        ]) { session in
+            #expect(session.localRecognitionEngine == "nemotron")
+            #expect(session.qwenASRModel.isEmpty)
+            #expect(ProcessingEngine.current(for: session) == .indexOnline)
+        }
     }
 
     @Test func keyPresenceEnablesOnlyItsProvider() throws {

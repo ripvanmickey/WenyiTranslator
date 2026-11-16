@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1215)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1216)
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@ Capture system audio or microphone input and follow the transcript as people spe
 
 ### Local speech recognition and segmentation
 
-Choose Nemotron 0.6B, Granite Speech 2B, Qwen3-ASR, or experimental multi-speaker recognition. Download, import, or delete recognition models within the app. Nemotron and Qwen3-ASR offer voice activity detection (VAD) presets and custom settings that apply the next time a session starts. Apple Speech and Apple system translation require macOS 26 or later.
+Choose Nemotron 0.6B, Qwen3-ASR, or experimental multi-speaker recognition. Download, import, or delete recognition models within the app. Nemotron and Qwen3-ASR offer voice activity detection (VAD) presets and custom settings that apply the next time a session starts. Apple Speech and Apple system translation require macOS 26 or later.
 
 ### Local translation with LM Studio
 
@@ -65,6 +65,8 @@ Build 1211 stops sending adjacent source fragments with Index-Translate Japanese
 In build 1213, Index online translation appears alongside Local Mode under Settings → General → Processing Mode. Speech recognition stays on the Mac, and only the current caption text is sent to Bilibili for translation.
 
 Build 1214 sends ordinary online captions as a single request and retries interrupted or truncated streams and Japanese source echoes once.
+
+Build 1216 removes Granite Speech and its separate runtime. Existing Granite selections migrate to Nemotron.
 
 ## Acknowledgments
 

@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1215）
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1216）
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@
 
 ### 本地识别与断句
 
-支持 Nemotron 0.6B、Granite Speech 2B、Qwen3-ASR，以及实验性的多人识别。识别模型可在应用内按需下载、导入和删除。Nemotron 和 Qwen3-ASR 提供 VAD 预设和高级调节，下次开始监听时生效。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
+支持 Nemotron 0.6B、Qwen3-ASR，以及实验性的多人识别。识别模型可在应用内按需下载、导入和删除。Nemotron 和 Qwen3-ASR 提供 VAD 预设和高级调节，下次开始监听时生效。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
 
 ### LM Studio 本地翻译
 
@@ -65,6 +65,8 @@
 构建 1213 将「Index 在线翻译（B 站免费开源）」移到「设置 → 通用 → 处理模式」，与「本地模式」并列。语音在本机识别，只有当前待译字幕文字会发送到哔哩哔哩。
 
 构建 1214 将常见长度的在线字幕整段提交。流式中断、输出截断或日译中回显日语时，按情况重试一次。
+
+构建 1216 移除了 Granite Speech 及其独立运行环境。旧版选用 Granite 的设置会切到 Nemotron。
 
 ## 致谢
 

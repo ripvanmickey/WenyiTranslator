@@ -5,7 +5,7 @@ struct WhisperRecognitionSettingsView: View {
     @Bindable var session: TranslationSessionStore
     @State private var manager = ASRModelManager.shared
     @State private var confirmsDeletion = false
-    private var managedID: String { session.localRecognitionEngine == "multitalker" ? "multitalker" : ManagedASRRuntime.modelID(granite: session.graniteRecognitionEnabled, qwen: session.qwenASRModel) }
+    private var managedID: String { session.localRecognitionEngine == "multitalker" ? "multitalker" : ManagedASRRuntime.modelID(qwen: session.qwenASRModel) }
     private var selectedManagedModel: ASRManagedModel { ASRManagedModel.all.first { $0.id == managedID } ?? ASRManagedModel.all[0] }
     @State private var preparing = false
     @State private var progress: Double = 0
@@ -51,7 +51,6 @@ struct WhisperRecognitionSettingsView: View {
             SettingsControlRow(title: AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), detail: AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。"), systemImage: "waveform") {
                 Picker(AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), selection: $session.localRecognitionEngine) {
                     Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
-                    Text("Granite Speech 5.0 · 2B").tag("granite")
                     Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
                     if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
                     Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")

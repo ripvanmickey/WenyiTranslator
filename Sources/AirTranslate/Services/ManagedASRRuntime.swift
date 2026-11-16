@@ -14,7 +14,7 @@ enum ManagedASRRuntime {
         let runtime = resources.appendingPathComponent("ASRRuntime")
         let data = modelData ?? Self.data
         // Deliberately do not inherit Python paths, user-site packages or Hugging Face tokens.
-        let profile = engine == "granite" || online ? "granite" : engine == "qwen" ? "qwen" : "legacy"
+        let profile = engine == "qwen" ? "qwen" : "legacy"
         var paths = [runtime.appendingPathComponent("packages/" + profile).path]
         if profile == "qwen" { paths.append(runtime.appendingPathComponent("packages/legacy").path) }
         paths.append(resources.appendingPathComponent("ASRProject").path)
@@ -25,14 +25,14 @@ enum ManagedASRRuntime {
                 "WENYI_MANAGED_ASR": "1", "WENYI_ASR_RESOURCES": resources.path,
                 "SSL_CERT_FILE": runtime.appendingPathComponent("cacert.pem").path]
     }
-    static func modelID(granite: Bool, qwen: String) -> String {
-        granite ? "granite" : qwen.isEmpty ? "nemotron" : qwen.contains("1.7B") ? "qwen17" : "qwen06"
+    static func modelID(qwen: String) -> String {
+        qwen.isEmpty ? "nemotron" : qwen.contains("1.7B") ? "qwen17" : "qwen06"
     }
     static func validate(_ id: String, resourceRoot: URL? = nil, modelData: URL? = nil) throws {
         let runtime = (resourceRoot ?? resources).appendingPathComponent("ASRRuntime")
         let data = modelData ?? Self.data
         guard FileManager.default.isExecutableFile(atPath: runtime.appendingPathComponent("bin/python3.12").path) else { throw WhisperKitSpeechTranscriber.Problem(message: "应用缺少内置识别组件，请重新安装完整版本。") }
-        let ids = ["granite", "multitalker"].contains(id) ? [id] : [id, "vad"]
+        let ids = id == "multitalker" ? [id] : [id, "vad"]
         for key in ids {
             let base = data.appendingPathComponent("models/" + key)
             guard FileManager.default.fileExists(atPath: base.appendingPathComponent("ready.json").path),
