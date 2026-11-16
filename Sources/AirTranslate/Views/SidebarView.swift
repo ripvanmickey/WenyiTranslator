@@ -185,7 +185,7 @@ struct ConsoleBarView: View {
     @ViewBuilder
     private var consoleSurface: some View {
         if #available(macOS 26.0, *), !reduceTransparency {
-            consoleControls.glassEffect(.regular, in: .rect(cornerRadius: 20))
+            consoleControls.glassEffect(.clear.tint(.white.opacity(0.18)), in: Capsule())
         } else {
             consoleControls.airConsoleSurface()
         }
@@ -292,10 +292,10 @@ struct ConsoleBarView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .controlSize(.large)
             .labelsHidden()
             .frame(width: 168)
-            .allowsHitTesting(isConfigurationAvailable)
-            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+            .disabled(!isConfigurationAvailable)
             .accessibilityLabel(AppText.audioInputSource)
         }
     }
@@ -513,8 +513,12 @@ struct ConsoleBarView: View {
         } label: {
             Label(AppText.moreControls, systemImage: "ellipsis")
                 .font(AirTranslateDesign.Typography.label)
-                .frame(height: 36)
+                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+                .padding(.horizontal, AirTranslateDesign.Spacing.xs)
+                .frame(minHeight: 36)
+                .contentShape(Rectangle())
         }
+        .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .airFocusRing(cornerRadius: AirTranslateDesign.Radius.control)
         .help(AppText.moreControls)
@@ -568,7 +572,13 @@ struct ConsoleBarView: View {
     }
 
     private var audioInputSourceBinding: Binding<AudioInputSource> {
-        guardedBinding($session.audioInputSource)
+        Binding(
+            get: { session.audioInputSource },
+            set: { source in
+                guard isConfigurationAvailable else { return }
+                session.audioInputSource = source
+            }
+        )
     }
 
     private var liveOutputModeBinding: Binding<LiveOutputMode> {
@@ -597,16 +607,6 @@ struct ConsoleBarView: View {
             set: { language in
                 guard isConfigurationAvailable else { return }
                 session.useQuickTargetLanguage(language)
-            }
-        )
-    }
-
-    private func guardedBinding<Value>(_ binding: Binding<Value>) -> Binding<Value> {
-        Binding(
-            get: { binding.wrappedValue },
-            set: { value in
-                guard isConfigurationAvailable else { return }
-                binding.wrappedValue = value
             }
         )
     }
