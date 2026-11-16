@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#effcf9">
+  <meta name="description" content="Wenyi turns Mac system audio or microphone input into live captions, with bilingual overlays and saved transcripts.">
+  <title>Wenyi — Live Captions &amp; Translation for Mac</title>
+  <link rel="canonical" href="https://ripvanmickey.github.io/WenyiTranslator/en/">
+  <link rel="alternate" hreflang="zh-CN" href="https://ripvanmickey.github.io/WenyiTranslator/">
+  <link rel="alternate" hreflang="en" href="https://ripvanmickey.github.io/WenyiTranslator/en/">
+  <link rel="alternate" hreflang="ja" href="https://ripvanmickey.github.io/WenyiTranslator/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://ripvanmickey.github.io/WenyiTranslator/">
+  <link rel="icon" href="../assets/wenyi-site-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/wenyi-site.css">
+</head>
+<body>
+  <header class="wrap masthead">
+    <a class="brand" href="./" aria-label="Wenyi home"><img src="../assets/wenyi-site-mark.svg" width="39" height="39" alt="">Wenyi</a>
+    <nav class="nav" aria-label="Site navigation">
+      <a href="#features">Features</a>
+      <a href="#setup">Setup</a>
+      <a href="https://github.com/ripvanmickey/WenyiTranslator">GitHub ↗</a>
+    </nav>
+    <nav class="languages" aria-label="Site language">
+      <a href="../" lang="zh-CN" hreflang="zh-CN">简体中文</a>
+      <a href="../en/" lang="en" hreflang="en" aria-current="page">English</a>
+      <a href="../ja/" lang="ja" hreflang="ja">日本語</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <p class="platform">Apple Silicon · macOS 14+ · macOS 27 supported</p>
+        <h1 id="hero-title">Live captions &amp; translation<span>for Mac</span></h1>
+        <p class="lede">Follow videos, podcasts, and meetings in another language. Capture Mac audio or a microphone, read the original and translation in a floating window, and save the transcript for later.</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/ripvanmickey/WenyiTranslator/releases/latest">Download DMG <span aria-hidden="true">↓</span></a>
+          <a href="https://github.com/ripvanmickey/WenyiTranslator">View source</a>
+        </div>
+      </div>
+      <figure class="caption-demo">
+        <div class="caption-window">
+          <div class="caption-toolbar"><span class="caption-live">Listening</span><span>Japanese → English</span></div>
+          <div class="caption-text">
+            <p class="source" lang="ja">この曲ができた瞬間、<br>風が吹いたような気がしました。</p>
+            <p class="translation">The moment we finished this song, it felt like a breeze had swept through.</p>
+          </div>
+        </div>
+        <figcaption>Bilingual caption example</figcaption>
+      </figure>
+    </section>
+    <section class="details" id="features" aria-labelledby="features-title">
+      <h2 id="features-title">From listening to reviewing</h2>
+      <div class="features">
+        <article>
+          <h3>Floating bilingual captions</h3>
+          <p>Show the original text, the translation, or both. Keep the captions near the video as you watch.</p>
+        </article>
+        <article>
+          <h3>On-device speech recognition</h3>
+          <p>Download Nemotron or Qwen3-ASR in the app. Translate through LM Studio on the same Mac, or use Index online translation, which receives only the text to translate.</p>
+        </article>
+        <article>
+          <h3>Save and edit transcripts</h3>
+          <p>Save original text and translations as text files, then review, edit, and rename them in Wenyi.</p>
+        </article>
+      </div>
+    </section>
+    <section class="workflow" id="setup" aria-labelledby="setup-title">
+      <div>
+        <h2 id="setup-title">Get started on Mac</h2>
+        <p>Wenyi requires Apple Silicon (M1 or later) and macOS 14.0 or later, including macOS 27. The interface is available in English, Simplified Chinese, and Japanese.</p>
+        <p><a href="https://github.com/ripvanmickey/WenyiTranslator/blob/master/README.md#installation-and-setup">Read the full installation guide ↗</a></p>
+      </div>
+      <ol>
+        <li><strong>Install Wenyi.</strong> Open the downloaded DMG and drag Wenyi into Applications.</li>
+        <li><strong>Choose an audio input.</strong> Select Mac Audio or your microphone and grant permission when prompted. Audio-only system capture requires macOS 14.2 or later.</li>
+        <li><strong>Set up recognition and translation.</strong> Download a speech model in local mode, then configure LM Studio or choose Index online translation.</li>
+        <li><strong>Start listening.</strong> Select the source and target languages and choose what to show in the captions.</li>
+      </ol>
+    </section>
+  </main>
+  <footer class="wrap">
+    <p>Thanks to Bilibili’s Index-Translate project for providing a free translation API. <a href="https://github.com/bilibili/Index-Translate">About Index-Translate ↗</a></p>
+  </footer>
+</body>
+</html>

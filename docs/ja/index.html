@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#effcf9">
+  <meta name="description" content="文訳は Mac のシステム音声やマイク入力をリアルタイムで文字起こしし、原文と訳文を字幕に表示します。">
+  <title>文訳 Wenyi｜Mac のリアルタイム字幕と翻訳</title>
+  <link rel="canonical" href="https://ripvanmickey.github.io/WenyiTranslator/ja/">
+  <link rel="alternate" hreflang="zh-CN" href="https://ripvanmickey.github.io/WenyiTranslator/">
+  <link rel="alternate" hreflang="en" href="https://ripvanmickey.github.io/WenyiTranslator/en/">
+  <link rel="alternate" hreflang="ja" href="https://ripvanmickey.github.io/WenyiTranslator/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://ripvanmickey.github.io/WenyiTranslator/">
+  <link rel="icon" href="../assets/wenyi-site-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/wenyi-site.css">
+</head>
+<body>
+  <header class="wrap masthead">
+    <a class="brand" href="./" aria-label="文訳のトップページ"><img src="../assets/wenyi-site-mark.svg" width="39" height="39" alt="">文訳 <span>Wenyi</span></a>
+    <nav class="nav" aria-label="サイトナビゲーション">
+      <a href="#features">機能</a>
+      <a href="#setup">使い方</a>
+      <a href="https://github.com/ripvanmickey/WenyiTranslator">GitHub ↗</a>
+    </nav>
+    <nav class="languages" aria-label="表示言語">
+      <a href="../" lang="zh-CN" hreflang="zh-CN">简体中文</a>
+      <a href="../en/" lang="en" hreflang="en">English</a>
+      <a href="../ja/" lang="ja" hreflang="ja" aria-current="page">日本語</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <p class="platform">Apple Silicon · macOS 14 以降 · macOS 27 対応</p>
+        <h1 id="hero-title">Mac で使える<span>リアルタイム二言語字幕</span></h1>
+        <p class="lede">外国語の動画、ポッドキャスト、会議を字幕で追えます。Mac の音声やマイク入力を文字起こしし、原文と訳文をフローティング表示したり、記録として保存したりできます。</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/ripvanmickey/WenyiTranslator/releases/latest">DMG をダウンロード <span aria-hidden="true">↓</span></a>
+          <a href="https://github.com/ripvanmickey/WenyiTranslator">ソースコード</a>
+        </div>
+      </div>
+      <figure class="caption-demo">
+        <div class="caption-window">
+          <div class="caption-toolbar"><span class="caption-live">聞き取り中</span><span>英語 → 日本語</span></div>
+          <div class="caption-text">
+            <p class="source" lang="en">The moment we finished this song,<br>it felt like a breeze had swept through.</p>
+            <p class="translation">この曲ができた瞬間、<br>風が吹いたような気がしました。</p>
+          </div>
+        </div>
+        <figcaption>二言語字幕の表示例</figcaption>
+      </figure>
+    </section>
+    <section class="details" id="features" aria-labelledby="features-title">
+      <h2 id="features-title">聞き取りから振り返りまで</h2>
+      <div class="features">
+        <article>
+          <h3>フローティング字幕</h3>
+          <p>原文、訳文、またはその両方を表示できます。動画を見ながら、字幕をプレーヤーの近くに配置できます。</p>
+        </article>
+        <article>
+          <h3>端末内の音声認識</h3>
+          <p>アプリ内で Nemotron または Qwen3-ASR をダウンロードできます。翻訳には同じ Mac 上の LM Studio、または翻訳対象のテキストだけを送信する Index オンライン翻訳を使えます。</p>
+        </article>
+        <article>
+          <h3>文字起こしの保存と編集</h3>
+          <p>原文と訳文をテキストファイルに保存し、文訳で読み返したり、編集したり、名前を変更したりできます。</p>
+        </article>
+      </div>
+    </section>
+    <section class="workflow" id="setup" aria-labelledby="setup-title">
+      <div>
+        <h2 id="setup-title">Mac で使い始める</h2>
+        <p>Apple Silicon（M1 以降）と macOS 14.0 以降が必要です。macOS 27 にも対応し、表示言語は日本語、英語、簡体字中国語から選べます。</p>
+        <p><a href="https://github.com/ripvanmickey/WenyiTranslator/blob/master/README.ja.md#インストールと設定">詳しいインストールガイド ↗</a></p>
+      </div>
+      <ol>
+        <li><strong>文訳をインストールします。</strong> DMG を開き、文訳を「アプリケーション」にドラッグします。</li>
+        <li><strong>音声入力を選びます。</strong> Mac の音声またはマイクを選び、必要な権限を許可します。システム音声のみの取り込みには macOS 14.2 以降が必要です。</li>
+        <li><strong>音声認識と翻訳を設定します。</strong> ローカルモードで音声認識モデルをダウンロードし、必要に応じて LM Studio または Index オンライン翻訳を設定します。</li>
+        <li><strong>聞き取りを開始します。</strong> 原文と訳文の言語を選び、字幕に表示する内容を設定します。</li>
+      </ol>
+    </section>
+  </main>
+  <footer class="wrap">
+    <p>無料の翻訳 API を提供する Bilibili の Index-Translate プロジェクトに感謝します。 <a href="https://github.com/bilibili/Index-Translate">Index-Translate について ↗</a></p>
+  </footer>
+</body>
+</html>

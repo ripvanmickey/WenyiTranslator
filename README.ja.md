@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://github.com/ripvanmickey/WenyiTranslator/releases/latest">DMG をダウンロード</a> ·
-  <a href="./docs/wenyi.html">製品紹介（中国語）</a> ·
+  <a href="https://ripvanmickey.github.io/WenyiTranslator/ja/">製品紹介</a> ·
   <strong><a href="#インストールと設定">インストールと設定</a></strong> ·
   <a href="#リアルタイム字幕とローカル翻訳">機能</a> ·
   <a href="#ローカルビルド">ローカルビルド</a>
