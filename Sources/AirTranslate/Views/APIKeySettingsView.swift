@@ -7,6 +7,7 @@ struct APIKeySettingsView: View {
     @State private var showsStorageInfo = false
 
     private var visibleProviders: [CredentialProvider] { CredentialProvider.allCases.filter { $0 != .openRouter } }
+    private var keyedProviders: [CredentialProvider] { visibleProviders.filter { $0 != .indexOnline } }
     private var isLocked: Bool { session.isRunning || session.isStarting }
     private var validAzureConfiguration: Bool {
         session.hasAzureConfiguration
@@ -14,8 +15,6 @@ struct APIKeySettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            indexAPIConfiguration
-
             HStack {
                 Text(CredentialsCopy.providers)
                     .font(AirTranslateDesign.Typography.sectionLabel)
@@ -25,7 +24,7 @@ struct APIKeySettingsView: View {
                 }
                 InlineHelpIcon(
                     symbol: "checkmark.shield",
-                    help: CredentialsCopy.summary(saved: visibleProviders.filter(hasKey).count, total: visibleProviders.count)
+                    help: CredentialsCopy.summary(saved: keyedProviders.filter(hasKey).count, total: keyedProviders.count)
                 )
                 storageInfoButton
             }
@@ -43,6 +42,7 @@ struct APIKeySettingsView: View {
                         needsConfiguration: (provider == .azure && !validAzureConfiguration) || (provider == .qwen && !session.hasQwenConfiguration),
                         isCurrent: activeProvider == provider,
                         isLocked: isLocked,
+                        requiresAPIKey: provider != .indexOnline,
                         isExpanded: Binding(
                             get: { expandedProvider == provider },
                             set: { expandedProvider = $0 ? provider : nil }
@@ -50,6 +50,7 @@ struct APIKeySettingsView: View {
                         saveKey: { try save($0, for: provider) },
                         removeKey: { try remove(provider) }
                     ) {
+                        if provider == .indexOnline { indexAPIConfiguration }
                         if provider == .azure { azureConfiguration }
                         if provider == .qwen { qwenConfiguration }
                     }
@@ -86,12 +87,6 @@ struct APIKeySettingsView: View {
 
     private var indexAPIConfiguration: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Label(
-                AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳"),
-                systemImage: "character.bubble"
-            )
-            .font(.headline)
-
             Text(LocalTranslationConfiguration.indexBaseURL)
                 .font(.callout.monospaced())
                 .textSelection(.enabled)
@@ -102,19 +97,20 @@ struct APIKeySettingsView: View {
                 .font(.callout)
                 .textSelection(.enabled)
 
-            Text(AppText.ui(
-                "已自动使用哔哩哔哩的公开 API，无需填写密钥。",
-                "Wenyi uses Bilibili’s public API automatically. No API key is required.",
-                "Bilibili の公開 API を自動で使用します。API キーは不要です。"
-            ))
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+            Text(indexPublicAPIDetail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .airTranslateSurface()
         .accessibilityIdentifier("indexPublicAPIConfiguration")
+    }
+
+    private var indexPublicAPIDetail: String {
+        AppText.ui(
+            "已自动使用哔哩哔哩的公开 API，无需填写密钥。",
+            "Wenyi uses Bilibili’s public API automatically. No API key is required.",
+            "Bilibili の公開 API を自動で使用します。API キーは不要です。"
+        )
     }
 
     private var storageInfoButton: some View {
@@ -202,6 +198,7 @@ struct APIKeySettingsView: View {
     }
 
     private var activeProvider: CredentialProvider? {
+        if session.localTranslation.usesOnlineIndex { return .indexOnline }
         if session.isUsingJevSelection { return .jev }
         if session.isUsingQwenTranslation { return .qwen }
         if session.isUsingGrokSTT { return .grok }
@@ -215,6 +212,7 @@ struct APIKeySettingsView: View {
 
     private func hasKey(_ provider: CredentialProvider) -> Bool {
         switch provider {
+        case .indexOnline: false
         case .openAI: session.hasOpenAIAPIKey
         case .gemini: session.hasGeminiAPIKey
         case .meta: session.hasMetaAPIKey
@@ -229,6 +227,7 @@ struct APIKeySettingsView: View {
 
     private func model(for provider: CredentialProvider) -> String {
         switch provider {
+        case .indexOnline: LocalTranslationConfiguration.indexModelID
         case .openAI:
             ProcessingEngine.openAI.information(in: session).modelID
         case .gemini: (session.geminiTranslationModel.isEnabled ? session.geminiTranslationModel : session.preferredGeminiModel).title
@@ -244,6 +243,7 @@ struct APIKeySettingsView: View {
 
     private func detail(for provider: CredentialProvider) -> String {
         switch provider {
+        case .indexOnline: indexPublicAPIDetail
         case .openAI: AppText.openAIAudioDescription
         case .gemini: AppText.geminiAPIKeyDescription
         case .meta: AppText.metaScribeDetail
@@ -263,6 +263,7 @@ struct APIKeySettingsView: View {
     private func save(_ key: String, for provider: CredentialProvider) throws {
         guard !isLocked else { return }
         switch provider {
+        case .indexOnline: break
         case .openAI: try session.saveOpenAIAPIKey(key)
         case .gemini: try session.saveGeminiAPIKey(key)
         case .meta: try session.saveMetaAPIKey(key)
@@ -278,6 +279,7 @@ struct APIKeySettingsView: View {
     private func remove(_ provider: CredentialProvider) throws {
         guard !isLocked else { return }
         switch provider {
+        case .indexOnline: break
         case .openAI: try session.removeOpenAIAPIKey()
         case .gemini: try session.removeGeminiAPIKey()
         case .meta: try session.removeMetaAPIKey()
@@ -292,10 +294,11 @@ struct APIKeySettingsView: View {
 }
 
 enum CredentialProvider: String, CaseIterable, Identifiable {
-    case openAI, gemini, meta, azure, nari, grok, qwen, openRouter, jev
+    case openAI, gemini, meta, azure, nari, grok, qwen, openRouter, jev, indexOnline
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .indexOnline: AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳")
         case .openAI: "OpenAI"
         case .gemini: "Gemini"
         case .meta: "Meta"
@@ -309,6 +312,7 @@ enum CredentialProvider: String, CaseIterable, Identifiable {
     }
     var symbol: String {
         switch self {
+        case .indexOnline: "character.bubble"
         case .openAI: "waveform"
         case .gemini: "sparkles"
         case .meta: "person.2.wave.2"
@@ -322,6 +326,7 @@ enum CredentialProvider: String, CaseIterable, Identifiable {
     }
     var consoleURL: URL {
         let address: String = switch self {
+        case .indexOnline: "https://github.com/bilibili/Index-Translate"
         case .openAI: "https://platform.openai.com/api-keys"
         case .gemini: "https://aistudio.google.com/apikey"
         case .meta: "https://dev.meta.ai"

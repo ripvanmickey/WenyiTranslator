@@ -374,6 +374,8 @@ struct SettingsView: View {
             ) {
                 Toggle(AppText.ui("纯音频采集", "Audio-Only Capture", "音声のみの収録"), isOn: lockedSessionConfigurationBinding($session.audioOnlySystemCapture))
                     .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(AirTranslateDesign.Palette.accent)
                     .disabled(isSessionConfigurationLocked || session.audioInputSource != .systemAudio || !PlatformSupport.supportsAudioTap)
                     .accessibilityLabel(AppText.ui("纯音频采集（实验）", "Audio-Only Capture (Experimental)", "音声のみの収録（実験的）"))
             }
@@ -667,21 +669,24 @@ struct SettingsView: View {
             }
 
             SettingsGroup(title: SettingsCopy.aboutAirTranslate) {
-                SettingsValueRow(
-                    title: AppText.appName,
-                    detail: AppText.appTagline,
-                    systemImage: "waveform.and.magnifyingglass",
-                    value: SettingsCopy.localFirst
-                )
+                VStack(alignment: .leading, spacing: 12) {
+                    SettingsRowLabel(
+                        title: AppText.appName,
+                        detail: AppText.appTagline,
+                        systemImage: "waveform.and.magnifyingglass"
+                    )
 
-                SettingsValueRow(
-                    title: SettingsCopy.privacy,
-                    detail: SettingsCopy.privacyDetail,
-                    systemImage: "lock.shield",
-                    value: SettingsCopy.macOSKeychain
-                )
+                    Divider().padding(.leading, settingsLabelIndent)
+
+                    SettingsRowLabel(
+                        title: SettingsCopy.privacy,
+                        detail: SettingsCopy.privacyDetail,
+                        systemImage: "lock.shield",
+                        detailLineLimit: nil
+                    )
+                }
+                .padding(.vertical, 12)
             }
-
         }
     }
 
@@ -1768,7 +1773,6 @@ enum SettingsCopy {
     }
     static var required: String { AppText.localized(english: "Required", korean: "필수", japanese: "必須", chineseSimplified: "必需") }
     static var aboutAirTranslate: String { AppText.localized(english: "About 文译", korean: "文译 정보", japanese: "文译について", chineseSimplified: "关于文译") }
-    static var localFirst: String { AppText.localized(english: "Local first", korean: "로컬 우선", japanese: "ローカル優先", chineseSimplified: "优先本地处理") }
     static var version: String {
         AppText.localized(
             english: "Version",
@@ -1808,14 +1812,6 @@ enum SettingsCopy {
             korean: "Apple 모드는 로컬에서 실행됩니다. 클라우드 제공업체는 해당 API 키를 저장하고 모드를 선택한 뒤 캡처를 시작하면 오디오를 받습니다.",
             japanese: "Appleモードはローカルで動作します。クラウドサービスにはAPIキーを保存し、モードを選択してキャプチャを開始したときに音声が送信されます。",
             chineseSimplified: "本地模式在本机运行。保存对应 API 密钥、选择模式并开始采集后，音频才会发送给云服务。"
-        )
-    }
-    static var macOSKeychain: String {
-        AppText.localized(
-            english: "macOS Keychain",
-            korean: "macOS 키체인",
-            japanese: "macOSキーチェーン",
-            chineseSimplified: "macOS 钥匙串"
         )
     }
     static var retry: String {

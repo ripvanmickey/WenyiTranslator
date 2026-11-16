@@ -11,6 +11,7 @@ struct ProviderCredentialRow<Configuration: View>: View {
     let needsConfiguration: Bool
     let isCurrent: Bool
     let isLocked: Bool
+    var requiresAPIKey = true
     @Binding var isExpanded: Bool
     let saveKey: (String) throws -> Void
     let removeKey: () throws -> Void
@@ -24,11 +25,13 @@ struct ProviderCredentialRow<Configuration: View>: View {
     @FocusState private var isKeyFocused: Bool
 
     private var status: String {
+        if !requiresAPIKey { return AppText.ui("无需密钥", "No key required", "キー不要") }
         if needsConfiguration { return CredentialsCopy.setupNeeded }
         return hasKey ? CredentialsCopy.saved : CredentialsCopy.keyNeeded
     }
 
     private var statusSymbol: String {
+        if !requiresAPIKey { return "checkmark.circle" }
         if needsConfiguration { return "exclamationmark.circle" }
         return hasKey ? "checkmark.circle.fill" : "key"
     }
@@ -59,8 +62,8 @@ struct ProviderCredentialRow<Configuration: View>: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(CredentialsCopy.edit(name))
-                .accessibilityLabel(CredentialsCopy.edit(name))
+                .help(requiresAPIKey ? CredentialsCopy.edit(name) : CredentialsCopy.details(name))
+                .accessibilityLabel(requiresAPIKey ? CredentialsCopy.edit(name) : name)
                 .accessibilityValue("\(isCurrent ? CredentialsCopy.inUse + ", " : "")\(status), \(isExpanded ? CredentialsCopy.expanded : CredentialsCopy.collapsed)")
 
                 if isCurrent {
@@ -68,7 +71,7 @@ struct ProviderCredentialRow<Configuration: View>: View {
                                    tint: AirTranslateDesign.Palette.accent)
                 }
                 InlineHelpIcon(symbol: statusSymbol, help: "\(name) · \(status)",
-                               tint: hasKey && !needsConfiguration ? AirTranslateDesign.Palette.live : AirTranslateDesign.Palette.textSecondary)
+                               tint: !requiresAPIKey || (hasKey && !needsConfiguration) ? AirTranslateDesign.Palette.live : AirTranslateDesign.Palette.textSecondary)
 
                 Button { showsDetails.toggle() } label: {
                     Image(systemName: "info.circle")
@@ -82,7 +85,9 @@ struct ProviderCredentialRow<Configuration: View>: View {
                         Text(name).font(.headline)
                         Text(model).font(.callout.weight(.medium)).textSelection(.enabled)
                         Text(detail).font(.callout).foregroundStyle(.secondary)
-                        Text(CredentialsCopy.savedDoesNotVerify).font(.caption).foregroundStyle(.secondary)
+                        if requiresAPIKey {
+                            Text(CredentialsCopy.savedDoesNotVerify).font(.caption).foregroundStyle(.secondary)
+                        }
                         HStack {
                             Spacer()
                             Button(CredentialsCopy.done) { showsDetails = false }
@@ -99,65 +104,15 @@ struct ProviderCredentialRow<Configuration: View>: View {
                         .frame(width: 28, height: 30)
                 }
                 .buttonStyle(.borderless)
-                .help(CredentialsCopy.console(name))
-                .accessibilityLabel(CredentialsCopy.console(name))
+                .help(serviceLinkTitle)
+                .accessibilityLabel(serviceLinkTitle)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "key.horizontal")
-                            .foregroundStyle(.secondary)
-                            .accessibilityHidden(true)
-                        SecureField(hasKey ? CredentialsCopy.replaceKey : CredentialsCopy.pasteKey, text: $draft)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13))
-                            .focused($isKeyFocused)
-                            .onSubmit(save)
-                            .accessibilityLabel("\(name) \(CredentialsCopy.keyLabel)")
-                            .accessibilityHint(CredentialsCopy.keyHint)
-                            .disabled(isLocked)
-                            .task {
-                                // 펼쳐진 입력이 화면에 연결된 다음 포커스를 이동한다.
-                                await Task.yield()
-                                if isExpanded && !isLocked { isKeyFocused = true }
-                            }
-                        Button(action: save) {
-                            Image(systemName: "square.and.arrow.down")
-                                .frame(width: 28, height: 28)
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(isLocked || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        .help(CredentialsCopy.save(name))
-                        .accessibilityLabel(CredentialsCopy.save(name))
-
-                        Button { showsRemovalConfirmation = true } label: {
-                            Image(systemName: "trash")
-                                .frame(width: 28, height: 28)
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(isLocked || !hasKey)
-                        .help(CredentialsCopy.remove(name))
-                        .accessibilityLabel(CredentialsCopy.remove(name))
-                        .confirmationDialog(
-                            CredentialsCopy.confirmRemoval(name),
-                            isPresented: $showsRemovalConfirmation,
-                            titleVisibility: .visible
-                        ) {
-                            Button(CredentialsCopy.remove(name), role: .destructive, action: remove)
-                            Button(AppText.cancel, role: .cancel) {}
-                        }
-                    }
-                    .padding(.leading, 12)
-                    .padding(.trailing, 6)
-                    .padding(.vertical, 4)
-                    .background(AirTranslateDesign.Palette.canvas, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(isKeyFocused ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.hairlineStrong)
-                    }
+                    if requiresAPIKey { keyEditor }
 
                     configuration
 
@@ -183,6 +138,66 @@ struct ProviderCredentialRow<Configuration: View>: View {
         .onDisappear {
             draft = ""
             feedback = nil
+        }
+    }
+
+    private var serviceLinkTitle: String {
+        requiresAPIKey
+            ? CredentialsCopy.console(name)
+            : AppText.ui("打开项目主页", "Open Project Page", "プロジェクトページを開く")
+    }
+
+    private var keyEditor: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "key.horizontal")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            SecureField(hasKey ? CredentialsCopy.replaceKey : CredentialsCopy.pasteKey, text: $draft)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($isKeyFocused)
+                .onSubmit(save)
+                .accessibilityLabel("\(name) \(CredentialsCopy.keyLabel)")
+                .accessibilityHint(CredentialsCopy.keyHint)
+                .disabled(isLocked)
+                .task {
+                    // 펼쳐진 입력이 화면에 연결된 다음 포커스를 이동한다.
+                    await Task.yield()
+                    if isExpanded && !isLocked { isKeyFocused = true }
+                }
+            Button(action: save) {
+                Image(systemName: "square.and.arrow.down")
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.borderless)
+            .disabled(isLocked || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .help(CredentialsCopy.save(name))
+            .accessibilityLabel(CredentialsCopy.save(name))
+
+            Button { showsRemovalConfirmation = true } label: {
+                Image(systemName: "trash")
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.borderless)
+            .disabled(isLocked || !hasKey)
+            .help(CredentialsCopy.remove(name))
+            .accessibilityLabel(CredentialsCopy.remove(name))
+            .confirmationDialog(
+                CredentialsCopy.confirmRemoval(name),
+                isPresented: $showsRemovalConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(CredentialsCopy.remove(name), role: .destructive, action: remove)
+                Button(AppText.cancel, role: .cancel) {}
+            }
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 6)
+        .padding(.vertical, 4)
+        .background(AirTranslateDesign.Palette.canvas, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(isKeyFocused ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.hairlineStrong)
         }
     }
 

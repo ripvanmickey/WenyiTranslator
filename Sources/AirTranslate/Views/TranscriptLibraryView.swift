@@ -90,11 +90,15 @@ struct TranscriptLibraryView: View {
 
                 Spacer(minLength: 12)
 
-                Button(AppText.close) {
+                Button {
                     dismiss()
+                } label: {
+                    Image(systemName: "xmark")
                 }
                 .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
+                .help(AppText.close)
+                .accessibilityLabel(AppText.close)
             }
 
             ViewThatFits(in: .horizontal) {
