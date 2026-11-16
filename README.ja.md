@@ -13,10 +13,11 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1219）
+  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1220）
 </p>
 
 <p align="center">
+  <a href="./docs/wenyi.html">製品紹介（中国語）</a> ·
   <strong><a href="#インストールと設定">インストールと設定</a></strong> ·
   <a href="#リアルタイム字幕とローカル翻訳">機能</a> ·
   <a href="#ローカルビルド">ローカルビルド</a>

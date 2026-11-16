@@ -78,11 +78,11 @@ struct SettingsView: View {
     private var selectedContent: some View {
         switch selectedCategory.wrappedValue {
         case .general:
-            interfaceLanguageSettings
             generalSettings
             if PlatformSupport.supportsAppleSpeech && session.isUsingAppleTextTranslation {
                 AppleTranslationSettingsView(session: session)
             }
+            interfaceLanguageSettings
         case .apiKeys:
             apiKeySettings
         case .audio:
@@ -109,7 +109,8 @@ struct SettingsView: View {
                 detail: interfaceLanguage == AppText.launchLanguage
                     ? AppText.ui("下次打开文译时使用所选语言。", "Wenyi uses the selected language the next time it opens.", "次回の起動時に選択した言語が適用されます。")
                     : AppText.ui("已保存。请退出并重新打开文译以应用新语言。", "Saved. Quit and reopen Wenyi to apply the new language.", "保存しました。文译を終了してから開き直すと、新しい言語が適用されます。"),
-                systemImage: "globe"
+                systemImage: "globe",
+                showsSeparator: false
             ) {
                 Picker(AppText.ui("界面语言", "App Language", "アプリの言語"), selection: $interfaceLanguage) {
                     ForEach(AppInterfaceLanguage.allCases) { language in
@@ -132,7 +133,8 @@ struct SettingsView: View {
             SettingsControlRow(
                 title: SettingsCopy.processingEngine,
                 detail: SettingsCopy.processingEngineDetail,
-                systemImage: "switch.2"
+                systemImage: "switch.2",
+                showsSeparator: false
             ) {
                 Picker(SettingsCopy.processingEngine, selection: processingModeSelection) {
                     ForEach(SettingsProcessingMode.allCases) { mode in
@@ -313,14 +315,16 @@ struct SettingsView: View {
                 title: AppText.languages,
                 detail: SettingsCopy.languagePairDetail,
                 systemImage: "globe",
-                value: session.languageSummary
+                value: session.languageSummary,
+                showsSeparator: false
             )
 
             SettingsValueRow(
                 title: AppText.autoDetectInput,
                 detail: autoDetectionDetail,
                 systemImage: "sparkles",
-                value: autoDetectionStatus
+                value: autoDetectionStatus,
+                showsSeparator: false
             )
         }
     }
@@ -657,9 +661,8 @@ struct SettingsView: View {
         let currentVersion = RunningAppVersion.current()
         return VStack(alignment: .leading, spacing: 24) {
             SettingsGroup(title: SettingsCopy.versionInformation) {
-                versionInfoRow(SettingsCopy.version, value: currentVersion.version, identifier: "appVersionNumber")
-                Divider()
-                versionInfoRow(SettingsCopy.buildNumber, value: currentVersion.build, identifier: "appBuildNumber")
+                versionInfoRow(SettingsCopy.version, value: currentVersion.version, systemImage: "tag", identifier: "appVersionNumber")
+                versionInfoRow(SettingsCopy.buildNumber, value: currentVersion.build, systemImage: "hammer", identifier: "appBuildNumber")
             }
 
             SettingsGroup(title: SettingsCopy.aboutAirTranslate) {
@@ -923,10 +926,13 @@ struct SettingsView: View {
         }
     }
 
-    private func versionInfoRow(_ title: String, value: String?, identifier: String) -> some View {
-        LabeledContent(title) {
+    private func versionInfoRow(_ title: String, value: String?, systemImage: String, identifier: String) -> some View {
+        HStack(spacing: 16) {
+            SettingsRowLabel(title: title, detail: "", systemImage: systemImage)
+            Spacer(minLength: 0)
             Text(value ?? SettingsCopy.versionUnavailable)
                 .font(.callout.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
                 .textSelection(.enabled)
                 .accessibilityIdentifier(identifier)
         }
@@ -1896,6 +1902,7 @@ struct SettingsControlRow<Trailing: View>: View {
     let detail: String
     let systemImage: String
     var detailLineLimit: Int? = 3
+    var showsSeparator = true
     @ViewBuilder let trailing: Trailing
 
     var body: some View {
@@ -1922,7 +1929,7 @@ struct SettingsControlRow<Trailing: View>: View {
         }
         .frame(minHeight: 64)
         .padding(.vertical, AirTranslateDesign.Spacing.xs)
-        .settingsRowSeparator()
+        .settingsRowSeparator(visible: showsSeparator)
     }
 }
 
@@ -1970,9 +1977,10 @@ private struct SettingsValueRow: View {
     let detail: String
     let systemImage: String
     let value: String
+    var showsSeparator = true
 
     var body: some View {
-        SettingsControlRow(title: title, detail: detail, systemImage: systemImage) {
+        SettingsControlRow(title: title, detail: detail, systemImage: systemImage, showsSeparator: showsSeparator) {
             Text(value)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -2001,11 +2009,13 @@ private struct SettingsRowLabel: View {
                     .font(AirTranslateDesign.Typography.label.weight(.semibold))
                     .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
-                Text(detail)
-                    .font(AirTranslateDesign.Typography.meta)
-                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                    .lineLimit(detailLineLimit)
-                    .fixedSize(horizontal: false, vertical: true)
+                if !detail.isEmpty {
+                    Text(detail)
+                        .font(AirTranslateDesign.Typography.meta)
+                        .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                        .lineLimit(detailLineLimit)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .frame(minWidth: 210, idealWidth: 230, maxWidth: 300, alignment: .leading)
@@ -2087,12 +2097,14 @@ private struct SettingsAssetAvailabilityRow: View {
 }
 
 private extension View {
-    func settingsRowSeparator() -> some View {
+    func settingsRowSeparator(visible: Bool = true) -> some View {
         overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(AirTranslateDesign.Palette.hairline)
-                .frame(height: 1)
-                .padding(.leading, 42)
+            if visible {
+                Rectangle()
+                    .fill(AirTranslateDesign.Palette.hairline)
+                    .frame(height: 1)
+                    .padding(.leading, 42)
+            }
         }
     }
 }

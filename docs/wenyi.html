@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#effcf9">
+  <meta name="description" content="文译为 Mac 系统声音与麦克风提供实时转写、双语悬浮字幕和本地记录。">
+  <link rel="icon" href="assets/wenyi-mark.png" type="image/png">
+  <title>文译 Wenyi｜Mac 实时双语字幕</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #103237;
+      --muted: #3d6267;
+      --teal: #00656d;
+      --line: #c8e5e2;
+      --paper: #f7fcfa;
+      --mint: #bdf6d9;
+      --blue: #5bd7f4;
+      --width: 1120px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans", sans-serif;
+      line-height: 1.6;
+    }
+    a { color: var(--teal); text-underline-offset: .22em; }
+    a:focus-visible { outline: 3px solid #007e90; outline-offset: 5px; }
+    .wrap { width: min(var(--width), calc(100% - 64px)); margin-inline: auto; }
+    .masthead {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-block: 20px;
+    }
+    .brand, .nav { display: flex; align-items: center; gap: 12px; }
+    .brand { color: var(--ink); text-decoration: none; font-size: 19px; font-weight: 750; }
+    .brand img { display: block; width: 39px; height: 39px; }
+    .brand span { color: var(--muted); font-size: 14px; font-weight: 550; }
+    .nav { gap: clamp(16px, 3vw, 34px); }
+    .nav a { font-size: 14px; font-weight: 600; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr .95fr;
+      align-items: center;
+      gap: clamp(24px, 5vw, 74px);
+      min-height: 530px;
+      padding: clamp(30px, 6vw, 78px);
+      border-radius: 36px;
+      background:
+        radial-gradient(ellipse at 86% 83%, #75def4b3, transparent 55%),
+        radial-gradient(ellipse at 88% 17%, #a5f6cce0, transparent 55%),
+        linear-gradient(125deg, #f5fff9, #d8f7fa);
+    }
+    .platform { margin: 0 0 15px; color: var(--teal); font-size: 14px; font-weight: 700; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(36px, 5vw, 67px); line-height: 1.16; letter-spacing: -.065em; }
+    h1 span { display: block; color: var(--teal); }
+    .lede { max-width: 31em; margin-top: 24px; font-size: clamp(16px, 1.65vw, 19px); color: var(--muted); }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; margin-top: 30px; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 11px 19px;
+      border-radius: 12px;
+      color: #fff;
+      background: #075962;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .button:hover { background: #084851; }
+    .caption-demo {
+      position: relative;
+      margin: 0;
+      padding: 18px;
+      border: 1px solid #ffffffa0;
+      border-radius: 23px;
+      background: #ffffff56;
+      box-shadow: 0 22px 65px #195b6824;
+    }
+    .caption-window { overflow: hidden; border-radius: 14px; color: white; background: #102b31; }
+    .caption-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 5px 12px;
+      padding: 12px 17px;
+      color: #dbf6f4;
+      background: #18383e;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .caption-text { padding: clamp(19px, 3.3vw, 37px) clamp(16px, 2.6vw, 30px); }
+    .caption-text .source { color: #b9d7d9; font-size: clamp(13px, 1.25vw, 16px); }
+    .caption-text .translation { margin-top: 9px; color: #edfffa; font-size: clamp(17px, 1.8vw, 25px); font-weight: 700; }
+    .caption-live { display: inline-flex; align-items: center; gap: 7px; }
+    .caption-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #78eabc; }
+    figcaption { margin: 11px 3px 0; color: #285a61; font-size: 13px; }
+    .details { margin-block: clamp(54px, 9vw, 110px); }
+    h2 { font-size: clamp(27px, 3.3vw, 41px); line-height: 1.28; letter-spacing: -.04em; }
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: clamp(22px, 4vw, 52px);
+      margin-top: 29px;
+    }
+    .features article { border-top: 2px solid var(--line); padding-top: 16px; }
+    h3 { font-size: 19px; line-height: 1.4; }
+    .features p, .workflow p, footer p { margin-top: 8px; color: var(--muted); }
+    .workflow {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      align-items: start;
+      gap: 32px;
+      padding: clamp(24px, 5vw, 58px);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: #ecfaf6;
+    }
+    .workflow ol { margin: 0; padding-left: 1.45rem; }
+    .workflow li { padding-left: .4rem; }
+    .workflow li + li { margin-top: 15px; }
+    footer { margin-top: 52px; padding-block: 22px 34px; border-top: 1px solid var(--line); font-size: 14px; }
+    footer p { margin: 0; }
+
+    @media (max-width: 860px) {
+      .hero { gap: 29px; padding: 38px; min-height: 410px; }
+    }
+    @media (max-width: 680px) {
+      .wrap { width: calc(100% - 32px); }
+      .masthead { padding-block: 15px; }
+      .hero, .features, .workflow { grid-template-columns: 1fr; }
+      .hero { border-radius: 26px; padding: 28px 22px; }
+      .hero h1 { letter-spacing: -.045em; }
+      .features { gap: 18px; }
+      .actions { gap: 16px; }
+      .workflow { gap: 21px; }
+    }
+    @media (max-width: 390px) {
+      .nav a:first-child { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <header class="wrap masthead">
+    <a class="brand" href="#" aria-label="文译 Wenyi 首页"><img src="assets/wenyi-mark.png" width="39" height="39" alt="">文译 <span>Wenyi</span></a>
+    <nav class="nav" aria-label="网站导航">
+      <a href="#features">功能</a>
+      <a href="#setup">使用指南</a>
+      <a href="https://github.com/ripvanmickey/WenyiTranslator">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <p class="platform">Apple Silicon · macOS 14+</p>
+        <h1 id="hero-title">Mac 上的声音<span>变成实时双语字幕</span></h1>
+        <p class="lede">看外语视频、听播客或开会时，把系统声音或麦克风转成字幕。原文和译文可以悬浮显示，也可以保存下来回看。</p>
+        <div class="actions">
+          <a class="button" href="#setup">查看安装与配置 <span aria-hidden="true">↓</span></a>
+          <a href="https://github.com/ripvanmickey/WenyiTranslator">查看源码</a>
+        </div>
+      </div>
+      <figure class="caption-demo">
+        <div class="caption-window">
+          <div class="caption-toolbar"><span class="caption-live">正在监听</span><span>日语 → 简体中文</span></div>
+          <div class="caption-text">
+            <p class="source" lang="ja">この曲ができた瞬間、<br>風が吹いたような気がしました。</p>
+            <p class="translation">这首歌完成的那一刻，<br>仿佛有一阵风吹了过来。</p>
+          </div>
+        </div>
+        <figcaption>双语字幕示例</figcaption>
+      </figure>
+    </section>
+
+    <section class="details" id="features" aria-labelledby="features-title">
+      <h2 id="features-title">从观看到回顾</h2>
+      <div class="features">
+        <article>
+          <h3>悬浮双语字幕</h3>
+          <p>按需显示原文、译文或两者。播放视频时，可以把字幕放在播放器附近。</p>
+        </article>
+        <article>
+          <h3>本机识别，两种翻译方式</h3>
+          <p>在应用里下载 Nemotron 或 Qwen3-ASR。翻译可使用同一台 Mac 上的 LM Studio，也可选择仅发送字幕文字的 Index 在线翻译。</p>
+        </article>
+        <article>
+          <h3>保存与编辑记录</h3>
+          <p>开启保存后，可将原文和译文保存为文本文件。之后可以在文译里回看、编辑和重命名。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="workflow" id="setup" aria-labelledby="setup-title">
+      <div>
+        <h2 id="setup-title">在 Mac 上开始</h2>
+        <p>界面支持简体中文、英语和日语。</p>
+        <p><a href="https://github.com/ripvanmickey/WenyiTranslator/blob/master/README.zh-CN.md#安装与配置">打开完整安装指南 ↗</a></p>
+      </div>
+      <ol>
+        <li><strong>选择输入。</strong> 使用 Mac 音频或麦克风，按提示授予权限。纯系统音频采集需要 macOS 14.2 或更新版本。</li>
+        <li><strong>准备识别和翻译。</strong> 在本地模式下载识别模型，按需配置 LM Studio 或选择 Index 在线翻译。</li>
+        <li><strong>开始监听。</strong> 选择原文和译文语言，再打开需要的字幕输出。</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <p>感谢哔哩哔哩 Index-Translate 项目提供免费翻译 API。<a href="https://github.com/bilibili/Index-Translate">了解 Index-Translate ↗</a></p>
+  </footer>
+</body>
+</html>

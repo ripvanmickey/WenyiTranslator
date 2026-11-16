@@ -13,7 +13,9 @@ struct APIKeySettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
+            indexAPIConfiguration
+
             HStack {
                 Text(CredentialsCopy.providers)
                     .font(AirTranslateDesign.Typography.sectionLabel)
@@ -80,6 +82,39 @@ struct APIKeySettingsView: View {
         .onChange(of: activeProvider) { _, provider in
             if let provider { expandedProvider = provider }
         }
+    }
+
+    private var indexAPIConfiguration: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Label(
+                AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳"),
+                systemImage: "character.bubble"
+            )
+            .font(.headline)
+
+            Text(LocalTranslationConfiguration.indexBaseURL)
+                .font(.callout.monospaced())
+                .textSelection(.enabled)
+                .accessibilityLabel("API URL")
+                .accessibilityValue(LocalTranslationConfiguration.indexBaseURL)
+
+            Text(LocalTranslationConfiguration.indexModelID)
+                .font(.callout)
+                .textSelection(.enabled)
+
+            Text(AppText.ui(
+                "已自动使用哔哩哔哩的公开 API，无需填写密钥。",
+                "Wenyi uses Bilibili’s public API automatically. No API key is required.",
+                "Bilibili の公開 API を自動で使用します。API キーは不要です。"
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .airTranslateSurface()
+        .accessibilityIdentifier("indexPublicAPIConfiguration")
     }
 
     private var storageInfoButton: some View {

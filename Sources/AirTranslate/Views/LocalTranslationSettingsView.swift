@@ -39,7 +39,7 @@ struct LocalTranslationSettingsView: View {
                     Text(AppText.ui("翻译空闲时用后文纠正近期字幕中的同音词。", "Use later context to correct homophones in recent captions while translation is idle.", "翻訳の待機中に、後続の文脈から直近の字幕の同音異義語を修正します。"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(activeModelName)
@@ -64,21 +64,33 @@ struct LocalTranslationSettingsView: View {
                             Button(AppText.ui("配置…", "Configure…", "設定…")) { showingConfiguration = true }.disabled(locked)
                         }
                     }
-                    HStack {
-                        Button(AppText.ui("测试翻译", "Test Translation", "翻訳をテスト")) { run(longSample: false) }
-                        Button(AppText.ui("测试长句翻译", "Test Long Text", "長文翻訳をテスト")) { run(longSample: true) }
-                        if isWorking { ProgressView().controlSize(.small) }
-                        Button(AppText.ui("延迟诊断", "Latency Diagnostics", "遅延診断")) { showingDiagnostics = true }
-                        Spacer()
-                        Text(session.languageSummary).font(.caption).foregroundStyle(.secondary)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 16) {
+                            diagnosticActions
+                            Spacer(minLength: 16)
+                            languageSummary
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            ViewThatFits(in: .horizontal) {
+                                diagnosticActions
+                                VStack(alignment: .leading, spacing: 8) {
+                                    diagnosticButtons
+                                }
+                            }
+                            languageSummary
+                        }
                     }
                     .disabled(locked || session.localTranslation.activeModelID.isEmpty || session.sourceLanguage == session.targetLanguage)
                     if !message.isEmpty {
                         Text(message).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(14)
-                .background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                .padding(.top, 10)
+                .padding(.bottom, 12)
             }
         }
         .sheet(isPresented: $showingConfiguration) {
@@ -110,6 +122,27 @@ struct LocalTranslationSettingsView: View {
         .onChange(of: session.sourceLanguage) { _, _ in message = "" }
         .onChange(of: session.targetLanguage) { _, _ in message = "" }
         .onDisappear { operation?.cancel() }
+    }
+
+    private var diagnosticActions: some View {
+        HStack(spacing: 8) {
+            diagnosticButtons
+        }
+    }
+
+    @ViewBuilder
+    private var diagnosticButtons: some View {
+        Button(AppText.ui("测试翻译", "Test Translation", "翻訳をテスト")) { run(longSample: false) }
+        Button(AppText.ui("测试长句翻译", "Test Long Text", "長文翻訳をテスト")) { run(longSample: true) }
+        Button(AppText.ui("延迟诊断", "Latency Diagnostics", "遅延診断")) { showingDiagnostics = true }
+        if isWorking { ProgressView().controlSize(.small) }
+    }
+
+    private var languageSummary: some View {
+        Text(session.languageSummary)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     private var activeModelName: String {
