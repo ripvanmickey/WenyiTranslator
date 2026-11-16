@@ -82,10 +82,6 @@ struct StageHeaderView: View {
         HStack(spacing: AirTranslateDesign.Spacing.sm) {
             SessionStatusPill(session: session)
 
-            Rectangle()
-                .fill(AirTranslateDesign.Palette.hairline)
-                .frame(width: 1, height: 20)
-
             Label(session.languageSummary, systemImage: "arrow.triangle.swap")
                 .font(AirTranslateDesign.Typography.label)
                 .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
@@ -99,13 +95,15 @@ struct StageHeaderView: View {
                 }
                 openSettings()
             } label: {
-                AirChip(
-                    text: session.processingEngineTitle,
-                    systemImage: needsAPIKey ? "key.fill" : "cpu",
-                    tint: needsAPIKey
-                        ? AirTranslateDesign.Palette.warning
-                        : AirTranslateDesign.Palette.accent
-                )
+                Label(session.processingEngineTitle, systemImage: needsAPIKey ? "key.fill" : "cpu")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(
+                        needsAPIKey ? AirTranslateDesign.Palette.warning : AirTranslateDesign.Palette.textSecondary
+                    )
+                    .lineLimit(1)
+                    .padding(.horizontal, AirTranslateDesign.Spacing.xs)
+                    .frame(minHeight: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .airFocusRing(cornerRadius: 12)
@@ -128,13 +126,8 @@ struct StageHeaderView: View {
             PermissionActionButton(session: session)
         }
         .padding(.horizontal, AirTranslateDesign.Spacing.lg)
-        .frame(height: 52)
+        .frame(minHeight: 44)
         .background(AirTranslateDesign.Palette.canvas)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(AirTranslateDesign.Palette.hairline)
-                .frame(height: 1)
-        }
     }
 
     private var needsAPIKey: Bool {
@@ -171,8 +164,34 @@ struct ConsoleBarView: View {
     let isCompact: Bool
     @Environment(\.openSettings) private var openSettings
     @FocusState private var isCaptureFocused: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
+        consoleSurface
+        .onAppear {
+            Task { @MainActor in
+                await Task.yield()
+                isCaptureFocused = true
+            }
+            session.refreshModelAvailability()
+            guard isConfigurationAvailable else { return }
+            session.refreshMicrophoneInputDevices()
+            if usesOpenAIAutoLanguageFlow {
+                session.usePreferredLanguageForOpenAIOutput()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var consoleSurface: some View {
+        if #available(macOS 26.0, *), !reduceTransparency {
+            consoleControls.glassEffect(.regular, in: .rect(cornerRadius: 20))
+        } else {
+            consoleControls.airConsoleSurface()
+        }
+    }
+
+    private var consoleControls: some View {
         HStack(spacing: AirTranslateDesign.Spacing.sm) {
             captureButton
             pauseButton
@@ -201,19 +220,6 @@ struct ConsoleBarView: View {
         .padding(.horizontal, AirTranslateDesign.Spacing.sm)
         .padding(.vertical, AirTranslateDesign.Spacing.xs)
         .frame(maxWidth: 1120)
-        .airConsoleSurface()
-        .onAppear {
-            Task { @MainActor in
-                await Task.yield()
-                isCaptureFocused = true
-            }
-            session.refreshModelAvailability()
-            guard isConfigurationAvailable else { return }
-            session.refreshMicrophoneInputDevices()
-            if usesOpenAIAutoLanguageFlow {
-                session.usePreferredLanguageForOpenAIOutput()
-            }
-        }
     }
 
     private var captureButton: some View {

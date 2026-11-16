@@ -22,6 +22,7 @@ struct AirTranslateApp: App {
                 .tint(AirTranslateDesign.Palette.accent)
                 .background(MenuBarPanelInstaller(session: session, controller: menuBarPanelController))
         }
+        .windowToolbarStyle(.unifiedCompact(showsTitle: true))
         .commands {
             CommandGroup(replacing: .newItem) {}
             CaptureCommands(session: session)

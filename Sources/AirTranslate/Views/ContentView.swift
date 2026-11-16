@@ -46,7 +46,7 @@ struct ContentView: View {
                 if isMainCaptionVisible {
                     ConsoleBarView(session: session, isCompact: geometry.size.width < 1040)
                         .padding(.horizontal, AirTranslateDesign.Spacing.lg)
-                        .padding(.top, AirTranslateDesign.Spacing.sm)
+                        .padding(.top, AirTranslateDesign.Spacing.xs)
                         .padding(.bottom, AirTranslateDesign.Spacing.md)
                 }
             }
@@ -79,7 +79,9 @@ struct ContentView: View {
                         : AppText.floatingCaptionPowerOff
                 )
                 .accessibilityAddTraits(isFloatingCaptionVisible ? .isSelected : [])
+            }
 
+            ToolbarItem(placement: .primaryAction) {
                 SettingsLink {
                     Image(systemName: "gearshape")
                 }

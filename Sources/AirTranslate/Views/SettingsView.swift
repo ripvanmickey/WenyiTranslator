@@ -25,7 +25,7 @@ struct SettingsView: View {
         } detail: {
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.md) {
                         SettingsPageHeader(category: selectedCategory.wrappedValue)
 
                         selectedContent
@@ -33,7 +33,8 @@ struct SettingsView: View {
                     .frame(maxWidth: AirTranslateDesign.settingsDetailMaximum, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(.horizontal, AirTranslateDesign.Spacing.lg)
-                    .padding(.vertical, AirTranslateDesign.Spacing.xl)
+                    .padding(.top, AirTranslateDesign.Spacing.md)
+                    .padding(.bottom, AirTranslateDesign.Spacing.xl)
                 }
                 .id(selectedCategoryID)
                 .scrollIndicators(.automatic)
@@ -1830,72 +1831,27 @@ enum SettingsCopy {
             chineseSimplified: "语言资源会下载到这台 Mac。大小因语言和 macOS 版本而异，进度和错误会显示在此处。"
         )
     }
-    static var sidebarHint: String {
-        AppText.localized(
-            english: "Opens this settings category.",
-            korean: "이 설정 카테고리를 엽니다.",
-            japanese: "この設定項目を開きます。", chineseSimplified: "打开此设置分类。"
-        )
-    }
 }
 
 private struct SettingsSidebar: View {
     @Binding var selection: SettingsCategory
 
+    private var selectedRow: Binding<SettingsCategory?> {
+        Binding(
+            get: { selection },
+            set: { if let category = $0 { selection = category } }
+        )
+    }
+
     var body: some View {
-        List {
+        List(selection: selectedRow) {
             ForEach(SettingsCategory.allCases) { category in
-                SettingsSidebarRow(
-                    category: category,
-                    isSelected: selection == category
-                ) {
-                    selection = category
-                }
-                .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+                Label(category.title, systemImage: category.systemImage)
+                    .tag(category)
             }
         }
         .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .contentMargins(.top, AirTranslateDesign.Spacing.xs, for: .scrollContent)
-        .background(AirTranslateDesign.Palette.canvas)
-    }
-}
-
-private struct SettingsSidebarRow: View {
-    let category: SettingsCategory
-    let isSelected: Bool
-    let action: () -> Void
-    @FocusState private var isFocused: Bool
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: AirTranslateDesign.Spacing.sm) {
-                Image(systemName: category.systemImage)
-                    .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
-                    .foregroundStyle(isSelected ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
-                    .frame(width: 20, height: 20)
-
-                Text(category.title)
-                    .font(AirTranslateDesign.Typography.label)
-                    .foregroundStyle(isSelected ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, AirTranslateDesign.Spacing.sm)
-            .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
-            .background(
-                isSelected ? AirTranslateDesign.Palette.accentSoft : AirTranslateDesign.Palette.transparent,
-                in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .airFocusRing(focus: $isFocused)
-        .accessibilityLabel(category.title)
-        .accessibilityHint(SettingsCopy.sidebarHint)
+        .tint(AirTranslateDesign.Palette.accent)
     }
 }
 
@@ -1903,29 +1859,18 @@ private struct SettingsPageHeader: View {
     let category: SettingsCategory
 
     var body: some View {
-        HStack(alignment: .center, spacing: AirTranslateDesign.Spacing.md) {
-            Image(systemName: category.systemImage)
-                .font(.system(size: AirTranslateDesign.iconLarge, weight: .semibold))
-                .foregroundStyle(AirTranslateDesign.Palette.accent)
-                .frame(width: 40, height: 40)
-                .background(
-                    AirTranslateDesign.Palette.accentSoft,
-                    in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
-                )
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
+            Text(category.title)
+                .font(.largeTitle.weight(.semibold))
+                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
-            VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
-                Text(category.title)
-                    .font(AirTranslateDesign.Typography.settingsTitle)
-                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
-
-                Text(category.detail)
-                    .font(AirTranslateDesign.Typography.label)
-                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 0)
+            Text(category.detail)
+                .font(.callout)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
