@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1217）
+  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1218）
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@
 
 ### ローカル音声認識と発話区間の検出
 
-Nemotron 0.6B、Qwen3-ASR、実験的な複数話者認識に対応しています。アプリ内で認識モデルのダウンロード、読み込み、削除ができます。Nemotron と Qwen3-ASR では音声区間検出（VAD）のプリセットと詳細設定を使えます。変更は次回のセッション開始時に適用されます。Apple Speech と Apple のシステム翻訳には macOS 26 以降が必要です。
+Nemotron 0.6B、Qwen3-ASR、実験的な複数話者認識に対応しています。アプリ内で認識モデルのダウンロード、読み込み、削除ができます。Nemotron と Qwen3-ASR は認識時に音声区間検出（VAD）を使用します。Apple Speech と Apple のシステム翻訳には macOS 26 以降が必要です。
 
 ### LM Studio によるローカル翻訳
 
@@ -72,7 +72,7 @@ Nemotron 0.6B、Qwen3-ASR、実験的な複数話者認識に対応していま�
 
 ## 謝辞
 
-翻訳 API を無料で公開してくださっている Bilibili の [Index-Translate チーム](https://github.com/bilibili/Index-Translate#inference)に感謝します。Index オンライン翻訳では、音声認識は Mac 内で行い、翻訳対象の字幕テキストだけを Bilibili に送信します。音声認識モデルと VAD はローカルモードで管理できます。
+翻訳 API を無料で公開してくださっている Bilibili の [Index-Translate チーム](https://github.com/bilibili/Index-Translate#inference)に感謝します。Index オンライン翻訳では、音声認識は Mac 内で行い、翻訳対象の字幕テキストだけを Bilibili に送信します。音声認識モデルはローカルモードで管理できます。
 
 ## 保存した文字起こし
 

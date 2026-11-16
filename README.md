@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1217)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1218)
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@ Capture system audio or microphone input and follow the transcript as people spe
 
 ### Local speech recognition and segmentation
 
-Choose Nemotron 0.6B, Qwen3-ASR, or experimental multi-speaker recognition. Download, import, or delete recognition models within the app. Nemotron and Qwen3-ASR offer voice activity detection (VAD) presets and custom settings that apply the next time a session starts. Apple Speech and Apple system translation require macOS 26 or later.
+Choose Nemotron 0.6B, Qwen3-ASR, or experimental multi-speaker recognition. Download, import, or delete recognition models within the app. Nemotron and Qwen3-ASR use voice activity detection (VAD) during recognition. Apple Speech and Apple system translation require macOS 26 or later.
 
 ### Local translation with LM Studio
 
@@ -72,7 +72,7 @@ Build 1217 removes unused Python installer code and selected third-party tests a
 
 ## Acknowledgments
 
-Thanks to Bilibili’s [Index-Translate team](https://github.com/bilibili/Index-Translate#inference) for making its translation API available for free. In Index Online Translation mode, Wenyi recognizes speech on your Mac and sends caption text to Bilibili for translation. Manage speech recognition models and VAD in Local Mode.
+Thanks to Bilibili’s [Index-Translate team](https://github.com/bilibili/Index-Translate#inference) for making its translation API available for free. In Index Online Translation mode, Wenyi recognizes speech on your Mac and sends caption text to Bilibili for translation. Manage speech recognition models in Local Mode.
 
 ## Saved transcripts
 

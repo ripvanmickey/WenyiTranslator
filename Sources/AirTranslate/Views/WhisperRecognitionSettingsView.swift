@@ -13,39 +13,6 @@ struct WhisperRecognitionSettingsView: View {
     @State private var operation: Task<Void, Never>?
     private var locked: Bool { session.isRunning || session.isStarting || preparing || manager.isBusy }
 
-    private var speechActivityControls: some View {
-        DisclosureGroup(AppText.ui("语音活动检测（VAD）", "Voice Activity Detection (VAD)", "音声区間検出（VAD）")) {
-            VStack(alignment: .leading, spacing: 8) {
-                Picker(AppText.ui("预设", "Preset", "プリセット"), selection: Binding(
-                    get: { session.speechActivity.preset },
-                    set: { session.speechActivity.apply($0) }
-                )) {
-                    ForEach(SpeechActivitySettings.Preset.allCases.filter {
-                        $0 != .custom || session.speechActivity.preset == .custom
-                    }) { preset in
-                        Text(preset.title).tag(preset)
-                    }
-                }
-                Stepper(value: $session.speechActivity.sensitivity, in: 20...80, step: 5) {
-                    Text(AppText.ui("人声检测灵敏度 · \(session.speechActivity.sensitivity)%", "Speech detection sensitivity · \(session.speechActivity.sensitivity)%", "音声検出の感度 · \(session.speechActivity.sensitivity)%"))
-                }
-                Text(AppText.ui("调高更容易保留轻声，也可能将背景音判为人声。", "Higher sensitivity captures quieter speech but may pick up background noise.", "感度を上げると小さな声を拾いやすくなりますが、背景音も検出することがあります。"))
-                    .font(.caption).foregroundStyle(.secondary)
-                Stepper(value: $session.speechActivity.pauseMilliseconds, in: 400...1600, step: 100) {
-                    Text(AppText.ui("停顿收尾时间 · \(session.speechActivity.pauseMilliseconds) 毫秒", "Pause before closing a segment · \(session.speechActivity.pauseMilliseconds) ms", "区間確定までの無音時間 · \(session.speechActivity.pauseMilliseconds) ms"))
-                }
-                Text(AppText.ui("已有句末标点时按一半时间收尾。缩短等待可能让字幕分段更碎。", "End at half this delay when sentence-ending punctuation is present. Shorter pauses may produce more segments.", "文末記号がある場合は半分の時間で確定します。待ち時間を短くすると字幕が細かく分かれることがあります。"))
-                    .font(.caption).foregroundStyle(.secondary)
-                Button(AppText.ui("恢复默认", "Restore Defaults", "初期設定に戻す")) { session.speechActivity = .balanced }
-                    .disabled(session.speechActivity == .balanced)
-                Text(AppText.ui("适用于 Nemotron 和 Qwen3-ASR，下次开始监听时生效。", "Applies to Nemotron and Qwen3-ASR starting with the next session.", "Nemotron と Qwen3-ASR の次回セッションから適用されます。"))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            .padding(.top, 6)
-            .disabled(locked)
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsControlRow(title: AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), detail: AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。"), systemImage: "waveform") {
@@ -62,9 +29,6 @@ struct WhisperRecognitionSettingsView: View {
                         Text(AppText.ui("1.7B · 英语试用", "1.7B · English Trial", "1.7B · 英語の試用")).tag("Qwen/Qwen3-ASR-1.7B")
                         Text(AppText.ui("0.6B · 轻量试用", "0.6B · Lightweight Trial", "0.6B · 軽量版の試用")).tag("Qwen/Qwen3-ASR-0.6B")
                     }.disabled(locked)
-                }
-                if session.localRecognitionEngine == "nemotron" || session.localRecognitionEngine == "qwen" {
-                    speechActivityControls
                 }
                 Text(selectedManagedModel.detail).font(.callout).foregroundStyle(.secondary)
                 HStack(spacing: 12) {

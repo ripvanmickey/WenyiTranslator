@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1217）
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1218）
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@
 
 ### 本地识别与断句
 
-支持 Nemotron 0.6B、Qwen3-ASR，以及实验性的多人识别。识别模型可在应用内按需下载、导入和删除。Nemotron 和 Qwen3-ASR 提供 VAD 预设和高级调节，下次开始监听时生效。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
+支持 Nemotron 0.6B、Qwen3-ASR，以及实验性的多人识别。识别模型可在应用内按需下载、导入和删除。Nemotron 和 Qwen3-ASR 在识别时使用语音活动检测（VAD）。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
 
 ### LM Studio 本地翻译
 
@@ -72,7 +72,7 @@
 
 ## 致谢
 
-感谢哔哩哔哩 [Index-Translate 项目](https://github.com/bilibili/Index-Translate#inference) 免费开放翻译 API。使用 Index 在线翻译时，文译在 Mac 上识别语音，只将待译字幕文本发送给哔哩哔哩。语音识别模型和 VAD 请在「本地模式」管理。
+感谢哔哩哔哩 [Index-Translate 项目](https://github.com/bilibili/Index-Translate#inference) 免费开放翻译 API。使用 Index 在线翻译时，文译在 Mac 上识别语音，只将待译字幕文本发送给哔哩哔哩。语音识别模型请在「本地模式」管理。
 
 ## 字幕记录
 
