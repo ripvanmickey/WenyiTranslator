@@ -63,7 +63,10 @@ final class MenuBarPanelController: NSObject {
         button.sendAction(on: [.leftMouseDown])
         button.imagePosition = .imageOnly
         button.imageScaling = .scaleProportionallyDown
-        button.image = MenuBarMiniAppIconRenderer.image()
+        let image = NSImage(systemSymbolName: "captions.bubble", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 15, weight: .medium))
+        image?.isTemplate = true
+        button.image = image
         button.toolTip = AppText.menuBarTitle
     }
 
@@ -125,88 +128,4 @@ final class MenuBarPanelController: NSObject {
         return AppText.menuBarTitle
     }
 
-}
-
-@MainActor
-private enum MenuBarMiniAppIconRenderer {
-    private static let cachedImage: NSImage = appIconImage() ?? fallbackImage()
-
-    static func image() -> NSImage {
-        cachedImage
-    }
-
-    private static func appIconImage() -> NSImage? {
-        guard let source = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
-            .flatMap(NSImage.init(contentsOf:))
-            ?? NSImage(named: "AppIcon")
-        else {
-            return nil
-        }
-
-        let size = NSSize(width: 18, height: 18)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        source.draw(
-            in: NSRect(origin: .zero, size: size),
-            from: .zero,
-            operation: .sourceOver,
-            fraction: 1.0,
-            respectFlipped: true,
-            hints: [.interpolation: NSImageInterpolation.high]
-        )
-        image.unlockFocus()
-        image.isTemplate = false
-        return image
-    }
-
-    private static func fallbackImage() -> NSImage {
-        let image = NSImage(size: NSSize(width: 18, height: 18))
-        image.lockFocus()
-
-        let iconRect = NSRect(x: 1, y: 1, width: 16, height: 16)
-        let background = NSBezierPath(roundedRect: iconRect, xRadius: 4.5, yRadius: 4.5)
-        NSColor.white.setFill()
-        background.fill()
-        NSColor.black.withAlphaComponent(0.18).setStroke()
-        background.lineWidth = 0.75
-        background.stroke()
-
-        NSColor.black.setFill()
-        drawPixelSoundBars(in: iconRect)
-        drawPixelABC(in: iconRect)
-
-        image.unlockFocus()
-        image.isTemplate = false
-        return image
-    }
-
-    private static func drawPixelSoundBars(in iconRect: NSRect) {
-        let pixel: CGFloat = 1.35
-        let baseline = iconRect.minY + 8.6
-        let centerX = iconRect.midX
-
-        fillPixelRect(x: centerX - 5.1, y: baseline - 2.0, width: pixel, height: 4.0)
-        fillPixelRect(x: centerX - 2.5, y: baseline - 4.0, width: pixel, height: 6.0)
-        fillPixelRect(x: centerX, y: baseline - 5.5, width: pixel, height: 7.5)
-        fillPixelRect(x: centerX + 2.5, y: baseline - 4.0, width: pixel, height: 6.0)
-        fillPixelRect(x: centerX + 5.1, y: baseline - 2.0, width: pixel, height: 4.0)
-    }
-
-    private static func drawPixelABC(in iconRect: NSRect) {
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 5.8, weight: .black),
-            .foregroundColor: NSColor.black
-        ]
-        let text = "abc" as NSString
-        let textSize = text.size(withAttributes: attributes)
-        let origin = NSPoint(
-            x: iconRect.midX - textSize.width / 2,
-            y: iconRect.maxY - textSize.height - 2.4
-        )
-        text.draw(at: origin, withAttributes: attributes)
-    }
-
-    private static func fillPixelRect(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        NSBezierPath(rect: NSRect(x: round(x), y: round(y), width: round(width), height: round(height))).fill()
-    }
 }

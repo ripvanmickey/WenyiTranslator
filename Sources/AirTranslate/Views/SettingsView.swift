@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Bindable var session: TranslationSessionStore
     @Bindable private var localization = InterfaceLocalization.shared
     @SceneStorage("AirTranslate.SettingsView.selectedCategory") private var selectedCategoryID = SettingsCategory.general.rawValue
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var credentialScrollTarget: String?
     @State private var credentialScrollRequest = UUID()
     @State private var screenRecordingPermission: SettingsPermissionState = .unknown
@@ -15,8 +16,15 @@ struct SettingsView: View {
     @State private var speechRecognitionPermission: SettingsPermissionState = .unknown
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             SettingsSidebar(selection: selectedCategory)
+                .toolbar(removing: .sidebarToggle)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    sidebarToggle
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal, AirTranslateDesign.Spacing.sm)
+                        .padding(.bottom, AirTranslateDesign.Spacing.xs)
+                }
                 .navigationSplitViewColumnWidth(
                     min: AirTranslateDesign.settingsSidebarMinimum,
                     ideal: AirTranslateDesign.settingsSidebarIdeal,
@@ -46,6 +54,13 @@ struct SettingsView: View {
                     proxy.scrollTo(credentialScrollTarget, anchor: .top)
                 }
             }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if columnVisibility == .detailOnly {
+                    sidebarToggle
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+                }
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .background(SettingsWindowTitle(title: AppText.settings))
@@ -65,6 +80,31 @@ struct SettingsView: View {
             if selectedCategory.wrappedValue == .permissions {
                 refreshPermissionStatuses()
             }
+        }
+    }
+
+    @ViewBuilder
+    private var sidebarToggle: some View {
+        let isVisible = columnVisibility != .detailOnly
+        let title = isVisible
+            ? AppText.localized(english: "Hide Sidebar", korean: "사이드바 가리기", japanese: "サイドバーを非表示", chineseSimplified: "隐藏侧栏")
+            : AppText.localized(english: "Show Sidebar", korean: "사이드바 보기", japanese: "サイドバーを表示", chineseSimplified: "显示侧栏")
+
+        let button = Button {
+            columnVisibility = isVisible ? .detailOnly : .all
+        } label: {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 16, weight: .medium))
+        }
+        .buttonBorderShape(.circle)
+        .help(title)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier("settingsSidebarToggle")
+
+        if #available(macOS 26.0, *) {
+            button.buttonStyle(.glass)
+        } else {
+            button.buttonStyle(.bordered)
         }
     }
 
