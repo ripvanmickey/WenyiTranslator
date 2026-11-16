@@ -13,10 +13,11 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1229）
+  <strong>Apple Silicon</strong> · macOS 14 以降 · macOS 27 対応 · 1.16.0（ビルド 1238）
 </p>
 
 <p align="center">
+  <a href="https://github.com/ripvanmickey/WenyiTranslator/releases/latest">DMG をダウンロード</a> ·
   <a href="./docs/wenyi.html">製品紹介（中国語）</a> ·
   <strong><a href="#インストールと設定">インストールと設定</a></strong> ·
   <a href="#リアルタイム字幕とローカル翻訳">機能</a> ·
@@ -81,18 +82,18 @@ Nemotron 0.6B、Qwen3-ASR、実験的な複数話者認識に対応していま�
 
 ## インストールと設定
 
-Apple Silicon（M1 以降）と macOS 14.0 以降が必要です。このリポジトリにはソースコードを掲載しており、テスト用インストーラは別途配布しています。
+[GitHub Releases](https://github.com/ripvanmickey/WenyiTranslator/releases/latest) から ARM64 版の DMG を入手できます。Apple Silicon（M1 以降）と macOS 14.0 以降が必要です。macOS 27 にも対応しています。
 
-1. DMG を開いて文译を「アプリケーション」にドラッグします。ZIP の場合は展開してから移動します。
+1. DMG を開いて文译を「アプリケーション」にドラッグします。
 2. 「設定 → 一般」でローカルモードと音声認識エンジンを選びます。必要なモデルをダウンロードし、音声入力に応じた権限を許可します。
 3. 翻訳する場合は LM Studio でテキストモデルを読み込み、ローカル API を起動します。文译でサービスのアドレス（例 `http://localhost:1235/v1`）を入力し、モデル一覧から実際のモデル ID を選びます。認証を有効にしている場合はキーも入力します。「処理モード」で Index オンライン翻訳を選ぶ場合、LM Studio や API キーの設定は不要です。
 4. 翻訳をテストし、原文と訳文の言語を選んでセッションを開始します。文字起こしだけを使う場合は原文のみの出力を選びます。
 
-テスト用パッケージはローカルのアドホック署名を使用しており、Apple の公証は未取得です。
+配布パッケージはアドホック署名を使用しており、Apple の公証は未取得です。
 
 ## ローカルビルド
 
-Apple Silicon Mac、Swift 6.2 ツールチェーン、macOS 26 の API を含む SDK を使用します。アプリのデプロイメントターゲットは macOS 14 です。
+Apple Silicon Mac、Swift 6.2 ツールチェーン、macOS 26 の API を含む SDK を使用します。DMG の作成には Xcode 27 を使用します。アプリのデプロイメントターゲットは macOS 14 です。
 
 ```sh
 git clone https://github.com/ripvanmickey/WenyiTranslator.git
@@ -115,7 +116,7 @@ Swift のメイン実行ファイルは単独でビルドできます。完全�
 
 ## 検証状況と制限
 
-ビルド 1202 は、コンパイル、署名、DMG の整合性検証、296 個のネイティブコンポーネントの macOS 14 最低バージョン検査に合格しました。文脈を使った訂正は模擬サービスで検証済みです。実際の日本語会話での精度と遅延、および macOS 14 を搭載した M1 Mac 上での一連の動作は未検証です。
+ビルド 1238 は、署名、DMG の整合性、156 個のネイティブコンポーネントの最低 OS バージョンの検査に合格しました。macOS 27.2.1 で起動を確認しました。macOS 14 を搭載した M1 Mac での起動は、実機での検証が残っています。
 
 ```sh
 bash script/verify_caption_context_correction.sh

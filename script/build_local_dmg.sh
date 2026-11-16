@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT_DIR/script/app_metadata.sh"
 XCODE_VERSION="$(xcodebuild -version | sed -n '1p')"
 SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
 if [[ "$XCODE_VERSION" != "Xcode 27" && "$XCODE_VERSION" != "Xcode 27."* ]] ||
@@ -8,9 +9,8 @@ if [[ "$XCODE_VERSION" != "Xcode 27" && "$XCODE_VERSION" != "Xcode 27."* ]] ||
   printf 'Select Xcode 27 and its macOS 27 SDK using DEVELOPER_DIR.\n' >&2
   exit 1
 fi
-BUILD_NUMBER=1237
-APP_NAME="文译 macOS 27 预览"
-ARTIFACT="Wenyi-1.16.0-${BUILD_NUMBER}-macOS27-preview-arm64"
+APP_NAME="$APP_DISPLAY_NAME"
+ARTIFACT="Wenyi-${VERSION}-${BUILD_NUMBER}-macOS${MIN_SYSTEM_VERSION%.0}-arm64"
 OUTPUT_DIR="${1:-$ROOT_DIR/dist-local}"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
@@ -42,7 +42,8 @@ mkdir -p "$APP/Contents/Resources/ThirdParty"
 cp "$ROOT_DIR/Vendor/silero-vad-swift-main/LICENSE" "$APP/Contents/Resources/ThirdParty/SileroSwift-LICENSE"
 cp "$ROOT_DIR/Vendor/silero-vad-swift-main/THIRD_PARTY_NOTICES" "$APP/Contents/Resources/ThirdParty/Silero-NOTICES"
 cp "$ROOT_DIR/LICENSE" "$ROOT_DIR/NOTICE" "$APP/Contents/Resources/"
-BUNDLE_ID=dev.appcaster.AirTranslate.MacOS27Preview BUILD_NUMBER="$BUILD_NUMBER" \
+APP_NAME=AirTranslate BUNDLE_ID=dev.appcaster.AirTranslate.LocalQwen \
+  BUILD_NUMBER="$BUILD_NUMBER" VERSION="$VERSION" MIN_SYSTEM_VERSION="$MIN_SYSTEM_VERSION" \
   bash "$ROOT_DIR/script/write_info_plist.sh" "$APP/Contents/Info.plist" release
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$APP/Contents/Info.plist"
@@ -67,6 +68,6 @@ ln -s /Applications "$STAGING/Applications"
 cp "$ROOT_DIR/docs/LOCAL-LM-STUDIO.zh-CN.md" "$STAGING/安装与配置说明.md"
 printf 'App staging folder: %s\n' "$STAGING"
 DMG="$OUTPUT_DIR/$ARTIFACT.dmg"
-hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -format UDZO "$DMG"
+hdiutil create -volname "$APP_NAME $VERSION" -srcfolder "$STAGING" -format UDZO "$DMG"
 hdiutil verify "$DMG"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$ARTIFACT.dmg" > "$ARTIFACT.dmg.sha256")

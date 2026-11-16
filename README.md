@@ -13,10 +13,11 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1229)
+  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.0 (build 1238)
 </p>
 
 <p align="center">
+  <a href="https://github.com/ripvanmickey/WenyiTranslator/releases/latest">Download DMG</a> ·
   <a href="./docs/wenyi.html">Product overview</a> ·
   <strong><a href="#installation-and-setup">Installation and setup</a></strong> ·
   <a href="#live-captions-and-local-translation">Features</a> ·
@@ -81,18 +82,18 @@ Save, edit, or rename transcripts and reveal the corresponding TXT files in Find
 
 ## Installation and setup
 
-Requires Apple Silicon (M1 or later) and macOS 14.0 or later. This repository hosts the source code. Test installers are distributed separately.
+Download the ARM64 DMG from [GitHub Releases](https://github.com/ripvanmickey/WenyiTranslator/releases/latest). Wenyi requires Apple Silicon (M1 or later) and macOS 14.0 or later, including macOS 27.
 
-1. Open the DMG and drag Wenyi into Applications. If you have the ZIP, extract it and move the app into Applications.
+1. Open the DMG and drag Wenyi into Applications.
 2. In Settings → General, select local mode and a speech recognition engine. Download the model when prompted and grant the permissions required by your audio source.
 3. For translation, load a text model in LM Studio and start its local API. In Wenyi, enter the service address, such as `http://localhost:1235/v1`, fetch the model list, and choose the model ID shown there. Enter a key if the local server requires authentication. Alternatively, select Index online translation under Processing Mode. It requires neither LM Studio nor an API key.
 4. Test translation, choose the source and target languages, and start listening. Select original-only output for transcription.
 
-The test packages use a local ad hoc signature and have yet to be notarized by Apple.
+The DMG contains an ad hoc signed app. Apple notarization is pending.
 
 ## Build locally
 
-Use an Apple Silicon Mac, the Swift 6.2 toolchain, and an SDK that includes macOS 26 APIs. The app deployment target is macOS 14.
+Use an Apple Silicon Mac, the Swift 6.2 toolchain, and an SDK that includes macOS 26 APIs. DMG packaging uses Xcode 27. The app deployment target is macOS 14.
 
 ```sh
 git clone https://github.com/ripvanmickey/WenyiTranslator.git
@@ -115,7 +116,7 @@ On a fresh development Mac, prepare the runtime and libraries manually before pa
 
 ## Verification and limits
 
-Build 1202 passed compilation, signature and DMG integrity checks, and macOS 14 minimum-version checks for 296 native components. Contextual correction passed tests with a simulated service. Correction accuracy and latency in real Japanese conversations, and end-to-end behavior on an M1 Mac running macOS 14, remain to be tested.
+Build 1238 passed signature and DMG integrity checks, including minimum macOS checks for 156 native components. Startup was verified on macOS 27.2.1. Startup on an M1 Mac running macOS 14 still needs hardware testing.
 
 ```sh
 bash script/verify_caption_context_correction.sh
