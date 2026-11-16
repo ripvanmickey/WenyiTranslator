@@ -26,51 +26,31 @@
 
 Wenyi turns Mac system audio or microphone input into live captions. Display the original and translated text together while watching a video, listening to a podcast, or joining a meeting, then save the transcript for editing.
 
+![Wenyi’s main window on macOS 27 with system audio, microphone, and caption output controls](./docs/assets/wenyi-main-en.jpg)
+
 ## App language
 
-Choose **English**, **日本語**, **简体中文**, or **System** under **Settings → General → App Language**, and the interface updates immediately. The source and target languages for captions are set separately.
+Choose **English**, **日本語**, **简体中文**, or **System** under **Settings → General → App Language** at the bottom of the page, and the interface updates immediately. The source and target languages for captions are set separately.
 
-![Wenyi settings in English, showing the language picker and Index Online Translation](./docs/assets/wenyi-settings-en.jpg)
+![Wenyi General settings in English with Index Online Translation selected](./docs/assets/wenyi-settings-en.jpg)
 
 ## Live captions and local translation
 
 ### Live transcription and floating captions
 
-Capture system audio or microphone input and follow the transcript as people speak. With translation enabled, show the translation alone or both languages in the main or floating window. Audio-only system capture via Core Audio Tap requires macOS 14.2 or later.
+Capture Mac system audio or microphone input and follow the transcript as people speak. Choose **Original Only** or **Original + Translation** at the bottom right of the main window when both are available. Click the language pair at the upper left to change the source or target language. Floating captions have their own display settings. The bottom control bar uses Liquid Glass on macOS 26 and later. Audio-only system capture via Core Audio Tap requires macOS 14.2 or later.
 
 ### Local speech recognition and segmentation
 
-Choose Nemotron 0.6B, Qwen3-ASR, or experimental multi-speaker recognition. Download, import, or delete recognition models within the app. Nemotron and Qwen3-ASR use voice activity detection (VAD) during recognition. Apple Speech and Apple system translation require macOS 26 or later.
+In **Settings → General → Local Mode**, choose Nemotron 0.6B, Qwen3-ASR, or experimental multi-speaker recognition. Use the gear next to the recognition engine to open model management for downloads, file verification, importing, and deletion. Nemotron and Qwen3-ASR use voice activity detection (VAD). Apple Speech and Apple system translation require macOS 26 or later.
 
 ### Local translation with LM Studio
 
-Wenyi sends the recognized text to LM Studio on the same Mac. The settings include short- and long-sentence translation tests and caption latency diagnostics. With local recognition and local translation selected, audio and text are processed on your Mac.
+In **Local Mode**, select **Local Model Translation** and connect to LM Studio on the same Mac. Load the Index-Translate 9B preset or select an available model from the server. The settings include short- and long-sentence tests and latency diagnostics. Local speech recognition and local translation process audio and captions on your Mac.
 
-Build 1202 adds **contextual caption correction**. While translation is idle, Wenyi uses later speech to check recent finalized captions for homophone mistakes and updates the original and translation together when it finds a correction. New captions take priority. You can turn this feature off under Settings → General.
+### Index Online Translation
 
-Build 1203 checks local Japanese-to-Chinese subtitles for leftover kana and retries the affected segment once with a translation-only request. Valid subtitles still stream as before.
-
-Build 1205 adds an Index-Translate 9B preset to local translation settings. Download the model in LM Studio and enable the local API to use it.
-
-Build 1206 keeps the first visible local caption on screen and updates it once the segment is confirmed, in both the main window and floating captions.
-
-Build 1207 restores incremental local subtitle previews. Short translations appear immediately, and the preview grows at a controlled rate until confirmation.
-
-Build 1208 keeps the previous floating translation visible until a replacement arrives and labels local translations as preview, complete, or interrupted.
-
-Build 1209 loads older captions as you scroll up in the main window, renders escaped line breaks as new lines, and removes the earlier bilingual references and dedicated naming instructions from local Japanese-to-Chinese translation.
-
-Build 1210 recognizes Japanese sentence-final punctuation in Nemotron and allows a brief extra pause after common unfinished clauses.
-
-Build 1211 stops sending adjacent source fragments with Index-Translate Japanese-to-Chinese subtitle requests. Short multi-block captions receive one complete translation when confirmed.
-
-In build 1213, Index online translation appears alongside Local Mode under Settings → General → Processing Mode. Speech recognition stays on the Mac, and only the current caption text is sent to Bilibili for translation.
-
-Build 1214 sends ordinary online captions as a single request and retries interrupted or truncated streams and Japanese source echoes once.
-
-Build 1216 removes Granite Speech and its separate runtime. Existing Granite selections migrate to Nemotron.
-
-Build 1217 removes unused Python installer code and selected third-party tests and documentation from the distributable runtime.
+Choose **Index Online Translation** under **Settings → General → Processing Mode**. Wenyi recognizes speech on your Mac and sends the caption text to Bilibili’s Index-Translate API. The service is preconfigured.
 
 ## Acknowledgments
 
@@ -128,4 +108,4 @@ bash script/verify_transcript_rename.sh
 
 ## Credits and licensing
 
-Wenyi is based on [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) and retains its [Apache-2.0 license](./LICENSE) and [NOTICE](./NOTICE). See the separate notices for the [Swift SDKs](./Vendor/PROVENANCE.md), [ASR runtime](./Resources/ASR-Runtime-Notices.md), [livecaption source](./Resources/ASRProject/UPSTREAM.txt), and [multi-speaker components](./Resources/MultitalkerNative/THIRD-PARTY-LICENSES.md). The standalone license for the livecaption source still needs confirmation.
+Wenyi is based on himomohi’s [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) and retains its [Apache-2.0 license](./LICENSE) and [NOTICE](./NOTICE). See the separate notices for the [Swift SDKs](./Vendor/PROVENANCE.md), [ASR runtime](./Resources/ASR-Runtime-Notices.md), [livecaption source](./Resources/ASRProject/UPSTREAM.txt), and [multi-speaker components](./Resources/MultitalkerNative/THIRD-PARTY-LICENSES.md). The standalone license for the livecaption source still needs confirmation.

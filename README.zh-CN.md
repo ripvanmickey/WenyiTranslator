@@ -26,51 +26,31 @@
 
 文译可以把 Mac 正在播放的声音或麦克风语音转成实时字幕。看外语视频、听播客或开会时，可以同时显示原文和译文，也可以将转写保存下来继续编辑。
 
+![文译在 macOS 27 上的主窗口，底部可切换音频来源和字幕输出](./docs/assets/wenyi-main-zh-CN.jpg)
+
 ## 界面语言
 
-在「**设置 → 通用 → 界面语言**」选择英语、日语、简体中文或跟随系统，界面会立即更新。字幕的原文和译文语言可单独设置。
+在「**设置 → 通用**」底部的「**界面语言**」选择英语、日语、简体中文或跟随系统，界面会立即更新。字幕的原文和译文语言可单独设置。
 
-![文译简体中文界面，显示界面语言和 Index 在线翻译](./docs/assets/wenyi-settings-zh-CN.jpg)
+![简体中文通用设置，已选择 Index 在线翻译](./docs/assets/wenyi-settings-zh-CN.jpg)
 
 ## 实时字幕与本地翻译
 
 ### 实时转写与悬浮字幕
 
-从 Mac 系统音频或麦克风采集语音，实时显示原文。启用翻译后，可以单独看译文，也可以在主窗口或悬浮窗口同时看原文和译文。纯系统音频 Tap 需要 macOS 14.2 或以上。
+从 Mac 系统音频或麦克风采集语音，实时显示字幕。支持翻译的模式下，可在主窗口右下角切换「**仅原文**」或「**原文 + 译文**」，点击左上角的语言组合可更改原文和译文语言。悬浮字幕有单独的显示设置。macOS 26 及以上的底部控制栏使用 Liquid Glass。通过 Core Audio Tap 仅采集系统音频需要 macOS 14.2 或以上。
 
 ### 本地识别与断句
 
-支持 Nemotron 0.6B、Qwen3-ASR，以及实验性的多人识别。识别模型可在应用内按需下载、导入和删除。Nemotron 和 Qwen3-ASR 在识别时使用语音活动检测（VAD）。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
+在「**设置 → 通用**」切到「**本地模式**」，可选 Nemotron 0.6B、Qwen3-ASR 或实验性的多人识别。点击识别引擎旁的齿轮进入模型管理，可下载、校验、导入或删除模型。Nemotron 和 Qwen3-ASR 使用语音活动检测（VAD）。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
 
 ### LM Studio 本地翻译
 
-文译把识别出的文本发送给同一台 Mac 上的 LM Studio 服务，可以在设置中测试短句和长句翻译，并查看字幕延迟诊断。在本地识别与本地翻译的组合下，音频和字幕处理都在本机完成。
+在「**本地模式**」中选择「**本地模型翻译**」，连接同一台 Mac 上的 LM Studio。可使用 Index-Translate 9B 预设，也可从服务的模型列表选择其他模型。设置页提供短句测试、长句测试和延迟诊断。选择本地识别和本地翻译后，音频和字幕在本机处理。
 
-构建 1202 加入了**跨段回看纠错**。翻译空闲时，文译依据后文尝试纠正近期已确认字幕中的同音词，并一起更新对应译文。新字幕到来时优先处理新内容。此功能可在「设置 → 通用」关闭。
+### Index 在线翻译
 
-构建 1203 检查本地日译中字幕是否残留假名。发现残留时，仅重译受影响的片段一次。正常译文照常流式显示。
-
-构建 1205 在本地翻译设置中加入 Index-Translate 9B 选项。使用前请在 LM Studio 下载该模型并开启本地 API。
-
-构建 1206 的本地翻译字幕在主窗口和悬浮窗口均先显示首个可用结果，确认后更新一次。
-
-构建 1207 恢复本地字幕的逐步预览，短译文也会立即显示，确认时补齐完整文字。
-
-构建 1208 在新译文出现前保留上一段悬浮译文，并标记本地译文的预览、完成及中断状态。
-
-构建 1209 支持在主窗口向上滚动时分批加载历史字幕，将译文中的转义换行显示为实际换行，并撤掉本地日译中的专名提示和前段双语参考。
-
-构建 1210 让 Nemotron 使用日语句末标点，并对常见未完句尾稍微延后确认。
-
-构建 1211 的 Index-Translate 日译中预览按块翻译，省去相邻原文参考。分过块的短字幕在确认后整段翻译一次。
-
-构建 1213 将「Index 在线翻译（B 站免费开源）」移到「设置 → 通用 → 处理模式」，与「本地模式」并列。语音在本机识别，只有当前待译字幕文字会发送到哔哩哔哩。
-
-构建 1214 将常见长度的在线字幕整段提交。流式中断、输出截断或日译中回显日语时，按情况重试一次。
-
-构建 1216 移除了 Granite Speech 及其独立运行环境。旧版选用 Granite 的设置会切到 Nemotron。
-
-构建 1217 从安装包内的 Python 运行环境清理未使用的 pip 安装代码和部分第三方测试及文档。
+在「**设置 → 通用 → 处理模式**」选择「**Index 在线翻译**」。语音在 Mac 上识别，待译字幕文本发送到哔哩哔哩的 Index-Translate API。服务已预先配置。
 
 ## 致谢
 
@@ -128,4 +108,4 @@ bash script/verify_transcript_rename.sh
 
 ## 来源与许可
 
-文译基于 [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) 开发，保留上游 [Apache-2.0 LICENSE](./LICENSE) 和 [NOTICE](./NOTICE)。第三方 SDK、运行环境及模型分别适用各自许可，详见 [Swift SDK 来源](./Vendor/PROVENANCE.md)、[ASR 运行环境说明](./Resources/ASR-Runtime-Notices.md)、[livecaption 来源](./Resources/ASRProject/UPSTREAM.txt) 和 [多人识别组件许可](./Resources/MultitalkerNative/THIRD-PARTY-LICENSES.md)。livecaption 源码的单独许可仍需确认。
+文译基于 himomohi 开发的 [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) 开发，保留上游 [Apache-2.0 LICENSE](./LICENSE) 和 [NOTICE](./NOTICE)。第三方 SDK、运行环境及模型分别适用各自许可，详见 [Swift SDK 来源](./Vendor/PROVENANCE.md)、[ASR 运行环境说明](./Resources/ASR-Runtime-Notices.md)、[livecaption 来源](./Resources/ASRProject/UPSTREAM.txt) 和 [多人识别组件许可](./Resources/MultitalkerNative/THIRD-PARTY-LICENSES.md)。livecaption 源码的单独许可仍需确认。
