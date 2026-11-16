@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1222）
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1223）
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
 
 ## 界面语言
 
-在「**设置 → 通用 → 界面语言**」选择英语、日语、简体中文或跟随系统，然后退出并重新打开文译。字幕的原文和译文语言可单独设置。
+在「**设置 → 通用 → 界面语言**」选择英语、日语、简体中文或跟随系统，界面会立即更新。字幕的原文和译文语言可单独设置。
 
 ![文译简体中文界面，显示界面语言和 Index 在线翻译](./docs/assets/wenyi-settings-zh-CN.jpg)
 

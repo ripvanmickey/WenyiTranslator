@@ -643,7 +643,7 @@ final class TranslationSessionStore {
             if !nariTranscriptionModel.isLegacyFreeEndpoint,
                statusMessage == NariCopy.legacyFreeModelEnded {
                 dismissCaptureStartFailure()
-                statusMessage = AppText.ready
+                captureStatusCopy = .ready
             }
         }
     }
@@ -694,7 +694,7 @@ final class TranslationSessionStore {
                     )
                 } else {
                     dismissCaptureStartFailure()
-                    if statusMessage == QwenCopy.configurationRequired(for: oldValue) { statusMessage = AppText.ready }
+                    if statusMessage == QwenCopy.configurationRequired(for: oldValue) { captureStatusCopy = .ready }
                 }
             }
         }
@@ -739,7 +739,7 @@ final class TranslationSessionStore {
                let failure = captureStartFailureMessage,
                failure == GrokCopy.configurationRequired || failure == GrokCopy.languageUnsupported {
                 dismissCaptureStartFailure()
-                if statusMessage == failure { statusMessage = AppText.ready }
+                if statusMessage == failure { captureStatusCopy = .ready }
             }
         }
     }
@@ -1192,7 +1192,30 @@ final class TranslationSessionStore {
         didSet { persistSelectedSettings() }
     }
     var microphoneInputDevices = MicrophoneDeviceCatalog.availableInputDevices()
-    var statusMessage = AppText.ready
+    private enum CaptureStatusCopy {
+        case ready, stopped, paused, transcriptSaved
+        case listening(AudioInputSource)
+
+        var text: String {
+            switch self {
+            case .ready: AppText.ready
+            case .stopped: AppText.stopped
+            case .paused: AppText.paused
+            case .transcriptSaved: AppText.transcriptSavedToast
+            case let .listening(source): AppText.listeningForSpeech(from: source)
+            }
+        }
+    }
+
+    private var captureStatusCopy: CaptureStatusCopy? = .ready
+    private var detailedStatusMessage = ""
+    var statusMessage: String {
+        get { captureStatusCopy?.text ?? detailedStatusMessage }
+        set {
+            captureStatusCopy = nil
+            detailedStatusMessage = newValue
+        }
+    }
     var captureStartFailureMessage: String?
     var captureStartRecoveryAction: CaptureStartRecoveryAction?
     var toastMessage: String?
@@ -1731,7 +1754,7 @@ final class TranslationSessionStore {
                 isStarting = false
                 captureStartFailureMessage = nil
                 captureStartRecoveryAction = nil
-                statusMessage = AppText.listeningForSpeech(from: configuration.audioInputSource)
+                captureStatusCopy = .listening(configuration.audioInputSource)
                 warmTranslationSession()
             } catch let error as CancellationError {
                 await handleCancelledCaptureStart(
@@ -1842,9 +1865,9 @@ final class TranslationSessionStore {
         if let statusOverride {
             statusMessage = statusOverride
         } else if didSaveTranscript {
-            statusMessage = AppText.transcriptSavedToast
+            captureStatusCopy = .transcriptSaved
         } else if !hadTranscriptToSave {
-            statusMessage = AppText.stopped
+            captureStatusCopy = .stopped
         }
         stopCaptioners(openAITranscriberAlreadyStopped: true)
         if didSaveTranscript {
@@ -2182,7 +2205,7 @@ final class TranslationSessionStore {
         setCaptionersPaused(true)
         stopSpeaking()
         isPaused = true
-        statusMessage = AppText.paused
+        captureStatusCopy = .paused
     }
 
     func resume() {
@@ -2204,7 +2227,7 @@ final class TranslationSessionStore {
         setCaptionersPaused(false)
         isPaused = false
         lastRecognitionAt = Date()
-        statusMessage = AppText.listeningForSpeech(from: audioInputSource)
+        captureStatusCopy = .listening(audioInputSource)
     }
 
     func confirmAutoDetectionLanguageChange() {
@@ -2221,7 +2244,7 @@ final class TranslationSessionStore {
         setCaptionersPaused(false)
         isPaused = false
         lastRecognitionAt = Date()
-        statusMessage = AppText.listeningForSpeech(from: audioInputSource)
+        captureStatusCopy = .listening(audioInputSource)
 
         if didSaveTranscript {
             showToast(AppText.transcriptSavedToast)
@@ -2244,7 +2267,7 @@ final class TranslationSessionStore {
         setCaptionersPaused(false)
         isPaused = false
         lastRecognitionAt = Date()
-        statusMessage = AppText.listeningForSpeech(from: audioInputSource)
+        captureStatusCopy = .listening(audioInputSource)
     }
 
     func showAppleSourceAutoDetectionUnavailableNotice() {
@@ -2816,7 +2839,7 @@ final class TranslationSessionStore {
                 floatingNoticeText = nil
             }
             if statusMessage == AppText.translationDisabledForSpeechOnly {
-                statusMessage = isRunning ? AppText.listeningForSpeech(from: audioInputSource) : AppText.ready
+                captureStatusCopy = isRunning ? .listening(audioInputSource) : .ready
             }
             transcribeOnlyNoticeDismissTask = nil
         }
@@ -2906,7 +2929,7 @@ final class TranslationSessionStore {
                     modelAssetDownloadRequest = nil
                     modelAssetDownloadTask = nil
                     if startsAfterDownload { isStarting = false }
-                    if startsAfterDownload { statusMessage = AppText.ready }
+                    if startsAfterDownload { captureStatusCopy = .ready }
                     refreshModelAvailability()
                 } else {
                     // 다른 자산 행도 다운로드 중 표시에서 벗어나도록 현재 상태를 다시 읽는다.
@@ -2956,7 +2979,7 @@ final class TranslationSessionStore {
         translationAssetDownloader.cancel()
         if request.startsAfterDownload {
             isStarting = false
-            statusMessage = AppText.ready
+            captureStatusCopy = .ready
         }
         return true
     }
@@ -3993,7 +4016,7 @@ final class TranslationSessionStore {
         nariTranscriber.setPaused(true)
         isPaused = true
         stopSpeaking()
-        statusMessage = AppText.paused
+        captureStatusCopy = .paused
         let service = nariTranscriber
         let generation = pipelineLifecycle.generation
         nariTransitionTask = Task { @MainActor [weak self] in
@@ -4042,7 +4065,7 @@ final class TranslationSessionStore {
                 )
                 isReconnectingNariSTT = false
                 isPaused = false
-                statusMessage = AppText.listeningForSpeech(from: audioInputSource)
+                captureStatusCopy = .listening(audioInputSource)
             } catch is CancellationError {
             } catch {
                 receiveNariError(error, service: service, generation: generation)
@@ -4191,7 +4214,7 @@ final class TranslationSessionStore {
         qwenTranslator.setPaused(true)
         isPaused = true
         stopSpeaking()
-        statusMessage = AppText.paused
+        captureStatusCopy = .paused
         let service = qwenTranslator
         let generation = pipelineLifecycle.generation
         qwenTransitionTask = Task { @MainActor [weak self] in
@@ -4241,7 +4264,7 @@ final class TranslationSessionStore {
                 )
                 isReconnectingQwenTranslation = false
                 isPaused = false
-                statusMessage = AppText.listeningForSpeech(from: audioInputSource)
+                captureStatusCopy = .listening(audioInputSource)
             } catch is CancellationError {
             } catch {
                 receiveQwenError(error, service: service, generation: generation)
@@ -4295,7 +4318,7 @@ final class TranslationSessionStore {
         grokTranscriber.setPaused(true)
         isPaused = true
         stopSpeaking()
-        statusMessage = AppText.paused
+        captureStatusCopy = .paused
         let service = grokTranscriber
         let generation = pipelineLifecycle.generation
         grokTransitionTask = Task { @MainActor [weak self] in
@@ -4344,7 +4367,7 @@ final class TranslationSessionStore {
                 )
                 isReconnectingGrokSTT = false
                 isPaused = false
-                statusMessage = AppText.listeningForSpeech(from: audioInputSource)
+                captureStatusCopy = .listening(audioInputSource)
             } catch is CancellationError {
             } catch {
                 receiveGrokError(error, service: service, generation: generation)
@@ -8934,7 +8957,7 @@ extension TranslationSessionStore: SystemAudioCaptureDelegate {
             audioSampleCount = count
             latestAudioLevel = level
             guard !isPaused else {
-                statusMessage = AppText.paused
+                captureStatusCopy = .paused
                 return
             }
             if isRunning, lines.isEmpty {
@@ -9013,7 +9036,7 @@ extension TranslationSessionStore: MicrophoneAudioCaptureDelegate {
             audioSampleCount = count
             latestAudioLevel = level
             guard !isPaused else {
-                statusMessage = AppText.paused
+                captureStatusCopy = .paused
                 return
             }
             if isRunning, lines.isEmpty {

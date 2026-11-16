@@ -69,7 +69,7 @@ struct ProcessingModePicker: View {
 }
 
 private enum QuickOutputCopy {
-    static let title = AppText.localized(english: "Caption output", korean: "자막 출력", japanese: "字幕出力", chineseSimplified: "字幕输出")
-    static let configurationHint = AppText.localized(english: "Configure engines and models in Settings.", korean: "엔진과 모델은 설정에서 구성합니다.", japanese: "エンジンとモデルは設定で変更できます。", chineseSimplified: "引擎和模型请在设置中配置。")
-    static let providerOutput = AppText.localized(english: "Change this service's output in Settings.", korean: "이 서비스의 출력은 설정에서 변경합니다.", japanese: "このサービスの出力は設定で変更できます。", chineseSimplified: "当前服务的字幕输出方式请在设置中调整。")
+    static var title: String { AppText.localized(english: "Caption output", korean: "자막 출력", japanese: "字幕出力", chineseSimplified: "字幕输出") }
+    static var configurationHint: String { AppText.localized(english: "Configure engines and models in Settings.", korean: "엔진과 모델은 설정에서 구성합니다.", japanese: "エンジンとモデルは設定で変更できます。", chineseSimplified: "引擎和模型请在设置中配置。") }
+    static var providerOutput: String { AppText.localized(english: "Change this service's output in Settings.", korean: "이 서비스의 출력은 설정에서 변경합니다.", japanese: "このサービスの出力は設定で変更できます。", chineseSimplified: "当前服务的字幕输出方式请在设置中调整。") }
 }

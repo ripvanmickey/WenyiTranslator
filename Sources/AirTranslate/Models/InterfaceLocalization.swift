@@ -1,6 +1,7 @@
 import Foundation
+import Observation
 
-enum AppInterfaceLanguage: String, CaseIterable, Identifiable {
+enum AppInterfaceLanguage: String, CaseIterable, Identifiable, Sendable {
     case system
     case english = "en"
     case japanese = "ja"
@@ -19,23 +20,40 @@ enum AppInterfaceLanguage: String, CaseIterable, Identifiable {
     }
 }
 
-enum InterfaceLocalization {
+@Observable final class InterfaceLocalization: Sendable {
     enum InterfaceLanguage {
         case english, korean, japanese, chineseSimplified
     }
 
-    static let launchLanguage = AppInterfaceLanguage(
-        rawValue: UserDefaults.standard.string(forKey: AppInterfaceLanguage.preferenceKey) ?? ""
-    ) ?? .system
+    static let shared = InterfaceLocalization()
 
-    // Existing copy is cached for the duration of a launch, including native menu titles.
-    static let interfaceLanguage: InterfaceLanguage = {
-        switch launchLanguage {
-        case .english: return .english
-        case .japanese: return .japanese
-        case .chineseSimplified: return .chineseSimplified
-        case .system: break
+    private init() {}
+
+    var preference: AppInterfaceLanguage {
+        get {
+            access(keyPath: \.preference)
+            return AppInterfaceLanguage(
+                rawValue: UserDefaults.standard.string(forKey: AppInterfaceLanguage.preferenceKey) ?? ""
+            ) ?? .system
         }
+        set {
+            guard newValue != preference else { return }
+            withMutation(keyPath: \.preference) {
+                UserDefaults.standard.set(newValue.rawValue, forKey: AppInterfaceLanguage.preferenceKey)
+            }
+        }
+    }
+
+    static var interfaceLanguage: InterfaceLanguage {
+        switch shared.preference {
+        case .english: .english
+        case .japanese: .japanese
+        case .chineseSimplified: .chineseSimplified
+        case .system: systemInterfaceLanguage
+        }
+    }
+
+    private static let systemInterfaceLanguage: InterfaceLanguage = {
         if ProcessInfo.processInfo.environment["AIRTRANSLATE_PRODUCT_HUNT_SCREENSHOTS"] == "1" {
             return .english
         }

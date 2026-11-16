@@ -264,115 +264,149 @@ enum AzureMAIError: LocalizedError, Sendable {
 }
 
 enum AzureMAICopy {
-    static let title = AppText.localized(english: "Azure MAI (Preview)", korean: "Azure MAI (미리 보기)", japanese: "Azure MAI（プレビュー）", chineseSimplified: "Azure MAI（预览版）")
-    static let modelLabel = AppText.localized(english: "Transcription model", korean: "전사 모델", japanese: "文字起こしモデル", chineseSimplified: "转写模型")
-    static let translationFinishTimedOut = AppText.localized(english: "Capture stopped. Some final translations did not finish in time; the source transcript was saved.", korean: "캡처를 중지했습니다. 일부 마지막 번역이 제한 시간 안에 끝나지 않았으며 원문 전사는 저장했습니다.", japanese: "キャプチャを停止しました。一部の最終翻訳が時間内に完了しませんでした。原文は保存しました。", chineseSimplified: "已停止捕获。部分最终翻译未能及时完成，原文转写已保存。")
-    static let deploymentLabel = AppText.localized(english: "Foundry deployment name", korean: "Foundry 배포 이름", japanese: "Foundry デプロイ名", chineseSimplified: "Foundry 部署名称")
-    static let streamingEndpointLabel = AppText.localized(english: "Foundry resource endpoint", korean: "Foundry 리소스 엔드포인트", japanese: "Foundry リソースのエンドポイント", chineseSimplified: "Foundry 资源终结点")
-    static let streamingEndpointRequired = AppText.localized(english: "Enter your Foundry resource’s HTTPS endpoint ending in services.ai.azure.com.", korean: "services.ai.azure.com으로 끝나는 Foundry 리소스의 HTTPS 주소를 입력하세요.", japanese: "services.ai.azure.com で終わる Foundry リソースの HTTPS アドレスを入力してください。", chineseSimplified: "请输入以 services.ai.azure.com 结尾的 Foundry 资源 HTTPS 地址。")
-    static let streamingConfigurationDetail = AppText.localized(
-        english: "Use the endpoint, key and deployment name from the Foundry resource hosting MAI-Transcribe-2-Streaming. The key must belong to this resource.",
-        korean: "MAI-Transcribe-2-Streaming을 배포한 Foundry 리소스의 엔드포인트·키·배포 이름을 입력하세요. 키는 이 리소스의 키여야 합니다.",
-        japanese: "MAI-Transcribe-2-Streaming を配置した Foundry リソースのエンドポイント・キー・デプロイ名を入力してください。キーは同じリソースのものを使用してください。",
-        chineseSimplified: "请输入部署 MAI-Transcribe-2-Streaming 的 Foundry 资源终结点、密钥和部署名称。密钥必须属于该资源。"
-    )
+    static var title: String { AppText.localized(english: "Azure MAI (Preview)", korean: "Azure MAI (미리 보기)", japanese: "Azure MAI（プレビュー）", chineseSimplified: "Azure MAI（预览版）") }
+    static var modelLabel: String { AppText.localized(english: "Transcription model", korean: "전사 모델", japanese: "文字起こしモデル", chineseSimplified: "转写模型") }
+    static var translationFinishTimedOut: String { AppText.localized(english: "Capture stopped. Some final translations did not finish in time; the source transcript was saved.", korean: "캡처를 중지했습니다. 일부 마지막 번역이 제한 시간 안에 끝나지 않았으며 원문 전사는 저장했습니다.", japanese: "キャプチャを停止しました。一部の最終翻訳が時間内に完了しませんでした。原文は保存しました。", chineseSimplified: "已停止捕获。部分最终翻译未能及时完成，原文转写已保存。") }
+    static var deploymentLabel: String { AppText.localized(english: "Foundry deployment name", korean: "Foundry 배포 이름", japanese: "Foundry デプロイ名", chineseSimplified: "Foundry 部署名称") }
+    static var streamingEndpointLabel: String { AppText.localized(english: "Foundry resource endpoint", korean: "Foundry 리소스 엔드포인트", japanese: "Foundry リソースのエンドポイント", chineseSimplified: "Foundry 资源终结点") }
+    static var streamingEndpointRequired: String { AppText.localized(english: "Enter your Foundry resource’s HTTPS endpoint ending in services.ai.azure.com.", korean: "services.ai.azure.com으로 끝나는 Foundry 리소스의 HTTPS 주소를 입력하세요.", japanese: "services.ai.azure.com で終わる Foundry リソースの HTTPS アドレスを入力してください。", chineseSimplified: "请输入以 services.ai.azure.com 结尾的 Foundry 资源 HTTPS 地址。") }
+    static var streamingConfigurationDetail: String {
+        AppText.localized(
+            english: "Use the endpoint, key and deployment name from the Foundry resource hosting MAI-Transcribe-2-Streaming. The key must belong to this resource.",
+            korean: "MAI-Transcribe-2-Streaming을 배포한 Foundry 리소스의 엔드포인트·키·배포 이름을 입력하세요. 키는 이 리소스의 키여야 합니다.",
+            japanese: "MAI-Transcribe-2-Streaming を配置した Foundry リソースのエンドポイント・キー・デプロイ名を入力してください。キーは同じリソースのものを使用してください。",
+            chineseSimplified: "请输入部署 MAI-Transcribe-2-Streaming 的 Foundry 资源终结点、密钥和部署名称。密钥必须属于该资源。"
+        )
+    }
     static func detail(for model: AzureTranscriptionModel) -> String {
         model.isStreaming ? streamingDetail : detail
     }
-    static let streamingDetail = AppText.localized(
-        english: "Streams 16 kHz audio to Microsoft Foundry and displays partial captions. Audio is committed every 3 seconds and when paused or stopped; finalized text is translated with Apple. Microsoft usage is billed separately.",
-        korean: "16 kHz 오디오를 Microsoft Foundry로 전송하고 중간 자막을 표시합니다. 3초마다, 일시정지·중지 시 오디오를 확정하며 확정된 텍스트는 Apple로 번역합니다. Microsoft 사용료는 별도입니다.",
-        japanese: "16 kHz 音声を Microsoft Foundry に送信し、中間字幕を表示します。3 秒ごと、および一時停止・停止時に音声を確定し、確定テキストを Apple で翻訳します。Microsoft の利用料金は別途発生します。",
-        chineseSimplified: "将 16 kHz 音频流发送到 Microsoft Foundry 并显示中间字幕。每 3 秒以及暂停或停止时提交音频，最终文本由 Apple 翻译。Microsoft 使用费用另行计费。"
-    )
-    static let detail = AppText.localized(
-        english: "Optional MAI-Transcribe-2 cloud transcription. Audio in the selected source language is sent to Azure in 5-second segments, then translated with Apple. Results arrive after each request. Azure usage is billed separately.",
-        korean: "선택형 MAI-Transcribe-2 클라우드 전사입니다. 선택한 원문 언어의 오디오를 5초 구간으로 Azure에 보내고 Apple로 번역합니다. 요청 완료 후 결과가 표시되며 Azure 사용료는 별도입니다.",
-        japanese: "任意の MAI-Transcribe-2 クラウド文字起こしです。選択した原文言語の音声を 5 秒単位で Azure に送り、Apple で翻訳します。結果は各リクエスト後に表示されます。Azure の利用料金は別途発生します。",
-        chineseSimplified: "可选的 MAI-Transcribe-2 云端转写。所选源语言的音频会以 5 秒分段发送到 Azure，然后使用 Apple 翻译。每次请求完成后显示结果。Azure 使用费用另行计费。"
-    )
-    static let configurationRequired = AppText.localized(
-        english: "Set the Microsoft resource endpoint and key in API Keys settings. Streaming also requires a Foundry deployment name.",
-        korean: "API 키 설정에서 Microsoft 리소스 엔드포인트와 키를 입력하세요. 스트리밍은 Foundry 배포 이름도 필요합니다.",
-        japanese: "API キー設定で Microsoft リソースのエンドポイントとキーを入力してください。ストリーミングには Foundry デプロイ名も必要です。",
-        chineseSimplified: "请在 API 密钥设置中输入 Microsoft 资源终结点和密钥。流式转写还需要 Foundry 部署名称。"
-    )
-    static let endpointRequired = AppText.localized(
-        english: "Set a valid Azure Speech resource endpoint in API Keys settings.",
-        korean: "API 키 설정에서 올바른 Azure Speech 리소스 엔드포인트를 입력하세요.",
-        japanese: "API キー設定で有効な Azure Speech リソースのエンドポイントを入力してください。",
-        chineseSimplified: "请在 API 密钥设置中输入有效的 Azure Speech 资源终结点。"
-    )
-    static let keyRequired = AppText.localized(
-        english: "Save your Azure / Microsoft Foundry resource key in API Keys settings.",
-        korean: "API 키 설정에서 Azure / Microsoft Foundry 리소스 키를 저장하세요.",
-        japanese: "API キー設定で Azure / Microsoft Foundry リソースのキーを保存してください。",
-        chineseSimplified: "请在 API 密钥设置中保存 Azure / Microsoft Foundry 资源密钥。"
-    )
-    static let configureSpeech = AppText.localized(
-        english: "Configure Azure / Foundry",
-        korean: "Azure / Foundry 설정",
-        japanese: "Azure / Foundry を設定",
-        chineseSimplified: "配置 Azure / Foundry"
-    )
-    static let endpointLabel = AppText.localized(
-        english: "Azure Speech endpoint",
-        korean: "Azure Speech 엔드포인트",
-        japanese: "Azure Speech エンドポイント",
-        chineseSimplified: "Azure Speech 终结点"
-    )
-    static let apiKeyLabel = AppText.localized(
-        english: "Azure Speech API key",
-        korean: "Azure Speech API 키",
-        japanese: "Azure Speech API キー",
-        chineseSimplified: "Azure Speech API 密钥"
-    )
-    static let saveKey = AppText.localized(
-        english: "Save key",
-        korean: "키 저장",
-        japanese: "キーを保存",
-        chineseSimplified: "保存密钥"
-    )
-    static let removeKey = AppText.localized(
-        english: "Remove key",
-        korean: "키 삭제",
-        japanese: "キーを削除",
-        chineseSimplified: "删除密钥"
-    )
-    static let removeKeyConfirmation = AppText.localized(
-        english: "Remove the Azure key from Keychain?",
-        korean: "Keychain의 Azure 키를 삭제할까요?",
-        japanese: "Keychain から Azure キーを削除しますか？",
-        chineseSimplified: "要从 钥匙串 中删除 Azure 密钥吗？"
-    )
-    static let keySaved = AppText.localized(
-        english: "Saved in Keychain.",
-        korean: "Keychain에 저장했습니다.",
-        japanese: "Keychain に保存しました。",
-        chineseSimplified: "已保存到 钥匙串。"
-    )
-    static let keyRemoved = AppText.localized(
-        english: "Key removed.",
-        korean: "키를 삭제했습니다.",
-        japanese: "キーを削除しました。",
-        chineseSimplified: "密钥已删除。"
-    )
-    static let keyConfiguredUnverified = AppText.localized(
-        english: "Key configured. Service access has not been verified.",
-        korean: "키가 설정되어 있습니다. 서비스 연결은 아직 검증하지 않았습니다.",
-        japanese: "キーは設定済みです。サービス接続はまだ検証されていません。",
-        chineseSimplified: "密钥已配置。尚未验证服务访问。"
-    )
-    static let documentation = AppText.localized(
-        english: "MAI-Transcribe documentation",
-        korean: "MAI-Transcribe 문서",
-        japanese: "MAI-Transcribe ドキュメント",
-        chineseSimplified: "MAI-Transcribe 文档"
-    )
-    static let finishing = AppText.localized(
-        english: "Finishing the last Azure audio segments…",
-        korean: "Azure 마지막 오디오 구간 처리 중…",
-        japanese: "最後の Azure 音声区間を処理中…",
-        chineseSimplified: "正在处理最后的 Azure 音频片段…"
-    )
+    static var streamingDetail: String {
+        AppText.localized(
+            english: "Streams 16 kHz audio to Microsoft Foundry and displays partial captions. Audio is committed every 3 seconds and when paused or stopped; finalized text is translated with Apple. Microsoft usage is billed separately.",
+            korean: "16 kHz 오디오를 Microsoft Foundry로 전송하고 중간 자막을 표시합니다. 3초마다, 일시정지·중지 시 오디오를 확정하며 확정된 텍스트는 Apple로 번역합니다. Microsoft 사용료는 별도입니다.",
+            japanese: "16 kHz 音声を Microsoft Foundry に送信し、中間字幕を表示します。3 秒ごと、および一時停止・停止時に音声を確定し、確定テキストを Apple で翻訳します。Microsoft の利用料金は別途発生します。",
+            chineseSimplified: "将 16 kHz 音频流发送到 Microsoft Foundry 并显示中间字幕。每 3 秒以及暂停或停止时提交音频，最终文本由 Apple 翻译。Microsoft 使用费用另行计费。"
+        )
+    }
+    static var detail: String {
+        AppText.localized(
+            english: "Optional MAI-Transcribe-2 cloud transcription. Audio in the selected source language is sent to Azure in 5-second segments, then translated with Apple. Results arrive after each request. Azure usage is billed separately.",
+            korean: "선택형 MAI-Transcribe-2 클라우드 전사입니다. 선택한 원문 언어의 오디오를 5초 구간으로 Azure에 보내고 Apple로 번역합니다. 요청 완료 후 결과가 표시되며 Azure 사용료는 별도입니다.",
+            japanese: "任意の MAI-Transcribe-2 クラウド文字起こしです。選択した原文言語の音声を 5 秒単位で Azure に送り、Apple で翻訳します。結果は各リクエスト後に表示されます。Azure の利用料金は別途発生します。",
+            chineseSimplified: "可选的 MAI-Transcribe-2 云端转写。所选源语言的音频会以 5 秒分段发送到 Azure，然后使用 Apple 翻译。每次请求完成后显示结果。Azure 使用费用另行计费。"
+        )
+    }
+    static var configurationRequired: String {
+        AppText.localized(
+            english: "Set the Microsoft resource endpoint and key in API Keys settings. Streaming also requires a Foundry deployment name.",
+            korean: "API 키 설정에서 Microsoft 리소스 엔드포인트와 키를 입력하세요. 스트리밍은 Foundry 배포 이름도 필요합니다.",
+            japanese: "API キー設定で Microsoft リソースのエンドポイントとキーを入力してください。ストリーミングには Foundry デプロイ名も必要です。",
+            chineseSimplified: "请在 API 密钥设置中输入 Microsoft 资源终结点和密钥。流式转写还需要 Foundry 部署名称。"
+        )
+    }
+    static var endpointRequired: String {
+        AppText.localized(
+            english: "Set a valid Azure Speech resource endpoint in API Keys settings.",
+            korean: "API 키 설정에서 올바른 Azure Speech 리소스 엔드포인트를 입력하세요.",
+            japanese: "API キー設定で有効な Azure Speech リソースのエンドポイントを入力してください。",
+            chineseSimplified: "请在 API 密钥设置中输入有效的 Azure Speech 资源终结点。"
+        )
+    }
+    static var keyRequired: String {
+        AppText.localized(
+            english: "Save your Azure / Microsoft Foundry resource key in API Keys settings.",
+            korean: "API 키 설정에서 Azure / Microsoft Foundry 리소스 키를 저장하세요.",
+            japanese: "API キー設定で Azure / Microsoft Foundry リソースのキーを保存してください。",
+            chineseSimplified: "请在 API 密钥设置中保存 Azure / Microsoft Foundry 资源密钥。"
+        )
+    }
+    static var configureSpeech: String {
+        AppText.localized(
+            english: "Configure Azure / Foundry",
+            korean: "Azure / Foundry 설정",
+            japanese: "Azure / Foundry を設定",
+            chineseSimplified: "配置 Azure / Foundry"
+        )
+    }
+    static var endpointLabel: String {
+        AppText.localized(
+            english: "Azure Speech endpoint",
+            korean: "Azure Speech 엔드포인트",
+            japanese: "Azure Speech エンドポイント",
+            chineseSimplified: "Azure Speech 终结点"
+        )
+    }
+    static var apiKeyLabel: String {
+        AppText.localized(
+            english: "Azure Speech API key",
+            korean: "Azure Speech API 키",
+            japanese: "Azure Speech API キー",
+            chineseSimplified: "Azure Speech API 密钥"
+        )
+    }
+    static var saveKey: String {
+        AppText.localized(
+            english: "Save key",
+            korean: "키 저장",
+            japanese: "キーを保存",
+            chineseSimplified: "保存密钥"
+        )
+    }
+    static var removeKey: String {
+        AppText.localized(
+            english: "Remove key",
+            korean: "키 삭제",
+            japanese: "キーを削除",
+            chineseSimplified: "删除密钥"
+        )
+    }
+    static var removeKeyConfirmation: String {
+        AppText.localized(
+            english: "Remove the Azure key from Keychain?",
+            korean: "Keychain의 Azure 키를 삭제할까요?",
+            japanese: "Keychain から Azure キーを削除しますか？",
+            chineseSimplified: "要从 钥匙串 中删除 Azure 密钥吗？"
+        )
+    }
+    static var keySaved: String {
+        AppText.localized(
+            english: "Saved in Keychain.",
+            korean: "Keychain에 저장했습니다.",
+            japanese: "Keychain に保存しました。",
+            chineseSimplified: "已保存到 钥匙串。"
+        )
+    }
+    static var keyRemoved: String {
+        AppText.localized(
+            english: "Key removed.",
+            korean: "키를 삭제했습니다.",
+            japanese: "キーを削除しました。",
+            chineseSimplified: "密钥已删除。"
+        )
+    }
+    static var keyConfiguredUnverified: String {
+        AppText.localized(
+            english: "Key configured. Service access has not been verified.",
+            korean: "키가 설정되어 있습니다. 서비스 연결은 아직 검증하지 않았습니다.",
+            japanese: "キーは設定済みです。サービス接続はまだ検証されていません。",
+            chineseSimplified: "密钥已配置。尚未验证服务访问。"
+        )
+    }
+    static var documentation: String {
+        AppText.localized(
+            english: "MAI-Transcribe documentation",
+            korean: "MAI-Transcribe 문서",
+            japanese: "MAI-Transcribe ドキュメント",
+            chineseSimplified: "MAI-Transcribe 文档"
+        )
+    }
+    static var finishing: String {
+        AppText.localized(
+            english: "Finishing the last Azure audio segments…",
+            korean: "Azure 마지막 오디오 구간 처리 중…",
+            japanese: "最後の Azure 音声区間を処理中…",
+            chineseSimplified: "正在处理最后的 Azure 音频片段…"
+        )
+    }
 }

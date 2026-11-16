@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1222)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1223)
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@ Wenyi turns Mac system audio or microphone input into live captions. Display the
 
 ## App language
 
-Choose **English**, **日本語**, **简体中文**, or **System** under **Settings → General → App Language**, then quit and reopen Wenyi. The source and target languages for captions are set separately.
+Choose **English**, **日本語**, **简体中文**, or **System** under **Settings → General → App Language**, and the interface updates immediately. The source and target languages for captions are set separately.
 
 ![Wenyi settings in English, showing the language picker and Index Online Translation](./docs/assets/wenyi-settings-en.jpg)
 

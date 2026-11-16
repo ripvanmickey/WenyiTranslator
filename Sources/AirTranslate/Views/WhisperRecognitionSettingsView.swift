@@ -61,7 +61,7 @@ struct WhisperRecognitionSettingsView: View {
                             else { ProgressView().controlSize(.small) }
                             Button(AppText.ui("取消操作", "Cancel Operation", "処理をキャンセル")) { manager.cancel() }
                         }
-                        if !manager.message.isEmpty { Text(manager.message).font(.caption).textSelection(.enabled) }
+                        if manager.messageModelID == managedID && !manager.message.isEmpty { Text(manager.message).font(.caption).textSelection(.enabled) }
                     }
                 }
             }
@@ -105,8 +105,18 @@ struct WhisperRecognitionSettingsView: View {
     private var modelManagementSheet: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Label(modelManagementTitle, systemImage: "gearshape")
-                    .font(.title2.weight(.semibold))
+                HStack(spacing: 12) {
+                    Label(modelManagementTitle, systemImage: "gearshape")
+                        .font(.title2.weight(.semibold))
+                    Spacer(minLength: 8)
+                    Button(action: importExistingModel) {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .disabled(locked)
+                    .help(importModelTitle)
+                    .accessibilityLabel(importModelTitle)
+                    .accessibilityIdentifier("importManagedSpeechModel")
+                }
                 Text(selectedManagedModel.title)
                     .font(.headline)
                 managedModelStatus
@@ -115,21 +125,9 @@ struct WhisperRecognitionSettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 12) {
-                Button(manager.installed[managedID] == nil ? AppText.ui("下载模型", "Download Model", "モデルをダウンロード") : AppText.ui("检查与补齐", "Verify and Repair", "確認して修復")) {
-                    let id = managedID
-                    Task { await manager.download(id) }
-                }
-                .disabled(locked)
-                if manager.installed[managedID] != nil {
-                    Button(AppText.ui("删除模型", "Delete Model", "モデルを削除"), role: .destructive) { confirmsDeletion = true }
-                        .disabled(locked)
-                }
-            }
-
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) { modelFolderActions }
-                VStack(alignment: .leading, spacing: 8) { modelFolderActions }
+                HStack(spacing: 12) { managedModelActions }
+                VStack(alignment: .leading, spacing: 8) { managedModelActions }
             }
 
             if manager.isBusy {
@@ -137,7 +135,7 @@ struct WhisperRecognitionSettingsView: View {
                 else { ProgressView().controlSize(.small) }
                 Button(AppText.ui("取消操作", "Cancel Operation", "処理をキャンセル")) { manager.cancel() }
             }
-            if !manager.message.isEmpty {
+            if manager.messageModelID == managedID && !manager.message.isEmpty {
                 Text(manager.message).font(.caption).textSelection(.enabled)
             }
 
@@ -157,34 +155,45 @@ struct WhisperRecognitionSettingsView: View {
     }
 
     @ViewBuilder
-    private var modelFolderActions: some View {
-        if !session.nemotronRuntimeFolder.isEmpty,
-           FileManager.default.fileExists(atPath: session.nemotronRuntimeFolder + "/.runtime/models") {
-            Button(AppText.ui("导入旧版已下载模型", "Import Previously Downloaded Model", "以前ダウンロードしたモデルを読み込む")) {
-                let id = managedID
-                let folder = session.nemotronRuntimeFolder
-                Task { await manager.importOld(id, folder: folder) }
-            }
-            .disabled(locked)
-        } else {
-            Button(AppText.ui("导入已有模型…", "Import Existing Model…", "既存モデルを読み込む…")) {
-                let panel = NSOpenPanel()
-                panel.canChooseDirectories = true
-                panel.canChooseFiles = false
-                panel.message = AppText.ui("选择旧版 NemotronTrial 文件夹。只导入模型文件，不运行旧目录中的程序。", "Choose the previous NemotronTrial folder to import its model files.", "モデルファイルを読み込むには、以前の NemotronTrial フォルダを選択してください。")
-                if panel.runModal() == .OK, let folder = panel.url {
-                    let id = managedID
-                    Task { await manager.importOld(id, folder: folder.path) }
-                }
-            }
-            .disabled(locked)
+    private var managedModelActions: some View {
+        let isInstalled = manager.installed[managedID] != nil
+        Button(isInstalled ? AppText.ui("检查与补齐", "Verify and Repair", "確認して修復") : AppText.ui("下载模型", "Download Model", "モデルをダウンロード")) {
+            let id = managedID
+            Task { await manager.download(id) }
         }
+        .disabled(locked)
 
-        Button(AppText.ui("打开模型文件夹", "Open Model Folder", "モデルフォルダを開く")) {
-            try? FileManager.default.createDirectory(at: ManagedASRRuntime.data, withIntermediateDirectories: true)
-            NSWorkspace.shared.open(ManagedASRRuntime.data)
+        if isInstalled {
+            Button(AppText.ui("删除模型", "Delete Model", "モデルを削除"), role: .destructive) {
+                confirmsDeletion = true
+            }
+            .disabled(locked)
+
+            Button(AppText.ui("打开模型文件夹", "Open Model Folder", "モデルフォルダを開く")) {
+                NSWorkspace.shared.open(ManagedASRRuntime.data)
+            }
+            .accessibilityIdentifier("openManagedSpeechModelFolder")
         }
-        .accessibilityIdentifier("openManagedSpeechModelFolder")
+    }
+
+    private var importModelTitle: String {
+        AppText.ui("导入已有模型…", "Import Existing Model…", "既存モデルを読み込む…")
+    }
+
+    private func importExistingModel() {
+        let id = managedID
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = AppText.ui("导入", "Import", "読み込む")
+        panel.message = AppText.ui("选择旧版 NemotronTrial 文件夹。只导入模型文件，不运行旧目录中的程序。", "Choose the previous NemotronTrial folder to import its model files.", "モデルファイルを読み込むには、以前の NemotronTrial フォルダを選択してください。")
+        let previousFolder = session.nemotronRuntimeFolder
+        if !previousFolder.isEmpty && FileManager.default.fileExists(atPath: previousFolder + "/.runtime/models") {
+            panel.directoryURL = URL(fileURLWithPath: previousFolder, isDirectory: true)
+        }
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        Task { await manager.importOld(id, folder: folder.path) }
     }
 
     private func chooseFolder() {

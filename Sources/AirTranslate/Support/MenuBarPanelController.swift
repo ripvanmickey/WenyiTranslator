@@ -99,6 +99,7 @@ final class MenuBarPanelController: NSObject {
         withObservationTracking {
             _ = session.isRunning
             _ = session.isPaused
+            _ = InterfaceLocalization.shared.preference
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else {
