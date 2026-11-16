@@ -66,7 +66,7 @@ struct AppleTranslationSettingsView: View {
             if !session.supportsAppleTranslationOptions {
                 SettingsNoticeRow(text: AppleTranslationCopy.requiresRecentOS, systemImage: "info.circle")
             } else if session.isRunning || session.isStarting {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "pause.circle")
+                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
             } else if !session.isUsingAppleTextTranslation {
                 SettingsNoticeRow(text: AppleTranslationCopy.appleOnly, systemImage: "info.circle")
             }

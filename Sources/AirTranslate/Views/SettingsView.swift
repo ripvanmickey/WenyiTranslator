@@ -187,7 +187,7 @@ struct SettingsView: View {
     private var generalSettings: some View {
         SettingsGroup(title: SettingsCopy.modeSettings) {
             if isSessionConfigurationLocked {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "pause.circle")
+                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
             }
 
             SettingsControlRow(
@@ -400,7 +400,7 @@ struct SettingsView: View {
     private var audioSettings: some View {
         SettingsGroup(title: AppText.audioInputSource) {
             if isSessionConfigurationLocked {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "pause.circle")
+                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
             }
 
             SettingsControlRow(
@@ -463,7 +463,7 @@ struct SettingsView: View {
     private var outputSettings: some View {
         SettingsGroup(title: AppText.output) {
             if isSessionConfigurationLocked {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "pause.circle")
+                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
             }
 
             if session.isUsingOpenAIRealtime {
@@ -546,7 +546,7 @@ struct SettingsView: View {
     private var transcriptSettings: some View {
         SettingsGroup(title: AppText.transcript) {
             if isSessionConfigurationLocked {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "pause.circle")
+                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
             }
 
             if session.isUsingOpenAIRealtime {
@@ -1995,7 +1995,7 @@ struct SettingsNoticeRow: View {
     let systemImage: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
                 .foregroundStyle(AirTranslateDesign.Palette.warning)
