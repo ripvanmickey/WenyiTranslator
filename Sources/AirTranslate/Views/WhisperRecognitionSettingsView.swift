@@ -27,12 +27,8 @@ struct WhisperRecognitionSettingsView: View {
             SettingsControlRow(title: AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), detail: AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。"), systemImage: "waveform", controlBelowLabel: true) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
-                        Picker(AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), selection: $session.localRecognitionEngine) {
-                            Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
-                            Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
-                            if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
-                            Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")
-                        }.pickerStyle(.menu).labelsHidden().fixedSize(horizontal: true, vertical: false).disabled(locked)
+                        recognitionEnginePicker
+                            .fixedSize(horizontal: true, vertical: false)
                         if usesManagedModel {
                             Button {
                                 showsModelManagement = true
@@ -45,12 +41,7 @@ struct WhisperRecognitionSettingsView: View {
                         }
                     }
                     if usesManagedModel {
-                        if session.localRecognitionEngine == "qwen" {
-                            Picker(AppText.ui("Qwen ASR 模型", "Qwen ASR Model", "Qwen ASR モデル"), selection: $session.qwenASRModel) {
-                                Text(AppText.ui("1.7B · 英语试用", "1.7B · English Trial", "1.7B · 英語の試用")).tag("Qwen/Qwen3-ASR-1.7B")
-                                Text(AppText.ui("0.6B · 轻量试用", "0.6B · Lightweight Trial", "0.6B · 軽量版の試用")).tag("Qwen/Qwen3-ASR-0.6B")
-                            }.disabled(locked)
-                        }
+                        qwenModelPicker
                         Text(selectedManagedModel.detail)
                             .font(.callout)
                             .foregroundStyle(.secondary)
@@ -102,20 +93,27 @@ struct WhisperRecognitionSettingsView: View {
         }
     }
 
-    private var managedModelSelection: Binding<String> {
-        Binding {
-            managedID
-        } set: { id in
-            guard !locked, id != managedID, manager.installed[id] != nil else { return }
-            switch id {
-            case "nemotron", "multitalker":
-                session.localRecognitionEngine = id
-            case "qwen17", "qwen06":
-                session.localRecognitionEngine = "qwen"
-                session.qwenASRModel = id == "qwen17" ? "Qwen/Qwen3-ASR-1.7B" : "Qwen/Qwen3-ASR-0.6B"
-            default:
-                break
+    private var recognitionEnginePicker: some View {
+        Picker(AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), selection: $session.localRecognitionEngine) {
+            Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
+            Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
+            if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
+            Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .disabled(locked)
+    }
+
+    @ViewBuilder
+    private var qwenModelPicker: some View {
+        if session.localRecognitionEngine == "qwen" {
+            Picker(AppText.ui("Qwen ASR 模型", "Qwen ASR Model", "Qwen ASR モデル"), selection: $session.qwenASRModel) {
+                Text(AppText.ui("1.7B · 英语试用", "1.7B · English Trial", "1.7B · 英語の試用")).tag("Qwen/Qwen3-ASR-1.7B")
+                Text(AppText.ui("0.6B · 轻量试用", "0.6B · Lightweight Trial", "0.6B · 軽量版の試用")).tag("Qwen/Qwen3-ASR-0.6B")
             }
+            .pickerStyle(.menu)
+            .disabled(locked)
         }
     }
 
@@ -126,39 +124,40 @@ struct WhisperRecognitionSettingsView: View {
                     Text(modelManagementTitle)
                         .font(.title2.weight(.semibold))
                     Spacer(minLength: 8)
-                    Button(action: importExistingModel) {
-                        Image(systemName: "square.and.arrow.down")
-                    }
-                    .disabled(locked)
-                    .help(importModelTitle)
-                    .accessibilityLabel(importModelTitle)
-                    .accessibilityIdentifier("importManagedSpeechModel")
-                }
-                HStack(alignment: .firstTextBaseline, spacing: 16) {
-                    Picker(
-                        AppText.ui("识别模型", "Speech Recognition Model", "音声認識モデル"),
-                        selection: managedModelSelection
-                    ) {
-                        ForEach(ASRManagedModel.all.filter { $0.id == managedID || manager.installed[$0.id] != nil }) { model in
-                            Text(model.title).tag(model.id)
+                    if usesManagedModel {
+                        Button(action: importExistingModel) {
+                            Image(systemName: "square.and.arrow.down")
                         }
+                        .disabled(locked)
+                        .help(importModelTitle)
+                        .accessibilityLabel(importModelTitle)
+                        .accessibilityIdentifier("importManagedSpeechModel")
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .disabled(locked)
-                    .accessibilityIdentifier("managedRecognitionModelPicker")
-                    Spacer(minLength: 0)
-                    managedModelStatus
-                        .fixedSize(horizontal: true, vertical: false)
                 }
+                HStack(spacing: 8) {
+                    recognitionEnginePicker
+                        .accessibilityIdentifier("managedRecognitionModelPicker")
+                    if usesManagedModel && manager.installed[managedID] != nil {
+                        deleteModelButton
+                    }
+                    Spacer(minLength: 8)
+                    if usesManagedModel {
+                        managedModelStatus
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                }
+                qwenModelPicker
             }
-            Text(AppText.ui("首次下载需要联网及磁盘空间。识别在本机进行，音频留在这台 Mac。", "The initial download needs internet access and disk space. Recognition runs on this Mac, where the audio stays.", "初回のダウンロードにはインターネット接続と空き容量が必要です。音声はこの Mac 内で認識・処理されます。"))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) { managedModelActions }
-                VStack(alignment: .leading, spacing: 8) { managedModelActions }
+            if usesManagedModel {
+                Text(AppText.ui("首次下载需要联网及磁盘空间。识别在本机进行，音频留在这台 Mac。", "The initial download needs internet access and disk space. Recognition runs on this Mac, where the audio stays.", "初回のダウンロードにはインターネット接続と空き容量が必要です。音声はこの Mac 内で認識・処理されます。"))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { managedModelActions }
+                    VStack(alignment: .leading, spacing: 8) { managedModelActions }
+                }
             }
 
             if manager.isBusy {
@@ -166,7 +165,7 @@ struct WhisperRecognitionSettingsView: View {
                 else { ProgressView().controlSize(.small) }
                 Button(AppText.ui("取消操作", "Cancel Operation", "処理をキャンセル")) { manager.cancel() }
             }
-            if manager.messageModelID == managedID && !manager.message.isEmpty {
+            if usesManagedModel && manager.messageModelID == managedID && !manager.message.isEmpty {
                 Text(manager.message).font(.caption).textSelection(.enabled)
             }
 
@@ -195,23 +194,26 @@ struct WhisperRecognitionSettingsView: View {
         .disabled(locked)
 
         if isInstalled {
-            let deleteTitle = AppText.ui("删除模型", "Delete Model", "モデルを削除")
-            Button(role: .destructive) {
-                confirmsDeletion = true
-            } label: {
-                Image(systemName: "trash")
-                    .foregroundStyle(AirTranslateDesign.Palette.danger)
-            }
-            .tint(AirTranslateDesign.Palette.danger)
-            .disabled(locked)
-            .help(deleteTitle)
-            .accessibilityLabel(deleteTitle)
-
             Button(AppText.ui("打开模型文件夹", "Open Model Folder", "モデルフォルダを開く")) {
                 NSWorkspace.shared.open(ManagedASRRuntime.data)
             }
             .accessibilityIdentifier("openManagedSpeechModelFolder")
         }
+    }
+
+    private var deleteModelButton: some View {
+        let title = AppText.ui("删除模型", "Delete Model", "モデルを削除")
+        return Button(role: .destructive) {
+            confirmsDeletion = true
+        } label: {
+            Image(systemName: "trash")
+                .foregroundStyle(AirTranslateDesign.Palette.danger)
+        }
+        .tint(AirTranslateDesign.Palette.danger)
+        .disabled(locked)
+        .help(title)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier("deleteManagedSpeechModel")
     }
 
     private var importModelTitle: String {
