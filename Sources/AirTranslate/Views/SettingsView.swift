@@ -654,20 +654,20 @@ struct SettingsView: View {
     }
 
     private var infoSettings: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        let currentVersion = RunningAppVersion.current()
+        return VStack(alignment: .leading, spacing: 24) {
+            SettingsGroup(title: SettingsCopy.versionInformation) {
+                versionInfoRow(SettingsCopy.version, value: currentVersion.version, identifier: "appVersionNumber")
+                Divider()
+                versionInfoRow(SettingsCopy.buildNumber, value: currentVersion.build, identifier: "appBuildNumber")
+            }
+
             SettingsGroup(title: SettingsCopy.aboutAirTranslate) {
                 SettingsValueRow(
                     title: AppText.appName,
                     detail: AppText.appTagline,
                     systemImage: "waveform.and.magnifyingglass",
                     value: SettingsCopy.localFirst
-                )
-
-                SettingsValueRow(
-                    title: SettingsCopy.version,
-                    detail: SettingsCopy.versionDetail,
-                    systemImage: "number",
-                    value: appVersionSummary
                 )
 
                 SettingsValueRow(
@@ -923,8 +923,14 @@ struct SettingsView: View {
         }
     }
 
-    private var appVersionSummary: String {
-        RunningAppVersion.current().summary ?? SettingsCopy.versionUnavailable
+    private func versionInfoRow(_ title: String, value: String?, identifier: String) -> some View {
+        LabeledContent(title) {
+            Text(value ?? SettingsCopy.versionUnavailable)
+                .font(.callout.monospacedDigit().weight(.semibold))
+                .textSelection(.enabled)
+                .accessibilityIdentifier(identifier)
+        }
+        .frame(minHeight: 44)
     }
 
     private func refreshPermissionStatuses() {
@@ -1567,11 +1573,17 @@ enum SettingsCopy {
         japanese: "バージョン",
         chineseSimplified: "版本"
     )
-    static let versionDetail = AppText.localized(
-        english: "App version and build number.",
-        korean: "앱 버전과 빌드 번호입니다.",
-        japanese: "アプリのバージョンとビルド番号です。",
-        chineseSimplified: "应用版本和构建编号。"
+    static let versionInformation = AppText.localized(
+        english: "Version Information",
+        korean: "버전 정보",
+        japanese: "バージョン情報",
+        chineseSimplified: "版本信息"
+    )
+    static let buildNumber = AppText.localized(
+        english: "Build Number",
+        korean: "빌드 번호",
+        japanese: "ビルド番号",
+        chineseSimplified: "构建号"
     )
     static let versionUnavailable = AppText.localized(
         english: "Unavailable",

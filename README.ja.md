@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1218）
+  <strong>Apple Silicon</strong> · macOS 14 以降 · 1.16.0（ビルド 1219）
 </p>
 
 <p align="center">
