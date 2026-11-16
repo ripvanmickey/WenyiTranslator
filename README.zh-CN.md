@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1228）
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0（构建 1229）
 </p>
 
 <p align="center">

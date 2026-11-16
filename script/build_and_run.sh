@@ -44,7 +44,8 @@ mkdir -p "$APP_MACOS"
 mkdir -p "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
-cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
+cp "$ROOT_DIR/Resources/WenyiIcon.icns" "$APP_RESOURCES/AppIcon.icns"
+cp "$ROOT_DIR/Resources/WenyiIcon.png" "$APP_RESOURCES/AppIcon.png"
 
 "$SCRIPT_DIR/write_info_plist.sh" "$INFO_PLIST" local
 
