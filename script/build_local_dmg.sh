@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-if ! XCODE_VERSION="$(xcodebuild -version 2>/dev/null | sed -n '1p')" ||
-   [[ "$XCODE_VERSION" != "Xcode 27" && "$XCODE_VERSION" != "Xcode 27."* ]] ||
-   ! SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)" ||
+XCODE_VERSION="$(xcodebuild -version | sed -n '1p')"
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+if [[ "$XCODE_VERSION" != "Xcode 27" && "$XCODE_VERSION" != "Xcode 27."* ]] ||
    [[ "$SDK_VERSION" != 27 && "$SDK_VERSION" != 27.* ]]; then
   printf 'Select Xcode 27 and its macOS 27 SDK using DEVELOPER_DIR.\n' >&2
   exit 1
@@ -14,13 +14,18 @@ ARTIFACT="Wenyi-1.16.0-${BUILD_NUMBER}-macOS27-preview-arm64"
 OUTPUT_DIR="${1:-$ROOT_DIR/dist-local}"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
-BUILD_ARGS=(-c release)
+BUILD_ARGS=(-c release --build-system native -debug-info-format none)
 if [[ "${AIRTRANSLATE_DISABLE_MANIFEST_SANDBOX:-0}" == 1 ]]; then BUILD_ARGS+=(--disable-sandbox); fi
 if [[ -n "${SWIFT_CACHE_PATH:-}" ]]; then BUILD_ARGS+=(--cache-path "$SWIFT_CACHE_PATH"); fi
 if [[ -n "${SWIFT_BUILD_PATH:-}" ]]; then BUILD_ARGS+=(--scratch-path "$SWIFT_BUILD_PATH"); fi
 cd "$ROOT_DIR"
 xcrun --sdk macosx swift build "${BUILD_ARGS[@]}"
 BINARY_DIR="$(xcrun --sdk macosx swift build "${BUILD_ARGS[@]}" --show-bin-path)"
+LINKED_SDK="$(xcrun vtool -show-build "$BINARY_DIR/AirTranslate" | awk '$1 == "sdk" { print $2 }')"
+if [[ "$LINKED_SDK" != "$SDK_VERSION" ]]; then
+  printf 'Expected macOS SDK %s in the executable, found %s.\n' "$SDK_VERSION" "$LINKED_SDK" >&2
+  exit 1
+fi
 STAGING="$(mktemp -d "${TMPDIR:-/tmp}/airtranslate-local-dmg.XXXXXX")"
 APP="$STAGING/$APP_NAME.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -51,7 +56,8 @@ codesign --force --options runtime --timestamp=none --entitlements "$ROOT_DIR/Re
 codesign --verify --deep --strict --verbose=2 "$APP"
 ln -s /Applications "$STAGING/Applications"
 cp "$ROOT_DIR/docs/LOCAL-LM-STUDIO.zh-CN.md" "$STAGING/安装与配置说明.md"
-hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -format UDZO "$OUTPUT_DIR/$ARTIFACT.dmg"
-hdiutil verify "$OUTPUT_DIR/$ARTIFACT.dmg"
-(cd "$OUTPUT_DIR" && shasum -a 256 "$ARTIFACT.dmg" > "$ARTIFACT.dmg.sha256")
 printf 'App staging folder: %s\n' "$STAGING"
+DMG="$OUTPUT_DIR/$ARTIFACT.dmg"
+hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -format UDZO "$DMG"
+hdiutil verify "$DMG"
+(cd "$OUTPUT_DIR" && shasum -a 256 "$ARTIFACT.dmg" > "$ARTIFACT.dmg.sha256")
