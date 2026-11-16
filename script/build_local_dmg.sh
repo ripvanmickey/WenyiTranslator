@@ -8,7 +8,7 @@ if [[ "$XCODE_VERSION" != "Xcode 27" && "$XCODE_VERSION" != "Xcode 27."* ]] ||
   printf 'Select Xcode 27 and its macOS 27 SDK using DEVELOPER_DIR.\n' >&2
   exit 1
 fi
-BUILD_NUMBER=1236
+BUILD_NUMBER=1237
 APP_NAME="文译 macOS 27 预览"
 ARTIFACT="Wenyi-1.16.0-${BUILD_NUMBER}-macOS27-preview-arm64"
 OUTPUT_DIR="${1:-$ROOT_DIR/dist-local}"
@@ -30,8 +30,6 @@ STAGING="$(mktemp -d "${TMPDIR:-/tmp}/airtranslate-local-dmg.XXXXXX")"
 APP="$STAGING/$APP_NAME.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY_DIR/AirTranslate" "$APP/Contents/MacOS/AirTranslate"
-cp "$ROOT_DIR/Resources/WenyiIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-cp "$ROOT_DIR/Resources/WenyiIcon.png" "$APP/Contents/Resources/AppIcon.png"
 cp "$ROOT_DIR/Resources/NemotronBridge.py" "$ROOT_DIR/Resources/NemotronSourceManifest.json" "$APP/Contents/Resources/"
 cp -R "$ROOT_DIR/Resources/ASRRuntime" "$ROOT_DIR/Resources/ASRProject" "$APP/Contents/Resources/"
 python3 "$ROOT_DIR/script/prune_asr_runtime.py" "$APP/Contents/Resources/ASRRuntime" --apply \
@@ -48,6 +46,17 @@ BUNDLE_ID=dev.appcaster.AirTranslate.MacOS27Preview BUILD_NUMBER="$BUILD_NUMBER"
   bash "$ROOT_DIR/script/write_info_plist.sh" "$APP/Contents/Info.plist" release
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$APP/Contents/Info.plist"
+ICON_INFO="$STAGING/AppIcon.plist"
+MINIMUM_OS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$APP/Contents/Info.plist")"
+xcrun --sdk macosx actool "$ROOT_DIR/Resources/AppIcon.icon" \
+  --compile "$APP/Contents/Resources" --platform macosx --target-device mac \
+  --minimum-deployment-target "$MINIMUM_OS" --development-region en --app-icon AppIcon \
+  --output-partial-info-plist "$ICON_INFO"
+ICON_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$ICON_INFO")"
+test -s "$APP/Contents/Resources/Assets.car"
+test -s "$APP/Contents/Resources/AppIcon.icns"
+/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string $ICON_NAME" "$APP/Contents/Info.plist"
+rm "$ICON_INFO"
 /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true' "$APP/Contents/Info.plist"
 python3 "$ROOT_DIR/script/audit_macos14_bundle.py" "$APP" > "$OUTPUT_DIR/$ARTIFACT-native-audit.json"
