@@ -102,11 +102,28 @@ struct WhisperRecognitionSettingsView: View {
         }
     }
 
+    private var managedModelSelection: Binding<String> {
+        Binding {
+            managedID
+        } set: { id in
+            guard !locked, id != managedID, manager.installed[id] != nil else { return }
+            switch id {
+            case "nemotron", "multitalker":
+                session.localRecognitionEngine = id
+            case "qwen17", "qwen06":
+                session.localRecognitionEngine = "qwen"
+                session.qwenASRModel = id == "qwen17" ? "Qwen/Qwen3-ASR-1.7B" : "Qwen/Qwen3-ASR-0.6B"
+            default:
+                break
+            }
+        }
+    }
+
     private var modelManagementSheet: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 12) {
-                    Label(modelManagementTitle, systemImage: "gearshape")
+                    Text(modelManagementTitle)
                         .font(.title2.weight(.semibold))
                     Spacer(minLength: 8)
                     Button(action: importExistingModel) {
@@ -118,9 +135,18 @@ struct WhisperRecognitionSettingsView: View {
                     .accessibilityIdentifier("importManagedSpeechModel")
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 16) {
-                    Text(selectedManagedModel.title)
-                        .font(.headline)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Picker(
+                        AppText.ui("识别模型", "Speech Recognition Model", "音声認識モデル"),
+                        selection: managedModelSelection
+                    ) {
+                        ForEach(ASRManagedModel.all.filter { $0.id == managedID || manager.installed[$0.id] != nil }) { model in
+                            Text(model.title).tag(model.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .disabled(locked)
+                    .accessibilityIdentifier("managedRecognitionModelPicker")
                     Spacer(minLength: 0)
                     managedModelStatus
                         .fixedSize(horizontal: true, vertical: false)
@@ -162,7 +188,7 @@ struct WhisperRecognitionSettingsView: View {
     @ViewBuilder
     private var managedModelActions: some View {
         let isInstalled = manager.installed[managedID] != nil
-        Button(isInstalled ? AppText.ui("检查与补齐", "Verify and Repair", "確認して修復") : AppText.ui("下载模型", "Download Model", "モデルをダウンロード")) {
+        Button(isInstalled ? AppText.ui("文件校验", "Verify Files", "ファイルを検証") : AppText.ui("下载模型", "Download Model", "モデルをダウンロード")) {
             let id = managedID
             Task { await manager.download(id) }
         }
