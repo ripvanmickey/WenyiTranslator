@@ -8,7 +8,7 @@ if [[ "$XCODE_VERSION" != "Xcode 27" && "$XCODE_VERSION" != "Xcode 27."* ]] ||
   printf 'Select Xcode 27 and its macOS 27 SDK using DEVELOPER_DIR.\n' >&2
   exit 1
 fi
-BUILD_NUMBER=1234
+BUILD_NUMBER=1235
 APP_NAME="文译 macOS 27 预览"
 ARTIFACT="Wenyi-1.16.0-${BUILD_NUMBER}-macOS27-preview-arm64"
 OUTPUT_DIR="${1:-$ROOT_DIR/dist-local}"

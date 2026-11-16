@@ -21,10 +21,15 @@ struct SettingsView: View {
             SettingsSidebar(selection: selectedCategory)
                 .toolbar(removing: .sidebarToggle)
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    sidebarToggle
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.horizontal, AirTranslateDesign.Spacing.sm)
-                        .padding(.bottom, AirTranslateDesign.Spacing.xs)
+                    HStack {
+                        Text(AppText.settings)
+                            .font(.title2.weight(.semibold))
+                            .accessibilityAddTraits(.isHeader)
+                        Spacer(minLength: AirTranslateDesign.Spacing.xs)
+                        sidebarToggle
+                    }
+                    .padding(.horizontal, AirTranslateDesign.Spacing.md)
+                    .frame(minHeight: 44)
                 }
                 .navigationSplitViewColumnWidth(
                     min: AirTranslateDesign.settingsSidebarMinimum,
@@ -35,7 +40,10 @@ struct SettingsView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.md) {
-                        SettingsPageHeader(category: selectedCategory.wrappedValue)
+                        Text(selectedCategory.wrappedValue.detail)
+                            .font(.callout)
+                            .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         selectedContent
                     }
@@ -56,12 +64,20 @@ struct SettingsView: View {
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                if columnVisibility == .detailOnly {
-                    sidebarToggle
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, AirTranslateDesign.Spacing.lg)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
+                HStack(spacing: AirTranslateDesign.Spacing.sm) {
+                    if columnVisibility == .detailOnly {
+                        sidebarToggle
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
+                    Text(selectedCategory.wrappedValue.title)
+                        .font(.largeTitle.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
                 }
+                .frame(maxWidth: AirTranslateDesign.settingsDetailMaximum, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+                .background(AirTranslateDesign.Palette.canvas)
+                .overlay(alignment: .bottom) { Divider() }
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -1060,6 +1076,7 @@ private struct SettingsWindowTitle: NSViewRepresentable {
             DispatchQueue.main.async { [weak self] in
                 guard let self, let window = self.window else { return }
                 window.title = self.title
+                window.titleVisibility = .hidden
             }
         }
     }
@@ -1896,25 +1913,6 @@ private struct SettingsSidebar: View {
         }
         .listStyle(.sidebar)
         .tint(AirTranslateDesign.Palette.accent)
-    }
-}
-
-private struct SettingsPageHeader: View {
-    let category: SettingsCategory
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
-            Text(category.title)
-                .font(.largeTitle.weight(.semibold))
-                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
-                .accessibilityAddTraits(.isHeader)
-
-            Text(category.detail)
-                .font(.callout)
-                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

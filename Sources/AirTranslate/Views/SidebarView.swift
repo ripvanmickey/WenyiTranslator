@@ -281,7 +281,7 @@ struct ConsoleBarView: View {
         .padding(.horizontal, AirTranslateDesign.Spacing.sm)
         .padding(.vertical, AirTranslateDesign.Spacing.xs)
         .frame(maxWidth: 1120)
-        .background(AirTranslateDesign.Palette.captureBarBackground, in: Capsule())
+        .background(AirTranslateDesign.Palette.captureBarBackground.opacity(0.7), in: Capsule())
         .overlay {
             Capsule()
                 .strokeBorder(AirTranslateDesign.Palette.captureBarBorder, lineWidth: 1 / displayScale)
