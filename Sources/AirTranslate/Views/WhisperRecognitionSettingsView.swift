@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct WhisperRecognitionSettingsView: View {
     @Bindable var session: TranslationSessionStore
     @State private var manager = ASRModelManager.shared
+    @State private var showsModelManagement = false
     @State private var confirmsDeletion = false
     private var managedID: String { session.localRecognitionEngine == "multitalker" ? "multitalker" : ManagedASRRuntime.modelID(qwen: session.qwenASRModel) }
     private var selectedManagedModel: ASRManagedModel { ASRManagedModel.all.first { $0.id == managedID } ?? ASRManagedModel.all[0] }
@@ -13,17 +14,37 @@ struct WhisperRecognitionSettingsView: View {
     @State private var operation: Task<Void, Never>?
     private var locked: Bool { session.isRunning || session.isStarting || preparing || manager.isBusy }
 
+    private var usesManagedModel: Bool {
+        session.whisperRecognitionEnabled && session.nemotronRecognitionEnabled
+    }
+
+    private var modelManagementTitle: String {
+        AppText.ui("管理识别模型", "Manage Speech Model", "音声認識モデルの管理")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SettingsControlRow(title: AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), detail: AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。"), systemImage: "waveform") {
-                Picker(AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), selection: $session.localRecognitionEngine) {
-                    Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
-                    Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
-                    if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
-                    Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")
-                }.labelsHidden().frame(width: 240).disabled(locked)
+            SettingsControlRow(title: AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), detail: AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。"), systemImage: "waveform", controlBelowLabel: true) {
+                HStack(spacing: 10) {
+                    Picker(AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), selection: $session.localRecognitionEngine) {
+                        Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
+                        Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
+                        if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
+                        Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")
+                    }.pickerStyle(.menu).labelsHidden().fixedSize(horizontal: true, vertical: false).disabled(locked)
+                    if usesManagedModel {
+                        Button {
+                            showsModelManagement = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .help(modelManagementTitle)
+                        .accessibilityLabel(modelManagementTitle)
+                        .accessibilityIdentifier("manageSpeechRecognitionModel")
+                    }
+                }
             }
-            if session.whisperRecognitionEnabled && session.nemotronRecognitionEnabled {
+            if usesManagedModel {
                 if session.localRecognitionEngine == "qwen" {
                     Picker(AppText.ui("Qwen ASR 模型", "Qwen ASR Model", "Qwen ASR モデル"), selection: $session.qwenASRModel) {
                         Text(AppText.ui("1.7B · 英语试用", "1.7B · English Trial", "1.7B · 英語の試用")).tag("Qwen/Qwen3-ASR-1.7B")
@@ -31,46 +52,7 @@ struct WhisperRecognitionSettingsView: View {
                     }.disabled(locked)
                 }
                 Text(selectedManagedModel.detail).font(.callout).foregroundStyle(.secondary)
-                HStack(spacing: 12) {
-                    if let bytes = manager.installed[managedID] {
-                        Label(AppText.ui("已下载 · ", "Downloaded · ", "ダウンロード済み · ") + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file), systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    } else {
-                        Text(AppText.ui("尚未下载 · ", "Not downloaded · ", "未ダウンロード · ") + selectedManagedModel.downloadSize).foregroundStyle(.secondary)
-                    }
-                    Button(manager.installed[managedID] == nil ? AppText.ui("下载模型", "Download Model", "モデルをダウンロード") : AppText.ui("检查与补齐", "Verify and Repair", "確認して修復")) {
-                        let id = managedID
-                        Task { await manager.download(id) }
-                    }.disabled(locked)
-                    if manager.installed[managedID] != nil {
-                        Button(AppText.ui("删除模型", "Delete Model", "モデルを削除"), role: .destructive) { confirmsDeletion = true }.disabled(locked)
-                    }
-                }
-                if !session.nemotronRuntimeFolder.isEmpty,
-                   FileManager.default.fileExists(atPath: session.nemotronRuntimeFolder + "/.runtime/models") {
-                    Button(AppText.ui("导入旧版已下载模型", "Import Previously Downloaded Model", "以前ダウンロードしたモデルを読み込む")) {
-                        let id = managedID; let folder = session.nemotronRuntimeFolder
-                        Task { await manager.importOld(id, folder: folder) }
-                    }.disabled(locked)
-                } else {
-                    Button(AppText.ui("导入已有模型…", "Import Existing Model…", "既存モデルを読み込む…")) {
-                        let panel = NSOpenPanel()
-                        panel.canChooseDirectories = true; panel.canChooseFiles = false
-                        panel.message = AppText.ui("选择旧版 NemotronTrial 文件夹。只导入模型文件，不运行旧目录中的程序。", "Choose the previous NemotronTrial folder to import its model files.", "モデルファイルを読み込むには、以前の NemotronTrial フォルダを選択してください。")
-                        if panel.runModal() == .OK, let folder = panel.url {
-                            let id = managedID
-                            Task { await manager.importOld(id, folder: folder.path) }
-                        }
-                    }.disabled(locked)
-                }
-                HStack {
-                    Text(AppText.ui("识别组件已内置。首次下载需要联网及磁盘空间；识别在本机进行，不上传音频。", "Recognition is built in. The initial model download needs internet access and disk space. Audio stays on this Mac.", "認識機能は内蔵されています。初回のモデル取得にはネット接続と空き容量が必要です。音声はこの Mac 内で処理します。"))
-                        .font(.caption).foregroundStyle(.secondary)
-                    Button(AppText.ui("打开模型文件夹", "Open Model Folder", "モデルフォルダを開く")) {
-                        try? FileManager.default.createDirectory(at: ManagedASRRuntime.data, withIntermediateDirectories: true)
-                        NSWorkspace.shared.open(ManagedASRRuntime.data)
-                    }
-                }
+                managedModelStatus
                 if manager.isBusy {
                     if let value = manager.progress { ProgressView(value: value) }
                     else { ProgressView().controlSize(.small) }
@@ -98,15 +80,108 @@ struct WhisperRecognitionSettingsView: View {
             }
         }
         .task { manager.refresh() }
-        .confirmationDialog(AppText.ui("删除所选识别模型？之后需要重新下载才能使用。", "Delete the selected recognition model? You will need to download it again to use it.", "選択した認識モデルを削除しますか？再び使うにはダウンロードが必要です。"), isPresented: $confirmsDeletion) {
+        .sheet(isPresented: $showsModelManagement) { modelManagementSheet }
+        .onChange(of: session.whisperModel) { _, _ in message = "" }
+        .onDisappear { operation?.cancel() }
+    }
+
+    private var managedModelStatus: some View {
+        Group {
+            if let bytes = manager.installed[managedID] {
+                Label(AppText.ui("已下载 · ", "Downloaded · ", "ダウンロード済み · ") + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Text(AppText.ui("尚未下载 · ", "Not downloaded · ", "未ダウンロード · ") + selectedManagedModel.downloadSize)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var modelManagementSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Label(modelManagementTitle, systemImage: "gearshape")
+                    .font(.title2.weight(.semibold))
+                Text(selectedManagedModel.title)
+                    .font(.headline)
+                managedModelStatus
+            }
+            Text(AppText.ui("首次下载需要联网及磁盘空间。识别在本机进行，音频留在这台 Mac。", "The initial download needs internet access and disk space. Recognition runs on this Mac, where the audio stays.", "初回のダウンロードにはインターネット接続と空き容量が必要です。音声はこの Mac 内で認識・処理されます。"))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 12) {
+                Button(manager.installed[managedID] == nil ? AppText.ui("下载模型", "Download Model", "モデルをダウンロード") : AppText.ui("检查与补齐", "Verify and Repair", "確認して修復")) {
+                    let id = managedID
+                    Task { await manager.download(id) }
+                }
+                .disabled(locked)
+                if manager.installed[managedID] != nil {
+                    Button(AppText.ui("删除模型", "Delete Model", "モデルを削除"), role: .destructive) { confirmsDeletion = true }
+                        .disabled(locked)
+                }
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { modelFolderActions }
+                VStack(alignment: .leading, spacing: 8) { modelFolderActions }
+            }
+
+            if manager.isBusy {
+                if let value = manager.progress { ProgressView(value: value) }
+                else { ProgressView().controlSize(.small) }
+                Button(AppText.ui("取消操作", "Cancel Operation", "処理をキャンセル")) { manager.cancel() }
+            }
+            if !manager.message.isEmpty {
+                Text(manager.message).font(.caption).textSelection(.enabled)
+            }
+
+            Button(AppText.ui("关闭", "Close", "閉じる")) { showsModelManagement = false }
+                .keyboardShortcut(.cancelAction)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(24)
+        .frame(width: 460)
+        .alert(AppText.ui("删除所选识别模型？之后需要重新下载才能使用。", "Delete the selected recognition model? You will need to download it again to use it.", "選択した認識モデルを削除しますか？再び使うにはダウンロードが必要です。"), isPresented: $confirmsDeletion) {
+            Button(AppText.ui("取消", "Cancel", "キャンセル"), role: .cancel) {}
             Button(AppText.ui("删除模型", "Delete Model", "モデルを削除"), role: .destructive) {
                 let id = managedID
                 Task { await manager.delete(id) }
             }
         }
-        .onChange(of: session.whisperModel) { _, _ in message = "" }
-        .onDisappear { operation?.cancel() }
     }
+
+    @ViewBuilder
+    private var modelFolderActions: some View {
+        if !session.nemotronRuntimeFolder.isEmpty,
+           FileManager.default.fileExists(atPath: session.nemotronRuntimeFolder + "/.runtime/models") {
+            Button(AppText.ui("导入旧版已下载模型", "Import Previously Downloaded Model", "以前ダウンロードしたモデルを読み込む")) {
+                let id = managedID
+                let folder = session.nemotronRuntimeFolder
+                Task { await manager.importOld(id, folder: folder) }
+            }
+            .disabled(locked)
+        } else {
+            Button(AppText.ui("导入已有模型…", "Import Existing Model…", "既存モデルを読み込む…")) {
+                let panel = NSOpenPanel()
+                panel.canChooseDirectories = true
+                panel.canChooseFiles = false
+                panel.message = AppText.ui("选择旧版 NemotronTrial 文件夹。只导入模型文件，不运行旧目录中的程序。", "Choose the previous NemotronTrial folder to import its model files.", "モデルファイルを読み込むには、以前の NemotronTrial フォルダを選択してください。")
+                if panel.runModal() == .OK, let folder = panel.url {
+                    let id = managedID
+                    Task { await manager.importOld(id, folder: folder.path) }
+                }
+            }
+            .disabled(locked)
+        }
+
+        Button(AppText.ui("打开模型文件夹", "Open Model Folder", "モデルフォルダを開く")) {
+            try? FileManager.default.createDirectory(at: ManagedASRRuntime.data, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(ManagedASRRuntime.data)
+        }
+        .accessibilityIdentifier("openManagedSpeechModelFolder")
+    }
+
     private func chooseFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = false

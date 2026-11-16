@@ -17,7 +17,7 @@ struct LocalTranslationSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             if !isOnlineIndex {
                 WhisperRecognitionSettingsView(session: session)
-                SettingsControlRow(title: AppText.ui("本地模式 · 翻译引擎", "Local Mode · Translation Engine", "ローカルモード・翻訳エンジン"), detail: AppText.ui("先由选定的本地引擎识别语音，再选择译文的处理方式。", "The selected local engine recognizes speech. Choose how to translate it.", "選択したローカルエンジンで音声を認識します。翻訳方法を選んでください。"), systemImage: "character.bubble") {
+                SettingsControlRow(title: AppText.ui("本地模式 · 翻译引擎", "Local Mode · Translation Engine", "ローカルモード・翻訳エンジン"), detail: AppText.ui("先由选定的本地引擎识别语音，再选择译文的处理方式。", "The selected local engine recognizes speech. Choose how to translate it.", "選択したローカルエンジンで音声を認識します。翻訳方法を選んでください。"), systemImage: "character.bubble", controlBelowLabel: true) {
                     Picker(AppText.ui("翻译引擎", "Translation Engine", "翻訳エンジン"), selection: Binding(
                         get: { session.localTranslation.enabled },
                         set: { enabled in
@@ -29,15 +29,28 @@ struct LocalTranslationSettingsView: View {
                         if PlatformSupport.supportsAppleSpeech { Text(AppText.ui("Apple 翻译", "Apple Translation", "Apple 翻訳")).tag(false) }
                         Text(AppText.ui("本地模型翻译", "Local Model Translation", "ローカルモデル翻訳")).tag(true)
                     }
-                    .labelsHidden().frame(width: 220).disabled(locked)
+                    .pickerStyle(.menu).labelsHidden().fixedSize(horizontal: true, vertical: false).disabled(locked)
                 }
             }
             if isOnlineIndex || session.localTranslation.enabled {
                 if !isOnlineIndex {
-                    Toggle(AppText.ui("跨段回看纠错", "Correct earlier captions", "前の字幕を文脈で修正"), isOn: $session.contextualCaptionCorrectionEnabled)
-                        .disabled(locked)
-                    Text(AppText.ui("翻译空闲时用后文纠正近期字幕中的同音词。", "Use later context to correct homophones in recent captions while translation is idle.", "翻訳の待機中に、後続の文脈から直近の字幕の同音異義語を修正します。"))
-                        .font(.caption).foregroundStyle(.secondary)
+                    let correctionTitle = AppText.ui("跨段回看纠错", "Correct earlier captions", "前の字幕を文脈で修正")
+                    Toggle(isOn: $session.contextualCaptionCorrectionEnabled) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(correctionTitle)
+                                .font(.callout.weight(.semibold))
+                            Text(AppText.ui("翻译空闲时用后文纠正近期字幕中的同音词。", "Use later context to correct homophones in recent captions while translation is idle.", "翻訳の待機中に、後続の文脈から直近の字幕の同音異義語を修正します。"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .toggleStyle(.switch)
+                    .tint(AirTranslateDesign.Palette.accent)
+                    .disabled(locked)
+                    .accessibilityLabel(correctionTitle)
+                    .accessibilityIdentifier("contextualCaptionCorrectionToggle")
                 }
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top) {

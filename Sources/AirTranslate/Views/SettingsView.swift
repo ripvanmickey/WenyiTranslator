@@ -134,7 +134,8 @@ struct SettingsView: View {
                 title: SettingsCopy.processingEngine,
                 detail: SettingsCopy.processingEngineDetail,
                 systemImage: "switch.2",
-                showsSeparator: false
+                showsSeparator: false,
+                controlBelowLabel: true
             ) {
                 Picker(SettingsCopy.processingEngine, selection: processingModeSelection) {
                     ForEach(SettingsProcessingMode.allCases) { mode in
@@ -143,7 +144,7 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 .labelsHidden()
-                .frame(minWidth: 190, idealWidth: 250, maxWidth: 320)
+                .fixedSize(horizontal: true, vertical: false)
                 .allowsHitTesting(segmentedControlAllowsHitTesting())
                 .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
                 .opacity(isSessionConfigurationLocked ? 0.6 : 1)
@@ -1903,33 +1904,47 @@ struct SettingsControlRow<Trailing: View>: View {
     let systemImage: String
     var detailLineLimit: Int? = 3
     var showsSeparator = true
+    var controlBelowLabel = false
     @ViewBuilder let trailing: Trailing
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: 10) {
-                SettingsRowLabel(title: title, detail: detail, systemImage: systemImage, detailLineLimit: detailLineLimit)
+        Group {
+            if controlBelowLabel {
+                stackedRow(controlIndent: settingsLabelIndent)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: 10) {
+                        rowLabel
+                        Spacer(minLength: 16)
+                        trailing
+                            .controlSize(.regular)
+                            .frame(maxWidth: 360, alignment: .trailing)
+                    }
+                    .frame(minWidth: AirTranslateDesign.settingsRowBreakpoint)
 
-                Spacer(minLength: 16)
-
-                trailing
-                    .controlSize(.regular)
-                    .frame(maxWidth: 360, alignment: .trailing)
-            }
-            .frame(minWidth: AirTranslateDesign.settingsRowBreakpoint)
-
-            VStack(alignment: .leading, spacing: 10) {
-                SettingsRowLabel(title: title, detail: detail, systemImage: systemImage, detailLineLimit: detailLineLimit)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                trailing
-                    .controlSize(.regular)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    stackedRow()
+                }
             }
         }
         .frame(minHeight: 64)
         .padding(.vertical, AirTranslateDesign.Spacing.xs)
         .settingsRowSeparator(visible: showsSeparator)
+    }
+
+    private var rowLabel: some View {
+        SettingsRowLabel(title: title, detail: detail, systemImage: systemImage, detailLineLimit: detailLineLimit)
+    }
+
+    private func stackedRow(controlIndent: CGFloat = 0) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            rowLabel
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            trailing
+                .controlSize(.regular)
+                .padding(.leading, controlIndent)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 
@@ -1990,6 +2005,10 @@ private struct SettingsValueRow: View {
     }
 }
 
+private let settingsRowIconWidth: CGFloat = 20
+private let settingsRowIconSpacing: CGFloat = 9
+private let settingsLabelIndent = settingsRowIconWidth + settingsRowIconSpacing
+
 private struct SettingsRowLabel: View {
     let title: String
     let detail: String
@@ -1998,11 +2017,11 @@ private struct SettingsRowLabel: View {
     var detailLineLimit: Int? = 3
 
     var body: some View {
-        HStack(alignment: .top, spacing: 9) {
+        HStack(alignment: .top, spacing: settingsRowIconSpacing) {
             Image(systemName: systemImage)
                 .font(.system(size: AirTranslateDesign.iconRegular, weight: .medium))
                 .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                .frame(width: 20, height: 20)
+                .frame(width: settingsRowIconWidth, height: 20)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
