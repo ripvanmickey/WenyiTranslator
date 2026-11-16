@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="#インストールと設定"><img src="./docs/readme-banner.svg" alt="文译 Wenyi｜リアルタイム文字起こし、二言語字幕、ローカル翻訳" width="100%"></a>
+  <a href="#インストールと設定"><img src="./docs/readme-banner-ja.svg" alt="文译 Wenyi｜リアルタイム文字起こし、二言語字幕、ローカル翻訳" width="100%"></a>
 </p>
 
 <p align="center">
