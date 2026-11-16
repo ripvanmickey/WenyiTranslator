@@ -11,44 +11,42 @@ struct ContentView: View {
     @State private var captionViewport = CaptionFeedViewportState()
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .top) {
-                AirTranslateDesign.Palette.canvas
-                    .ignoresSafeArea()
+        ZStack(alignment: .top) {
+            AirTranslateDesign.Palette.canvas
+                .ignoresSafeArea()
 
-                if isMainCaptionVisible {
-                    VStack(spacing: 0) {
-                        StageHeaderView(session: session)
-                        CaptionBoardView(session: session, viewportState: $captionViewport)
+            if isMainCaptionVisible {
+                VStack(spacing: 0) {
+                    StageHeaderView(session: session)
+                    CaptionBoardView(session: session, viewportState: $captionViewport)
+                }
+
+                VStack(spacing: AirTranslateDesign.Spacing.xs) {
+                    if let failureMessage = session.captureStartFailureMessage {
+                        CaptureStartFailureView(
+                            message: failureMessage,
+                            recoveryAction: session.captureStartRecoveryAction,
+                            recover: recoverFromCaptureStartFailure,
+                            dismiss: session.dismissCaptureStartFailure
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
-                    VStack(spacing: AirTranslateDesign.Spacing.xs) {
-                        if let failureMessage = session.captureStartFailureMessage {
-                            CaptureStartFailureView(
-                                message: failureMessage,
-                                recoveryAction: session.captureStartRecoveryAction,
-                                recover: recoverFromCaptureStartFailure,
-                                dismiss: session.dismissCaptureStartFailure
-                            )
+                    if let toastMessage = session.toastMessage {
+                        ToastMessageView(message: toastMessage)
                             .transition(.move(edge: .top).combined(with: .opacity))
-                        }
-
-                        if let toastMessage = session.toastMessage {
-                            ToastMessageView(message: toastMessage)
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                        }
                     }
-                    .padding(.top, AirTranslateDesign.Spacing.sm)
-                    .padding(.horizontal, AirTranslateDesign.Spacing.lg)
                 }
+                .padding(.top, AirTranslateDesign.Spacing.sm)
+                .padding(.horizontal, AirTranslateDesign.Spacing.lg)
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if isMainCaptionVisible {
-                    ConsoleBarView(session: session, isCompact: geometry.size.width < 1040)
-                        .padding(.horizontal, AirTranslateDesign.Spacing.lg)
-                        .padding(.top, AirTranslateDesign.Spacing.xs)
-                        .padding(.bottom, AirTranslateDesign.Spacing.md)
-                }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if isMainCaptionVisible {
+                ConsoleBarView(session: session)
+                    .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+                    .padding(.top, AirTranslateDesign.Spacing.xs)
+                    .padding(.bottom, AirTranslateDesign.Spacing.md)
             }
         }
         .background {

@@ -1306,10 +1306,10 @@ enum SettingsCopy {
     }
     static var languagePairDetail: String {
         AppText.localized(
-            english: "Change the language pair from the console bar at the bottom of the main window.",
-            korean: "언어 조합은 메인 창 하단 콘솔 바에서 변경합니다.",
-            japanese: "言語の組み合わせはメインウインドウ下部のコンソールバーで変更します。",
-            chineseSimplified: "语言组合可在主窗口底部的控制栏中更改。"
+            english: "Select the language pair at the top left of the main window to change it.",
+            korean: "메인 창 왼쪽 상단의 언어 조합을 선택해 변경할 수 있습니다.",
+            japanese: "メインウインドウの左上にある言語の組み合わせを選んで変更できます。",
+            chineseSimplified: "点击主窗口左上角的语言组合即可更改。"
         )
     }
     static var autoDetectDetail: String {

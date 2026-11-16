@@ -144,14 +144,6 @@ enum AppText {
             chineseSimplified: "需要权限"
         )
     }
-    static var moreControls: String {
-        localized(
-            english: "More Controls",
-            korean: "더보기",
-            japanese: "その他のコントロール",
-            chineseSimplified: "更多控制"
-        )
-    }
     static var languagePair: String {
         localized(
             english: "Language Pair",

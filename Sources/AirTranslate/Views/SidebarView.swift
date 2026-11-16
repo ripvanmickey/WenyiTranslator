@@ -5,7 +5,7 @@ struct SidebarView: View {
     @Bindable var session: TranslationSessionStore
 
     var body: some View {
-        ConsoleBarView(session: session, isCompact: false)
+        ConsoleBarView(session: session)
     }
 }
 
@@ -82,10 +82,7 @@ struct StageHeaderView: View {
         HStack(spacing: AirTranslateDesign.Spacing.sm) {
             SessionStatusPill(session: session)
 
-            Label(session.languageSummary, systemImage: "arrow.triangle.swap")
-                .font(AirTranslateDesign.Typography.label)
-                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
-                .lineLimit(1)
+            languageMenu
 
             Spacer(minLength: AirTranslateDesign.Spacing.sm)
 
@@ -130,6 +127,88 @@ struct StageHeaderView: View {
         .background(AirTranslateDesign.Palette.canvas)
     }
 
+    private var canChangeLanguage: Bool {
+        !SidebarSessionConfigurationAccess.isLocked(isRunning: session.isRunning, isStarting: session.isStarting)
+    }
+
+    private var languageMenu: some View {
+        Menu {
+            if usesAutomaticSource {
+                Text(AppText.autoDetectInput)
+            } else {
+                Picker(AppText.from, selection: sourceLanguageBinding) {
+                    ForEach(LanguageOption.supported) { language in
+                        Text(language.localizedTitle).tag(language)
+                    }
+                }
+            }
+
+            if !session.isTranscribeOnlyMode {
+                Picker(AppText.to, selection: targetLanguageBinding) {
+                    ForEach(LanguageOption.supported.filter { usesAutomaticSource || $0 != session.sourceLanguage }) { language in
+                        Text(language.localizedTitle).tag(language)
+                    }
+                }
+
+                if !usesAutomaticSource {
+                    Button(AppText.swapLanguages, systemImage: "arrow.left.arrow.right") {
+                        guard canChangeLanguage else { return }
+                        session.swapQuickLanguagePair()
+                    }
+                }
+            }
+        } label: {
+            Label(session.languageSummary, systemImage: "arrow.triangle.swap")
+                .font(AirTranslateDesign.Typography.label)
+                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+                .lineLimit(1)
+                .frame(minHeight: 28)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.visible)
+        .airFocusRing(cornerRadius: 12)
+        .disabled(!canChangeLanguage)
+        .help(canChangeLanguage ? AppText.languagePair : AppText.lockedDuringSession)
+        .accessibilityLabel(AppText.languagePair)
+        .accessibilityValue(session.languageSummary)
+        .accessibilityIdentifier("quickLanguagePair")
+    }
+
+    private var sourceLanguageBinding: Binding<LanguageOption> {
+        Binding(
+            get: { session.sourceLanguage },
+            set: { language in
+                guard canChangeLanguage else { return }
+                session.useQuickSourceLanguage(language)
+            }
+        )
+    }
+
+    private var targetLanguageBinding: Binding<LanguageOption> {
+        Binding(
+            get: { session.targetLanguage },
+            set: { language in
+                guard canChangeLanguage else { return }
+                session.useQuickTargetLanguage(language)
+            }
+        )
+    }
+
+    private var usesOpenAIAutoLanguageFlow: Bool {
+        ProcessingEngine.current(for: session) == .openAI && session.isUsingOpenAIRealtimeTranslation
+    }
+
+    private var usesAutomaticSource: Bool {
+        if session.isUsingQwenTranslation { return true }
+        if session.isUsingGrokSTT { return session.isGrokSourceAutoDetectionEnabled }
+        if session.isUsingNariSTT { return session.isNariSourceAutoDetectionEnabled }
+        return session.isAppleSourceAutoDetectionEnabled
+            || usesOpenAIAutoLanguageFlow
+            || session.isUsingGeminiTranscriptionMode
+            || session.isUsingMetaScribe
+    }
+
     private var needsAPIKey: Bool {
         switch ProcessingEngine.current(for: session) {
         case .openAI: !session.hasOpenAIAPIKey
@@ -161,13 +240,11 @@ struct StageHeaderView: View {
 
 struct ConsoleBarView: View {
     @Bindable var session: TranslationSessionStore
-    let isCompact: Bool
     @Environment(\.openSettings) private var openSettings
     @FocusState private var isCaptureFocused: Bool
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        consoleSurface
+        consoleControls
         .onAppear {
             Task { @MainActor in
                 await Task.yield()
@@ -176,18 +253,9 @@ struct ConsoleBarView: View {
             session.refreshModelAvailability()
             guard isConfigurationAvailable else { return }
             session.refreshMicrophoneInputDevices()
-            if usesOpenAIAutoLanguageFlow {
+            if session.isUsingOpenAIRealtimeTranslation, ProcessingEngine.current(for: session) == .openAI {
                 session.usePreferredLanguageForOpenAIOutput()
             }
-        }
-    }
-
-    @ViewBuilder
-    private var consoleSurface: some View {
-        if #available(macOS 26.0, *), !reduceTransparency {
-            consoleControls.glassEffect(.clear.tint(.white.opacity(0.18)), in: Capsule())
-        } else {
-            consoleControls.airConsoleSurface()
         }
     }
 
@@ -206,16 +274,8 @@ struct ConsoleBarView: View {
                 microphoneControl
             }
 
-            if isCompact {
-                compactMenu
-            } else {
-                consoleDivider
-                languageControl
-                outputControl
-            }
-
             Spacer(minLength: 0)
-            engineButton
+            ProcessingModePicker(session: session)
         }
         .padding(.horizontal, AirTranslateDesign.Spacing.sm)
         .padding(.vertical, AirTranslateDesign.Spacing.xs)
@@ -331,204 +391,6 @@ struct ConsoleBarView: View {
         }
     }
 
-    @ViewBuilder
-    private var languageControl: some View {
-        if segmentedControlPresentation == .lockedSummary {
-            LockedConsoleSummary(
-                title: AppText.languagePair,
-                value: session.languageSummary,
-                systemImage: "arrow.right"
-            )
-        } else {
-            HStack(spacing: AirTranslateDesign.Spacing.xxs) {
-                languageMenu
-                if !session.isTranscribeOnlyMode {
-                    Button {
-                        guard isConfigurationAvailable else { return }
-                        session.swapQuickLanguagePair()
-                    } label: {
-                        Image(systemName: "arrow.left.arrow.right")
-                    }
-                    .buttonStyle(AirIconButton())
-                    .airFocusRing(cornerRadius: 18)
-                    .allowsHitTesting(isConfigurationAvailable && !usesAutomaticSource)
-                    .accessibilityRespondsToUserInteraction(isConfigurationAvailable && !usesAutomaticSource)
-                    .help(AppText.swapLanguages)
-                    .accessibilityLabel(AppText.swapLanguages)
-                }
-            }
-        }
-    }
-
-    private var languageMenu: some View {
-        Menu {
-            if !usesAutomaticSource {
-                Picker(AppText.from, selection: sourceLanguageBinding) {
-                    ForEach(LanguageOption.supported) { language in
-                        Text(language.localizedTitle).tag(language)
-                    }
-                }
-            }
-
-            if !session.isTranscribeOnlyMode {
-                Picker(AppText.to, selection: targetLanguageBinding) {
-                    ForEach(LanguageOption.supported.filter { usesAutomaticSource || $0 != session.sourceLanguage }) { language in
-                        Text(language.localizedTitle).tag(language)
-                    }
-                }
-            }
-        } label: {
-            AirChip(
-                text: session.languageSummary,
-                systemImage: "globe",
-                tint: AirTranslateDesign.Palette.textPrimary
-            )
-        }
-        .menuIndicator(.hidden)
-        .airFocusRing(cornerRadius: 12)
-        .allowsHitTesting(isConfigurationAvailable)
-        .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
-        .accessibilityLabel(AppText.languagePair)
-        .accessibilityValue(session.languageSummary)
-    }
-
-    @ViewBuilder
-    private var outputControl: some View {
-        if session.isUsingOpenAIRealtime {
-            OpenAIOutputPicker(session: session)
-        } else if (session.isUsingNariSTT || session.isUsingGrokSTT) && segmentedControlPresentation != .lockedSummary {
-            Menu {
-                Picker(AppText.outputMode, selection: liveOutputModeBinding) {
-                    ForEach(LiveOutputMode.allCases) { mode in Text(mode.title).tag(mode) }
-                }
-            } label: {
-                AirChip(
-                    text: session.isTranscribeOnlyMode ? NariCopy.sourceOnly : AppText.liveTranslation,
-                    systemImage: "text.alignleft",
-                    tint: AirTranslateDesign.Palette.textPrimary
-                )
-            }
-            .menuIndicator(.hidden)
-            .airFocusRing(cornerRadius: 12)
-            .accessibilityLabel(AppText.outputMode)
-            .accessibilityValue(session.selectedModel.title)
-        } else if session.isUsingProviderTranscriptionMode {
-            AirChip(
-                text: sourceOnlyOutputTitle,
-                systemImage: "text.alignleft",
-                tint: AirTranslateDesign.Palette.textSecondary
-            )
-        } else if segmentedControlPresentation == .lockedSummary {
-            LockedConsoleSummary(
-                title: AppText.outputMode,
-                value: usesAPIModeOutputControl ? AppText.liveTranslation : session.liveOutputMode.title,
-                systemImage: "waveform"
-            )
-        } else if usesAPIModeOutputControl {
-            Button {
-                guard isConfigurationAvailable else { return }
-                session.useTranslationMode()
-            } label: {
-                AirChip(
-                    text: AppText.liveTranslation,
-                    systemImage: "waveform.badge.magnifyingglass",
-                    tint: AirTranslateDesign.Palette.accent
-                )
-            }
-            .buttonStyle(.plain)
-            .airFocusRing(cornerRadius: 12)
-            .allowsHitTesting(isConfigurationAvailable)
-            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
-            .accessibilityLabel(AppText.liveTranslation)
-        } else {
-            Picker(AppText.outputMode, selection: liveOutputModeBinding) {
-                ForEach(LiveOutputMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 150)
-            .allowsHitTesting(isConfigurationAvailable)
-            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
-            .accessibilityLabel(AppText.outputMode)
-        }
-    }
-
-    private var compactMenu: some View {
-        Menu {
-            Section(AppText.languages) {
-                if segmentedControlPresentation == .lockedSummary {
-                    Text(session.languageSummary)
-                } else {
-                    if !usesAutomaticSource {
-                        Picker(AppText.from, selection: sourceLanguageBinding) {
-                            ForEach(LanguageOption.supported) { language in
-                                Text(language.localizedTitle).tag(language)
-                            }
-                        }
-                    } else {
-                        Text(AppText.autoDetectInput)
-                    }
-                    if !session.isTranscribeOnlyMode {
-                        Picker(AppText.to, selection: targetLanguageBinding) {
-                            ForEach(LanguageOption.supported.filter { usesAutomaticSource || $0 != session.sourceLanguage }) { language in
-                                Text(language.localizedTitle).tag(language)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Section(AppText.output) {
-                if session.isUsingOpenAIRealtime {
-                    Picker(AppText.outputMode, selection: liveOutputModeBinding) {
-                        ForEach(LiveOutputMode.allCases) { mode in
-                            Label(mode.title, systemImage: mode.systemImage).tag(mode)
-                        }
-                    }
-                    .disabled(!isConfigurationAvailable)
-                } else if (session.isUsingNariSTT || session.isUsingGrokSTT) && segmentedControlPresentation != .lockedSummary {
-                    Picker(AppText.outputMode, selection: liveOutputModeBinding) {
-                        ForEach(LiveOutputMode.allCases) { mode in Text(mode.title).tag(mode) }
-                    }
-                } else if session.isUsingProviderTranscriptionMode {
-                    Text(sourceOnlyOutputTitle)
-                } else if segmentedControlPresentation == .lockedSummary {
-                    Text(session.liveOutputMode.title)
-                } else if usesAPIModeOutputControl {
-                    Button(AppText.liveTranslation) {
-                        guard isConfigurationAvailable else { return }
-                        session.useTranslationMode()
-                    }
-                } else {
-                    Picker(AppText.outputMode, selection: liveOutputModeBinding) {
-                        ForEach(LiveOutputMode.allCases) { mode in
-                            Text(mode.title).tag(mode)
-                        }
-                    }
-                }
-            }
-
-        } label: {
-            Label(AppText.moreControls, systemImage: "ellipsis")
-                .font(AirTranslateDesign.Typography.label)
-                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
-                .padding(.horizontal, AirTranslateDesign.Spacing.xs)
-                .frame(minHeight: 36)
-                .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .airFocusRing(cornerRadius: AirTranslateDesign.Radius.control)
-        .help(AppText.moreControls)
-        .accessibilityLabel(AppText.moreControls)
-    }
-
-    private var engineButton: some View {
-        ProcessingModePicker(session: session)
-    }
-
     private var consoleDivider: some View {
         Rectangle()
             .fill(AirTranslateDesign.Palette.hairline)
@@ -579,59 +441,6 @@ struct ConsoleBarView: View {
                 session.audioInputSource = source
             }
         )
-    }
-
-    private var liveOutputModeBinding: Binding<LiveOutputMode> {
-        Binding(
-            get: { session.liveOutputMode },
-            set: { mode in
-                guard isConfigurationAvailable else { return }
-                session.useLiveOutputMode(mode)
-            }
-        )
-    }
-
-    private var sourceLanguageBinding: Binding<LanguageOption> {
-        Binding(
-            get: { session.sourceLanguage },
-            set: { language in
-                guard isConfigurationAvailable else { return }
-                session.useQuickSourceLanguage(language)
-            }
-        )
-    }
-
-    private var targetLanguageBinding: Binding<LanguageOption> {
-        Binding(
-            get: { session.targetLanguage },
-            set: { language in
-                guard isConfigurationAvailable else { return }
-                session.useQuickTargetLanguage(language)
-            }
-        )
-    }
-
-    private var usesOpenAIAutoLanguageFlow: Bool {
-        ProcessingEngine.current(for: session) == .openAI && session.isUsingOpenAIRealtimeTranslation
-    }
-
-    private var usesAutomaticSource: Bool {
-        if session.isUsingQwenTranslation { return true }
-        if session.isUsingGrokSTT { return session.isGrokSourceAutoDetectionEnabled }
-        if session.isUsingNariSTT { return session.isNariSourceAutoDetectionEnabled }
-        return session.isAppleSourceAutoDetectionEnabled
-            || usesOpenAIAutoLanguageFlow
-            || session.isUsingGeminiTranscriptionMode
-            || session.isUsingMetaScribe
-    }
-
-    private var usesAPIModeOutputControl: Bool {
-        let engine = ProcessingEngine.current(for: session)
-        return engine != .apple && engine != .indexOnline
-    }
-
-    private var sourceOnlyOutputTitle: String {
-        session.isUsingGeminiTranscriptionMode || session.isUsingNariSTT || session.isUsingGrokSTT ? AppText.originalOnly : AppText.gptTranscriptionSourceOnly
     }
 
     private var selectedMicrophoneName: String {
