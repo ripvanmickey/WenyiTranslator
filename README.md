@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="#installation-and-setup"><img src="./docs/readme-banner-en.svg" alt="Wenyi — live transcription, bilingual captions, and local translation" width="100%"></a>
+  <a href="#installation-and-setup"><img src="./docs/readme-banner-en.svg" alt="Wenyi — Live Captions &amp; Translation for Mac" width="100%"></a>
 </p>
 
 <p align="center">

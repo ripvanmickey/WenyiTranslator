@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="416" viewBox="0 0 1280 416" role="img" xml:lang="en" aria-labelledby="title desc">
   <title id="title">Wenyi</title>
-  <desc id="desc">Wenyi’s double speech bubble mark. Live transcription, bilingual captions, and local translation on Apple Silicon.</desc>
+  <desc id="desc">Wenyi’s double speech bubble mark. Live Captions &amp; Translation for Mac.</desc>
   <defs>
     <linearGradient id="background" x2="1" y2="1" gradientUnits="objectBoundingBox">
       <stop stop-color="#17272e"/>
@@ -38,7 +38,7 @@
     <g font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, Arial, sans-serif">
       <text x="108" y="111" fill="#77dce4" font-size="18" font-weight="700" letter-spacing="3">MACOS · APPLE SILICON</text>
       <text x="67" y="242" fill="#f5f7f8" font-size="108" font-weight="700">Wenyi</text>
-      <text x="74" y="309" fill="#cadadf" font-size="24">Live transcription, bilingual captions, and local translation</text>
+      <text x="74" y="309" fill="#cadadf" font-size="26">Live Captions &amp; Translation for Mac</text>
     </g>
   </g>
 </svg>

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="416" viewBox="0 0 1280 416" role="img" xml:lang="ja" aria-labelledby="title desc">
-  <title id="title">文译 Wenyi</title>
-  <desc id="desc">文译の吹き出しロゴ。Apple Silicon でリアルタイム文字起こし、二言語字幕、ローカル翻訳。</desc>
+  <title id="title">文訳 Wenyi</title>
+  <desc id="desc">文訳の吹き出しロゴ。Apple Silicon でリアルタイム文字起こし、二言語字幕、ローカル翻訳。</desc>
   <defs>
     <linearGradient id="background" x2="1" y2="1" gradientUnits="objectBoundingBox">
       <stop stop-color="#17272e"/>
@@ -37,7 +37,7 @@
     <path d="M72 105h22" stroke="#38c2cf" stroke-width="3"/>
     <g font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, Arial, sans-serif">
       <text x="108" y="111" fill="#77dce4" font-size="18" font-weight="700" letter-spacing="3">MACOS · APPLE SILICON</text>
-      <text x="67" y="242" fill="#f5f7f8" font-size="108" font-weight="700">文译</text>
+      <text x="67" y="242" fill="#f5f7f8" font-family="Hiragino Sans, Yu Gothic, Noto Sans CJK JP, sans-serif" font-size="108" font-weight="700">文訳</text>
       <text x="309" y="242" fill="#38c2cf" font-size="66" font-weight="600">Wenyi</text>
       <text x="74" y="309" fill="#cadadf" font-family="Hiragino Sans, Yu Gothic, Noto Sans CJK JP, sans-serif" font-size="26">リアルタイム文字起こし、二言語字幕、ローカル翻訳</text>
     </g>
