@@ -25,40 +25,45 @@ struct WhisperRecognitionSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsControlRow(title: AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), detail: AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。"), systemImage: "waveform", controlBelowLabel: true) {
-                HStack(spacing: 10) {
-                    Picker(AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), selection: $session.localRecognitionEngine) {
-                        Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
-                        Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
-                        if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
-                        Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")
-                    }.pickerStyle(.menu).labelsHidden().fixedSize(horizontal: true, vertical: false).disabled(locked)
-                    if usesManagedModel {
-                        Button {
-                            showsModelManagement = true
-                        } label: {
-                            Image(systemName: "gearshape")
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        Picker(AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), selection: $session.localRecognitionEngine) {
+                            Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
+                            Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
+                            if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
+                            Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")
+                        }.pickerStyle(.menu).labelsHidden().fixedSize(horizontal: true, vertical: false).disabled(locked)
+                        if usesManagedModel {
+                            Button {
+                                showsModelManagement = true
+                            } label: {
+                                Image(systemName: "gearshape")
+                            }
+                            .help(modelManagementTitle)
+                            .accessibilityLabel(modelManagementTitle)
+                            .accessibilityIdentifier("manageSpeechRecognitionModel")
                         }
-                        .help(modelManagementTitle)
-                        .accessibilityLabel(modelManagementTitle)
-                        .accessibilityIdentifier("manageSpeechRecognitionModel")
+                    }
+                    if usesManagedModel {
+                        if session.localRecognitionEngine == "qwen" {
+                            Picker(AppText.ui("Qwen ASR 模型", "Qwen ASR Model", "Qwen ASR モデル"), selection: $session.qwenASRModel) {
+                                Text(AppText.ui("1.7B · 英语试用", "1.7B · English Trial", "1.7B · 英語の試用")).tag("Qwen/Qwen3-ASR-1.7B")
+                                Text(AppText.ui("0.6B · 轻量试用", "0.6B · Lightweight Trial", "0.6B · 軽量版の試用")).tag("Qwen/Qwen3-ASR-0.6B")
+                            }.disabled(locked)
+                        }
+                        Text(selectedManagedModel.detail)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        managedModelStatus
+                        if manager.isBusy {
+                            if let value = manager.progress { ProgressView(value: value) }
+                            else { ProgressView().controlSize(.small) }
+                            Button(AppText.ui("取消操作", "Cancel Operation", "処理をキャンセル")) { manager.cancel() }
+                        }
+                        if !manager.message.isEmpty { Text(manager.message).font(.caption).textSelection(.enabled) }
                     }
                 }
-            }
-            if usesManagedModel {
-                if session.localRecognitionEngine == "qwen" {
-                    Picker(AppText.ui("Qwen ASR 模型", "Qwen ASR Model", "Qwen ASR モデル"), selection: $session.qwenASRModel) {
-                        Text(AppText.ui("1.7B · 英语试用", "1.7B · English Trial", "1.7B · 英語の試用")).tag("Qwen/Qwen3-ASR-1.7B")
-                        Text(AppText.ui("0.6B · 轻量试用", "0.6B · Lightweight Trial", "0.6B · 軽量版の試用")).tag("Qwen/Qwen3-ASR-0.6B")
-                    }.disabled(locked)
-                }
-                Text(selectedManagedModel.detail).font(.callout).foregroundStyle(.secondary)
-                managedModelStatus
-                if manager.isBusy {
-                    if let value = manager.progress { ProgressView(value: value) }
-                    else { ProgressView().controlSize(.small) }
-                    Button(AppText.ui("取消操作", "Cancel Operation", "処理をキャンセル")) { manager.cancel() }
-                }
-                if !manager.message.isEmpty { Text(manager.message).font(.caption).textSelection(.enabled) }
             }
             if session.whisperRecognitionEnabled && !session.nemotronRecognitionEnabled {
                 HStack {
