@@ -117,9 +117,14 @@ struct WhisperRecognitionSettingsView: View {
                     .accessibilityLabel(importModelTitle)
                     .accessibilityIdentifier("importManagedSpeechModel")
                 }
-                Text(selectedManagedModel.title)
-                    .font(.headline)
-                managedModelStatus
+                HStack(alignment: .firstTextBaseline, spacing: 16) {
+                    Text(selectedManagedModel.title)
+                        .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    managedModelStatus
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
             Text(AppText.ui("首次下载需要联网及磁盘空间。识别在本机进行，音频留在这台 Mac。", "The initial download needs internet access and disk space. Recognition runs on this Mac, where the audio stays.", "初回のダウンロードにはインターネット接続と空き容量が必要です。音声はこの Mac 内で認識・処理されます。"))
                 .foregroundStyle(.secondary)
@@ -164,10 +169,17 @@ struct WhisperRecognitionSettingsView: View {
         .disabled(locked)
 
         if isInstalled {
-            Button(AppText.ui("删除模型", "Delete Model", "モデルを削除"), role: .destructive) {
+            let deleteTitle = AppText.ui("删除模型", "Delete Model", "モデルを削除")
+            Button(role: .destructive) {
                 confirmsDeletion = true
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(AirTranslateDesign.Palette.danger)
             }
+            .tint(AirTranslateDesign.Palette.danger)
             .disabled(locked)
+            .help(deleteTitle)
+            .accessibilityLabel(deleteTitle)
 
             Button(AppText.ui("打开模型文件夹", "Open Model Folder", "モデルフォルダを開く")) {
                 NSWorkspace.shared.open(ManagedASRRuntime.data)
