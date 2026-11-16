@@ -47,6 +47,7 @@ struct SettingsView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .background(SettingsWindowTitle(title: AppText.settings))
         .tint(AirTranslateDesign.Palette.accent)
         .background(AirTranslateDesign.Palette.canvas)
         .frame(
@@ -661,6 +662,7 @@ struct SettingsView: View {
         return VStack(alignment: .leading, spacing: 24) {
             SettingsGroup(title: SettingsCopy.versionInformation) {
                 versionInfoRow(SettingsCopy.version, value: currentVersion.version, systemImage: "tag", identifier: "appVersionNumber")
+                Divider().padding(.leading, settingsLabelIndent)
                 versionInfoRow(SettingsCopy.buildNumber, value: currentVersion.build, systemImage: "hammer", identifier: "appBuildNumber")
             }
 
@@ -975,6 +977,41 @@ struct SettingsView: View {
 
         selectedCategory.wrappedValue = category
         session.requestedSettingsCategoryID = nil
+    }
+}
+
+private struct SettingsWindowTitle: NSViewRepresentable {
+    let title: String
+
+    func makeNSView(context: Context) -> TitleView {
+        let view = TitleView()
+        view.title = title
+        return view
+    }
+
+    func updateNSView(_ view: TitleView, context: Context) {
+        view.title = title
+    }
+
+    final class TitleView: NSView {
+        var title = "" {
+            didSet {
+                if title != oldValue { applyTitle() }
+            }
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            applyTitle()
+        }
+
+        private func applyTitle() {
+            guard window != nil else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window = self.window else { return }
+                window.title = self.title
+            }
+        }
     }
 }
 

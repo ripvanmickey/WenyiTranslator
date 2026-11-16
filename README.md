@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1226)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1227)
 </p>
 
 <p align="center">
