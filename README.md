@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1214)
+  <strong>Apple Silicon</strong> · macOS 14+ · 1.16.0 (build 1215)
 </p>
 
 <p align="center">
@@ -23,6 +23,12 @@
 </p>
 
 Wenyi turns Mac system audio or microphone input into live captions. Display the original and translated text together while watching a video, listening to a podcast, or joining a meeting, then save the transcript for editing.
+
+## App language
+
+Choose **English**, **日本語**, **简体中文**, or **System** under **Settings → General → App Language**, then quit and reopen Wenyi. The source and target languages for captions are set separately.
+
+![Wenyi settings in English, showing the language picker and Index Online Translation](./docs/assets/wenyi-settings-en.jpg)
 
 ## Live captions and local translation
 
@@ -59,6 +65,10 @@ Build 1211 stops sending adjacent source fragments with Index-Translate Japanese
 In build 1213, Index online translation appears alongside Local Mode under Settings → General → Processing Mode. Speech recognition stays on the Mac, and only the current caption text is sent to Bilibili for translation.
 
 Build 1214 sends ordinary online captions as a single request and retries interrupted or truncated streams and Japanese source echoes once.
+
+## Acknowledgments
+
+Thanks to Bilibili’s [Index-Translate team](https://github.com/bilibili/Index-Translate#inference) for making its translation API available for free. In Index Online Translation mode, Wenyi recognizes speech on your Mac and sends caption text to Bilibili for translation. Manage speech recognition models and VAD in Local Mode.
 
 ## Saved transcripts
 

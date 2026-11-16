@@ -19,17 +19,17 @@ struct FloatingCaptionSettingsView: View {
                     }
                     .disabled(session.isTranscribeOnlyMode)
                     sizeControl
-                    Picker("窗口高度参考", selection: $session.floatingCaptionLineCount) {
+                    Picker(AppText.ui("窗口高度参考", "Window Height", "ウィンドウの高さ"), selection: $session.floatingCaptionLineCount) {
                         ForEach(FloatingCaptionLineCount.allCases) { Text($0.title).tag($0) }
                     }
-                    Text("新译文出现前保留上一段译文。长段落可在悬浮窗口内滚动查看。").font(.caption).foregroundStyle(.secondary)
+                    Text(AppText.ui("新译文出现前保留上一段译文。长段落可在悬浮窗口内滚动查看。", "The previous translation stays visible until the next one arrives. Scroll in the floating window to read long paragraphs.", "次の訳文が表示されるまで前の訳文を残します。長い段落はフローティングウィンドウ内でスクロールできます。")).font(.caption).foregroundStyle(.secondary)
                     Picker(AppText.captionAlignment, selection: $session.floatingCaptionTextAlignment) {
                         ForEach(FloatingCaptionTextAlignment.allCases) { Text($0.title).tag($0) }
                     }
                     if session.floatingCaptionDisplayMode == .originalAndTranslation {
                         Toggle(CaptionStyleCopy.translationFirst, isOn: $session.floatingCaptionStyle.translationFirst)
                     }
-                    Text(session.isUsingLocalTranslation ? "本地原文和译文会先显示可用文字，再逐步更新。确认时立即显示完整结果。" : "首个可用结果先显示，确认后更新；长句每隔至少 0.5 秒追加内容。")
+                    Text(session.isUsingLocalTranslation ? AppText.ui("本地原文和译文会先显示可用文字，再逐步更新。确认时立即显示完整结果。", "Local captions appear as soon as text is available and show the full result once confirmed.", "ローカル字幕は利用できる文字から表示し、確定時に全文を表示します。") : AppText.ui("首个可用结果先显示，确认后更新；长句每隔至少 0.5 秒追加内容。", "Show the first available result and update it when confirmed. Long sentences update at least 0.5 seconds apart.", "最初に取得できた結果を表示し、確定時に更新します。長文の追加更新は 0.5 秒以上の間隔で行われます。"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(8)

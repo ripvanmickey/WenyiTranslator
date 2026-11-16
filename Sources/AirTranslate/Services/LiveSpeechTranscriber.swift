@@ -13,7 +13,8 @@ enum LiveSpeechTranscriberError: LocalizedError, Equatable, Sendable {
         case .audioInputConversionFailed:
             AppText.localized(
                 english: "Apple Speech stopped because the audio format could not be converted. Restart transcription to continue.",
-                korean: "오디오 형식을 변환할 수 없어 Apple 전사를 중지했습니다. 전사를 다시 시작해 주세요.", chineseSimplified: "Apple Speech 无法转换音频格式，已停止识别。请重新开始转写。"
+                korean: "오디오 형식을 변환할 수 없어 Apple 전사를 중지했습니다. 전사를 다시 시작해 주세요.",
+                japanese: "音声形式を変換できなかったため Apple Speech が停止しました。文字起こしを再開してください。", chineseSimplified: "Apple Speech 无法转换音频格式，已停止识别。请重新开始转写。"
             )
         }
     }

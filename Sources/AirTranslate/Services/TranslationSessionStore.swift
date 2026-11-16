@@ -1039,7 +1039,7 @@ final class TranslationSessionStore {
         let quality = isUsingAppleTextTranslation && appleTranslationOptions.effectiveQuality == .highQuality
             ? " · " + (isUsingAppleRealtimeFallback ? AppleTranslationCopy.fallbackTitle : AppleTranslationCopy.title(for: .highQuality)) : ""
         if isUsingLocalTranslation {
-            let provider = localTranslation.usesOnlineIndex ? "Index 在线翻译" : "LM Studio"
+            let provider = localTranslation.usesOnlineIndex ? AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳") : "LM Studio"
             return "\(recognitionEngineTitle) + \(provider) · \(localTranslation.activeModelID)"
         }
         if whisperRecognitionEnabled && isTranscribeOnlyMode { return recognitionEngineTitle }
@@ -1182,7 +1182,7 @@ final class TranslationSessionStore {
             persistSelectedSettings()
         }
     }
-    var recognitionEngineTitle: String { graniteRecognitionEnabled && whisperRecognitionEnabled ? "Granite Speech 5.0 · 2B（分段）" : multitalkerRecognitionEnabled && whisperRecognitionEnabled ? "Multitalker Parakeet · 0.6B（段尾校正）" : !whisperRecognitionEnabled ? "Apple Speech" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "Nemotron 3.5 · 0.6B" : "Qwen3-ASR · " + (qwenASRModel.contains("1.7B") ? "1.7B" : "0.6B")) : "WhisperKit · \(whisperModel)") }
+    var recognitionEngineTitle: String { graniteRecognitionEnabled && whisperRecognitionEnabled ? AppText.ui("Granite Speech 5.0 · 2B（分段）", "Granite Speech 5.0 · 2B (Segmented)", "Granite Speech 5.0 · 2B（区間認識）") : multitalkerRecognitionEnabled && whisperRecognitionEnabled ? AppText.ui("Multitalker Parakeet · 0.6B（段尾校正）", "Multitalker Parakeet · 0.6B (Segment-End Correction)", "Multitalker Parakeet · 0.6B（区間確定時に補正）") : !whisperRecognitionEnabled ? "Apple Speech" : (nemotronRecognitionEnabled ? (qwenASRModel.isEmpty ? "Nemotron 3.5 · 0.6B" : "Qwen3-ASR · " + (qwenASRModel.contains("1.7B") ? "1.7B" : "0.6B")) : "WhisperKit · \(whisperModel)") }
     var whisperModelsDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("AirTranslate/WhisperKit", isDirectory: true)
@@ -1603,7 +1603,7 @@ final class TranslationSessionStore {
 
         if whisperRecognitionEnabled && usesAppleSpeechTranscriber(for: currentStartConfiguration()) {
             if multitalkerRecognitionEnabled && !sourceLanguage.id.lowercased().hasPrefix("en") {
-                statusMessage = "Multitalker Parakeet 仅支持英语，请切换源语言或识别引擎。"
+                statusMessage = AppText.ui("Multitalker Parakeet 仅支持英语，请切换源语言或识别引擎。", "Multitalker Parakeet supports English only. Change the source language or engine.", "Multitalker Parakeet は英語のみ対応しています。原文の言語またはエンジンを変更してください。")
                 return
             }
             if nemotronRecognitionEnabled {
@@ -1614,12 +1614,12 @@ final class TranslationSessionStore {
                 }
                 catch { statusMessage = error.localizedDescription; return }
             }
-            guard !isPreparingWhisperModel, !ASRModelManager.shared.isBusy else { statusMessage = "请等待模型操作完成，或先取消下载。"; return }
+            guard !isPreparingWhisperModel, !ASRModelManager.shared.isBusy else { statusMessage = AppText.ui("请等待模型操作完成，或先取消下载。", "Wait for the model operation to finish or cancel the download.", "モデルの処理が終わるまで待つか、ダウンロードをキャンセルしてください。"); return }
             guard isUsingLocalTranslation || isTranscribeOnlyMode else {
-                statusMessage = "本地识别引擎请搭配本地模型翻译，或选择仅转写。"; return
+                statusMessage = AppText.ui("使用本地识别时，请选择本地模型翻译、Index 在线翻译或仅转写。", "Choose local model translation, Index online translation, or transcription only with this recognition engine.", "この認識エンジンを使用する場合は、ローカルモデル翻訳、Index オンライン翻訳、または文字起こしのみを選んでください。"); return
             }
             guard nemotronRecognitionEnabled || !whisperModelFolder.isEmpty else {
-                statusMessage = "请先在 General 的识别引擎设置中下载或选择 WhisperKit 模型。"; return
+                statusMessage = AppText.ui("请先在 General 的识别引擎设置中下载或选择 WhisperKit 模型。", "Download or choose a WhisperKit model in Settings → General.", "「設定 → 一般」で WhisperKit モデルをダウンロードするか選択してください。"); return
             }
         }
         if isUsingLocalTranslation {
@@ -1652,7 +1652,7 @@ final class TranslationSessionStore {
         isStarting = true
         statusMessage = configuration.audioInputSource == .microphone
             ? AppText.checkingMicrophonePermission
-            : (configuration.audioOnlySystemCapture ? "准备纯音频采集…" : AppText.checkingScreenPermission)
+            : (configuration.audioOnlySystemCapture ? AppText.ui("准备纯音频采集…", "Preparing audio-only capture…", "音声のみの収録を準備中…") : AppText.checkingScreenPermission)
 
         captureStartTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -3216,7 +3216,7 @@ final class TranslationSessionStore {
     func saveSelectedTranscriptEdits() {
         guard let selectedTranscript = selectedSavedTranscript else { return }
         guard !isRunning, !isStarting else {
-            savedTitleMessage = "请先停止监听，再保存记录和文件名。"; return
+            savedTitleMessage = AppText.ui("请先停止监听，再保存记录和文件名。", "Stop listening before saving the transcript and filename.", "記録とファイル名を保存する前に、聞き取りを停止してください。"); return
         }
         cancelSavedTitleGeneration()
         cancelTranscriptCleanup()
@@ -3247,7 +3247,7 @@ final class TranslationSessionStore {
             }
             loadSavedTranscripts()
             selectSavedTranscript(selectedID)
-        } catch { savedTitleMessage = "保存文件名失败：" + error.localizedDescription }
+        } catch { savedTitleMessage = AppText.ui("保存文件名失败：", "Could not save the filename: ", "ファイル名を保存できませんでした：") + error.localizedDescription }
     }
 
     func revealSelectedTranscriptInFinder() {
@@ -3284,7 +3284,7 @@ final class TranslationSessionStore {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let configuration = savedRecordLocalTranslation
         do { try configuration.validateModel(); _ = try configuration.validatedBaseURL() }
-        catch { savedTitleMessage = "请先在通用设置中配置本地翻译模型，再生成标题。"; return }
+        catch { savedTitleMessage = AppText.ui("请先在通用设置中配置本地翻译模型，再生成标题。", "Configure a local model in General before generating a title.", "タイトルを生成する前に、「一般」でローカルモデルを設定してください。"); return }
         let requestID = UUID(); savedTitleRequestID = requestID
         isGeneratingSavedTitle = true; savedTitleMessage = nil
         savedTitleTask = Task { @MainActor [weak self] in
@@ -3296,12 +3296,12 @@ final class TranslationSessionStore {
                 guard self.savedTitleRequestID == requestID, self.selectedSavedTranscriptID == record.id else { return }
                 guard self.savedDraftTitle == initialTitle, self.savedDraftSourceText == original,
                       self.savedDraftTranslationText == translation else {
-                    self.savedTitleMessage = "草稿已修改，未覆盖当前标题。需要时可重新生成。"; return
+                    self.savedTitleMessage = AppText.ui("草稿已修改，未覆盖当前标题。需要时可重新生成。", "The draft changed, so the current title was kept. You can generate a new title.", "下書きが変更されたため、現在のタイトルを保持しました。必要なら再生成できます。"); return
                 }
                 self.savedDraftTitle = SavedTranscriptTitleStore.normalized(title)
-                self.savedTitleMessage = "标题已生成，可修改后点击「保存修改」。"
+                self.savedTitleMessage = AppText.ui("标题已生成，可修改后点击「保存修改」。", "Title generated. Edit it if needed and click Save Edits.", "タイトルを生成しました。必要に応じて編集し、「変更を保存」を押してください。")
             } catch is CancellationError { }
-            catch { if self.savedTitleRequestID == requestID { self.savedTitleMessage = "标题生成失败：" + error.localizedDescription } }
+            catch { if self.savedTitleRequestID == requestID { self.savedTitleMessage = AppText.ui("标题生成失败：", "Title generation failed: ", "タイトルの生成に失敗しました：") + error.localizedDescription } }
         }
     }
 
@@ -3318,7 +3318,7 @@ final class TranslationSessionStore {
         guard !(source + translation).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let configuration = savedRecordLocalTranslation
         do { try configuration.validateModel(); _ = try configuration.validatedBaseURL() }
-        catch { statusMessage = "请先在通用设置中配置本地翻译模型，再整理正文。"; return }
+        catch { statusMessage = AppText.ui("请先在通用设置中配置本地翻译模型，再整理正文。", "Configure a local model in General before formatting the transcript.", "記録を整形する前に、「一般」でローカルモデルを設定してください。"); return }
         let requestID = UUID(); transcriptCleanupRequestID = requestID
         isLocalTranscriptCleanupRunning = true
         statusMessage = AppText.localModelCleanupRunning
@@ -3333,7 +3333,7 @@ final class TranslationSessionStore {
                 try Task.checkCancellation()
                 guard self.transcriptCleanupRequestID == requestID, self.selectedSavedTranscriptID == record.id else { return }
                 guard self.savedDraftSourceText == source, self.savedDraftTranslationText == translation else {
-                    self.statusMessage = "草稿已修改，未覆盖当前正文。需要时可重新整理。"; return
+                    self.statusMessage = AppText.ui("草稿已修改，未覆盖当前正文。需要时可重新整理。", "The draft changed, so its text was kept. You can format it again.", "下書きが変更されたため、現在の本文を保持しました。必要なら再度整形できます。"); return
                 }
                 self.savedDraftSourceText = cleanedSource
                 self.savedDraftTranslationText = cleanedTranslation
@@ -3615,7 +3615,7 @@ final class TranslationSessionStore {
         let candidate = NemotronSpeechTranscriber(qwenModel: configuration.qwenASRModel, multitalker: configuration.multitalkerRecognitionEnabled, granite: configuration.graniteRecognitionEnabled, speechActivity: configuration.speechActivity)
         let language = configuration.sourceLanguage
         do {
-            statusMessage = configuration.graniteRecognitionEnabled ? "正在加载 Granite Speech 5.0…" : configuration.multitalkerRecognitionEnabled ? "正在加载 Multitalker Parakeet…" : configuration.qwenASRModel.isEmpty ? "正在加载 Nemotron 本地识别模型…" : "正在加载 Qwen3-ASR 本地识别模型…"
+            statusMessage = configuration.graniteRecognitionEnabled ? AppText.ui("正在加载 Granite Speech 5.0…", "Loading Granite Speech 5.0…", "Granite Speech 5.0 を読み込み中…") : configuration.multitalkerRecognitionEnabled ? AppText.ui("正在加载 Multitalker Parakeet…", "Loading Multitalker Parakeet…", "Multitalker Parakeet を読み込み中…") : configuration.qwenASRModel.isEmpty ? AppText.ui("正在加载 Nemotron 本地识别模型…", "Loading the local Nemotron model…", "ローカルの Nemotron モデルを読み込み中…") : AppText.ui("正在加载 Qwen3-ASR 本地识别模型…", "Loading the local Qwen3-ASR model…", "ローカルの Qwen3-ASR モデルを読み込み中…")
             try await candidate.start(folder: configuration.nemotronRuntimeFolder, language: language,
                 update: { [weak self, weak candidate] text, metadata in
                     guard let self, let candidate, candidate === self.whisperTranscriber,
@@ -3625,7 +3625,7 @@ final class TranslationSessionStore {
                     Task { @MainActor in
                         guard let self, let candidate, candidate === self.whisperTranscriber,
                               self.pipelineLifecycle.acceptsSample(generation: generation), self.isRunning else { return }
-                        self.showToast("本地识别音频队列已恢复，较早的部分音频可能遗漏。")
+                        self.showToast(AppText.ui("本地识别音频队列已恢复，较早的部分音频可能遗漏。", "The recognition queue recovered. Some earlier audio may have been missed.", "認識キューが復旧しました。以前の音声の一部が欠落している可能性があります。"))
                     }
                 }, failure: { [weak self, weak candidate] error in
                     Task { @MainActor in
@@ -3644,7 +3644,7 @@ final class TranslationSessionStore {
         let candidate = WhisperKitSpeechTranscriber()
         let language = configuration.sourceLanguage
         do {
-            statusMessage = "正在加载 WhisperKit 模型（首次可能需要较长时间）…"
+            statusMessage = AppText.ui("正在加载 WhisperKit 模型（首次可能需要较长时间）…", "Loading WhisperKit. The first load may take a while…", "WhisperKit を読み込み中です。初回は時間がかかる場合があります…")
             try await candidate.start(folder: configuration.whisperModelFolder, base: whisperModelsDirectory,
                 model: whisperModel, language: language, update: { [weak self, weak candidate] text, metadata in
                         guard let self, let candidate, candidate === self.whisperTranscriber,
@@ -3655,7 +3655,7 @@ final class TranslationSessionStore {
                     Task { @MainActor in
                         guard let self, let candidate, candidate === self.whisperTranscriber,
                               self.pipelineLifecycle.acceptsSample(generation: generation), self.isRunning, !self.isPaused else { return }
-                        self.showToast("已跳过较早的待确认音频，继续实时识别；部分内容可能遗漏。")
+                        self.showToast(AppText.ui("已跳过较早的待确认音频，继续实时识别；部分内容可能遗漏。", "Skipped older pending audio to resume live recognition. Some content may be missing.", "以前の未確定音声をスキップしてリアルタイム認識を再開しました。一部の内容が欠落している可能性があります。"))
                     }
                 }, failure: { [weak self, weak candidate] error in
                     Task { @MainActor in

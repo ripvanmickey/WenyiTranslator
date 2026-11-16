@@ -273,7 +273,7 @@ struct TranscriptLibraryView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(AppText.title).font(.headline)
                     HStack(spacing: 12) {
-                        TextField("输入记录标题…", text: $session.savedDraftTitle)
+                        TextField(AppText.ui("输入记录标题…", "Enter a transcript title…", "記録のタイトルを入力…"), text: $session.savedDraftTitle)
                             .textFieldStyle(.roundedBorder)
                             .controlSize(.large)
                             .accessibilityLabel(AppText.title)
@@ -281,19 +281,19 @@ struct TranscriptLibraryView: View {
                             session.generateSavedTranscriptTitle()
                         } label: {
                             if session.isGeneratingSavedTitle { ProgressView().controlSize(.small) }
-                            else { Label("AI 生成标题", systemImage: "sparkles") }
+                            else { Label(AppText.ui("AI 生成标题", "Generate Title with AI", "AI でタイトルを生成"), systemImage: "sparkles") }
                         }
                         .disabled(session.isGeneratingSavedTitle || session.isRunning || session.isStarting)
-                        .help("使用已配置的本地模型生成标题，停止监听后可用。")
+                        .help(AppText.ui("使用已配置的本地模型生成标题，停止监听后可用。", "Use the configured local model to generate a title after stopping capture.", "聞き取りを停止した後、設定済みのローカルモデルでタイトルを生成できます。"))
                     }
-                    Text("保存修改时同步更新 TXT 文件名；原文和译文保留配对，重名时自动编号。")
+                    Text(AppText.ui("保存修改时同步更新 TXT 文件名；原文和译文保留配对，重名时自动编号。", "Saving also renames the TXT files. Source and translation stay paired, and duplicate names are numbered.", "保存時に TXT ファイル名も更新します。原文と訳文の対応を保ち、同名の場合は番号を付けます。"))
                         .font(.caption).foregroundStyle(.secondary)
                     HStack(spacing: 8) {
                         Text(selectedTranscript.sourceFileName)
                             .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                             .help(selectedTranscript.sourceFileName)
                         Button { session.revealSelectedTranscriptInFinder() } label: {
-                            Label("在访达中显示", systemImage: "folder")
+                            Label(AppText.ui("在访达中显示", "Show in Finder", "Finder に表示"), systemImage: "folder")
                         }
                     }
                     if let message = session.savedTitleMessage {

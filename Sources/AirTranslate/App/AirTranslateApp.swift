@@ -14,6 +14,7 @@ struct AirTranslateApp: App {
     var body: some Scene {
         WindowGroup("文译", id: AirTranslateWindowID.main) {
             ContentView(session: session)
+                .environment(\.locale, AppText.interfaceLocale)
                 .frame(
                     minWidth: AirTranslateDesign.mainWindowMinimumWidth,
                     minHeight: AirTranslateDesign.mainWindowMinimumHeight
@@ -29,11 +30,13 @@ struct AirTranslateApp: App {
 
         WindowGroup(AppText.floatingCaptionModeChoiceTitle, id: AirTranslateWindowID.floatingCaptionModeChoice) {
             FloatingCaptionModeChoiceView(session: session)
+                .environment(\.locale, AppText.interfaceLocale)
         }
         .windowResizability(.contentSize)
 
         Settings {
             SettingsView(session: session)
+                .environment(\.locale, AppText.interfaceLocale)
                 .tint(AirTranslateDesign.Palette.accent)
         }
     }

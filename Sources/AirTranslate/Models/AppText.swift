@@ -2,29 +2,11 @@ import Foundation
 import Security
 
 enum AppText {
-    private enum InterfaceLanguage {
-        case english
-        case korean
-        case japanese
-        case chineseSimplified
-    }
+    static var launchLanguage: AppInterfaceLanguage { InterfaceLocalization.launchLanguage }
+    static var interfaceLocale: Locale { InterfaceLocalization.interfaceLocale }
 
-    private static var interfaceLanguage: InterfaceLanguage {
-        if ProcessInfo.processInfo.environment["AIRTRANSLATE_PRODUCT_HUNT_SCREENSHOTS"] == "1" {
-            return .english
-        }
-
-        let languageCode = Locale.preferredLanguages.first?.lowercased() ?? ""
-        if languageCode.hasPrefix("ko") {
-            return .korean
-        }
-        if languageCode.hasPrefix("ja") {
-            return .japanese
-        }
-        if languageCode.hasPrefix("zh") {
-            return .chineseSimplified
-        }
-        return .english
+    static func ui(_ chinese: String, _ english: String, _ japanese: String) -> String {
+        InterfaceLocalization.ui(chinese, english, japanese)
     }
 
     static func localized(english: String, korean: String, chineseSimplified: String? = nil) -> String {
@@ -42,7 +24,7 @@ enum AppText {
         japanese: String,
         chineseSimplified: String
     ) -> String {
-        switch interfaceLanguage {
+        switch InterfaceLocalization.interfaceLanguage {
         case .english:
             english
         case .korean:
@@ -285,18 +267,21 @@ enum AppText {
     static let download = localized(english: "Download", korean: "다운로드", japanese: "ダウンロード", chineseSimplified: "下载")
     static let downloadModelAssets = localized(
         english: "Download model assets",
-        korean: "모델 자산 다운로드", chineseSimplified: "下载模型资源"
+        korean: "모델 자산 다운로드",
+        japanese: "モデルリソースをダウンロード", chineseSimplified: "下载模型资源"
     )
-    static let requiredAssets = localized(english: "Required Assets", korean: "필요 자산", chineseSimplified: "所需资源")
+    static let requiredAssets = localized(english: "Required Assets", korean: "필요 자산", japanese: "必要なリソース", chineseSimplified: "所需资源")
     static let speechLanguagePack = localized(
         english: "Speech Recognition Pack",
-        korean: "음성 인식 언어팩", chineseSimplified: "语音识别资源包"
+        korean: "음성 인식 언어팩",
+        japanese: "音声認識パック", chineseSimplified: "语音识别资源包"
     )
     static let translationLanguagePack = localized(
         english: "Translation Language Pack",
-        korean: "번역 언어팩", chineseSimplified: "翻译语言包"
+        korean: "번역 언어팩",
+        japanese: "翻訳言語パック", chineseSimplified: "翻译语言包"
     )
-    static let openAIAPIKey = localized(english: "OpenAI API Key", korean: "OpenAI API 키", chineseSimplified: "OpenAI API 密钥")
+    static let openAIAPIKey = localized(english: "OpenAI API Key", korean: "OpenAI API 키", japanese: "OpenAI API キー", chineseSimplified: "OpenAI API 密钥")
     static let openAIAPIKeyDescription = localized(
         english: "Enter your API key in the app. 文译 stores it in macOS Keychain and uses it only for OpenAI audio translation and transcription.",
         korean: "앱에서 API 키를 입력하세요. 文译는 키를 macOS Keychain에 저장하고 OpenAI 음성 번역과 원문 전사에만 사용합니다.",
@@ -349,11 +334,13 @@ enum AppText {
     )
     static let openAIAPIKeySaved = localized(
         english: "OpenAI API key saved in Keychain.",
-        korean: "OpenAI API 키가 Keychain에 저장되었습니다.", chineseSimplified: "OpenAI API 密钥已保存到钥匙串。"
+        korean: "OpenAI API 키가 Keychain에 저장되었습니다.",
+        japanese: "OpenAI API キーをキーチェーンに保存しました。", chineseSimplified: "OpenAI API 密钥已保存到钥匙串。"
     )
     static let openAIAPIKeyRemoved = localized(
         english: "OpenAI API key removed.",
-        korean: "OpenAI API 키가 삭제되었습니다.", chineseSimplified: "OpenAI API 密钥已删除。"
+        korean: "OpenAI API 키가 삭제되었습니다.",
+        japanese: "OpenAI API キーを削除しました。", chineseSimplified: "OpenAI API 密钥已删除。"
     )
     static let openAIAPIKeyConfigured = localized(
         english: "API key saved",
@@ -369,9 +356,10 @@ enum AppText {
     )
     static let openAIAPIKeyMissing = localized(
         english: "Add an OpenAI API key in Settings before using OpenAI Translation.",
-        korean: "OpenAI 번역을 사용하려면 설정에서 OpenAI API 키를 먼저 입력하세요.", chineseSimplified: "使用 OpenAI 翻译前，请先在设置中添加 OpenAI API 密钥。"
+        korean: "OpenAI 번역을 사용하려면 설정에서 OpenAI API 키를 먼저 입력하세요.",
+        japanese: "OpenAI 翻訳を使うには、設定で API キーを追加してください。", chineseSimplified: "使用 OpenAI 翻译前，请先在设置中添加 OpenAI API 密钥。"
     )
-    static let geminiAPIKey = localized(english: "Gemini API Key", korean: "Gemini API 키", chineseSimplified: "Gemini API 密钥")
+    static let geminiAPIKey = localized(english: "Gemini API Key", korean: "Gemini API 키", japanese: "Gemini API キー", chineseSimplified: "Gemini API 密钥")
     static let geminiAPIKeyDescription = localized(
         english: "文译 stores this key in macOS Keychain and uses it for Gemini Live or selected Gemini speech output.",
         korean: "文译는 이 키를 macOS Keychain에 저장하고 Gemini Live 또는 선택한 Gemini 음성 출력에 사용합니다.",
@@ -380,11 +368,13 @@ enum AppText {
     )
     static let geminiAPIKeySaved = localized(
         english: "Gemini API key saved in Keychain.",
-        korean: "Gemini API 키가 Keychain에 저장되었습니다.", chineseSimplified: "Gemini API 密钥已保存到钥匙串。"
+        korean: "Gemini API 키가 Keychain에 저장되었습니다.",
+        japanese: "Gemini API キーをキーチェーンに保存しました。", chineseSimplified: "Gemini API 密钥已保存到钥匙串。"
     )
     static let geminiAPIKeyRemoved = localized(
         english: "Gemini API key removed.",
-        korean: "Gemini API 키가 삭제되었습니다.", chineseSimplified: "Gemini API 密钥已删除。"
+        korean: "Gemini API 키가 삭제되었습니다.",
+        japanese: "Gemini API キーを削除しました。", chineseSimplified: "Gemini API 密钥已删除。"
     )
     static let geminiAPIKeyConfigured = localized(
         english: "Gemini API key saved",
@@ -466,16 +456,19 @@ enum AppText {
     )
     static let startBlockedLocalAssetsChecking = localized(
         english: "Still checking local language assets. Try again in a moment.",
-        korean: "로컬 언어 자산을 아직 확인하는 중입니다. 잠시 후 다시 시작하세요.", chineseSimplified: "正在检查本地语言资源，请稍后重试。"
+        korean: "로컬 언어 자산을 아직 확인하는 중입니다. 잠시 후 다시 시작하세요.",
+        japanese: "ローカル言語リソースを確認中です。しばらくしてからお試しください。", chineseSimplified: "正在检查本地语言资源，请稍后重试。"
     )
     static let startBlockedLocalAssetsDownloadRequired = localized(
         english: "Download the required language assets before starting.",
-        korean: "시작하기 전에 필요한 언어 자산을 다운로드하세요.", chineseSimplified: "请先下载所需语言资源，再开始监听。"
+        korean: "시작하기 전에 필요한 언어 자산을 다운로드하세요.",
+        japanese: "開始する前に必要な言語リソースをダウンロードしてください。", chineseSimplified: "请先下载所需语言资源，再开始监听。"
     )
     static func startBlockedLocalAssetsUnavailable(_ detail: String) -> String {
         localized(
             english: "Required language assets are unavailable: \(detail)",
-            korean: "필요한 언어 자산을 사용할 수 없습니다: \(detail)", chineseSimplified: "所需语言资源不可用：\(detail)"
+            korean: "필요한 언어 자산을 사용할 수 없습니다: \(detail)",
+            japanese: "必要な言語リソースを利用できません：\(detail)", chineseSimplified: "所需语言资源不可用：\(detail)"
         )
     }
     static let openAIAPIKeyRequiredForGPTMode = localized(
@@ -486,19 +479,23 @@ enum AppText {
     )
     static let openAIAPIKeyEmpty = localized(
         english: "Enter an OpenAI API key before saving.",
-        korean: "저장하기 전에 OpenAI API 키를 입력하세요.", chineseSimplified: "请先输入 OpenAI API 密钥，再保存。"
+        korean: "저장하기 전에 OpenAI API 키를 입력하세요.",
+        japanese: "保存する前に OpenAI API キーを入力してください。", chineseSimplified: "请先输入 OpenAI API 密钥，再保存。"
     )
     static let openAIAPIKeyInvalidStoredValue = localized(
         english: "The stored OpenAI API key could not be read.",
-        korean: "저장된 OpenAI API 키를 읽을 수 없습니다.", chineseSimplified: "无法读取已保存的 OpenAI API 密钥。"
+        korean: "저장된 OpenAI API 키를 읽을 수 없습니다.",
+        japanese: "保存済みの OpenAI API キーを読み込めませんでした。", chineseSimplified: "无法读取已保存的 OpenAI API 密钥。"
     )
     static let geminiAPIKeyEmpty = localized(
         english: "Enter a Gemini API key before saving.",
-        korean: "저장하기 전에 Gemini API 키를 입력하세요.", chineseSimplified: "请先输入 Gemini API 密钥，再保存。"
+        korean: "저장하기 전에 Gemini API 키를 입력하세요.",
+        japanese: "保存する前に Gemini API キーを入力してください。", chineseSimplified: "请先输入 Gemini API 密钥，再保存。"
     )
     static let geminiAPIKeyInvalidStoredValue = localized(
         english: "The stored Gemini API key could not be read.",
-        korean: "저장된 Gemini API 키를 읽을 수 없습니다.", chineseSimplified: "无法读取已保存的 Gemini API 密钥。"
+        korean: "저장된 Gemini API 키를 읽을 수 없습니다.",
+        japanese: "保存済みの Gemini API キーを読み込めませんでした。", chineseSimplified: "无法读取已保存的 Gemini API 密钥。"
     )
     static let metaAPIKeyEmpty = localized(
         english: "Enter a Meta Model API key before saving.",
@@ -515,7 +512,8 @@ enum AppText {
     static let appleProcessingMode = localized(english: "Local Mode", korean: "로컬 모드", japanese: "ローカルモード", chineseSimplified: "本地模式")
     static let appleProcessingModeDescription = localized(
         english: "The default local workflow. Keep this as the base, then add OpenAI Realtime below only when needed.",
-        korean: "기본 로컬 처리 흐름입니다. 이 설정을 기준으로 두고, 필요한 경우 아래 OpenAI Realtime만 추가하세요.", chineseSimplified: "默认使用本地处理，需要时再开启下方的 OpenAI 实时翻译。"
+        korean: "기본 로컬 처리 흐름입니다. 이 설정을 기준으로 두고, 필요한 경우 아래 OpenAI Realtime만 추가하세요.",
+        japanese: "標準のローカル処理です。必要な場合は下で OpenAI Realtime を追加してください。", chineseSimplified: "默认使用本地处理，需要时再开启下方的 OpenAI 实时翻译。"
     )
     static let gptModels = localized(english: "OpenAI Realtime", korean: "OpenAI Realtime", japanese: "OpenAI Realtime", chineseSimplified: "OpenAI Realtime")
     static let geminiModels = localized(
@@ -667,11 +665,13 @@ enum AppText {
     )
     static let openAIRealtimeTranslationOnlySource = localized(
         english: "OpenAI realtime translation",
-        korean: "OpenAI 실시간 번역", chineseSimplified: "OpenAI 实时翻译"
+        korean: "OpenAI 실시간 번역",
+        japanese: "OpenAI リアルタイム翻訳", chineseSimplified: "OpenAI 实时翻译"
     )
     static let geminiLiveTranslationSource = localized(
         english: "Gemini Live input audio",
-        korean: "Gemini Live 입력 오디오", chineseSimplified: "Gemini Live 音频输入"
+        korean: "Gemini Live 입력 오디오",
+        japanese: "Gemini Live の入力音声", chineseSimplified: "Gemini Live 音频输入"
     )
     static let output = localized(english: "Output", korean: "출력", japanese: "出力", chineseSimplified: "输出")
     static let outputMode = localized(english: "Output Mode", korean: "출력 모드", japanese: "出力モード", chineseSimplified: "字幕输出")
@@ -690,7 +690,8 @@ enum AppText {
     static let translationSettings = localized(english: "Translation Settings", korean: "번역 설정", japanese: "翻訳設定", chineseSimplified: "翻译设置")
     static let configureTranslationSettings = localized(
         english: "Configure Translation Settings",
-        korean: "번역 설정 구성", chineseSimplified: "配置翻译设置"
+        korean: "번역 설정 구성",
+        japanese: "翻訳を設定", chineseSimplified: "配置翻译设置"
     )
     static let transcript = localized(english: "Transcript", korean: "기록", japanese: "記録", chineseSimplified: "记录")
     static let liveOutput = localized(english: "Live Output", korean: "실시간 출력", japanese: "リアルタイム出力", chineseSimplified: "实时输出")
@@ -713,18 +714,18 @@ enum AppText {
     static let makeCaptionTextLarger = localized(
         english: "Larger Text", korean: "글자 크게", japanese: "文字を大きく", chineseSimplified: "放大文字"
     )
-    static let menuBarRunningTitle = localized(english: "Live", korean: "기록 중", chineseSimplified: "实时")
-    static let menuBarPausedTitle = localized(english: "Paused", korean: "일시정지", chineseSimplified: "已暂停")
-    static let floatingCaptions = localized(english: "Floating Captions", korean: "플로팅 자막", chineseSimplified: "悬浮字幕")
+    static let menuBarRunningTitle = localized(english: "Live", korean: "기록 중", japanese: "ライブ", chineseSimplified: "实时")
+    static let menuBarPausedTitle = localized(english: "Paused", korean: "일시정지", japanese: "一時停止中", chineseSimplified: "已暂停")
+    static let floatingCaptions = localized(english: "Floating Captions", korean: "플로팅 자막", japanese: "フローティング字幕", chineseSimplified: "悬浮字幕")
     static let showFloatingCaptions = localized(
         english: "Show Floating Captions",
         korean: "플로팅 자막 보기",
         japanese: "フローティング字幕を表示",
         chineseSimplified: "显示悬浮字幕"
     )
-    static let floatingCaptionPowerOn = localized(english: "ON", korean: "켜짐", chineseSimplified: "开启")
-    static let floatingCaptionPowerOff = localized(english: "OFF", korean: "꺼짐", chineseSimplified: "关闭")
-    static let captionsWindow = localized(english: "Caption Window", korean: "자막 창", chineseSimplified: "字幕窗口")
+    static let floatingCaptionPowerOn = localized(english: "ON", korean: "켜짐", japanese: "オン", chineseSimplified: "开启")
+    static let floatingCaptionPowerOff = localized(english: "OFF", korean: "꺼짐", japanese: "オフ", chineseSimplified: "关闭")
+    static let captionsWindow = localized(english: "Caption Window", korean: "자막 창", japanese: "字幕ウィンドウ", chineseSimplified: "字幕窗口")
     static let hideFloatingCaptions = localized(
         english: "Hide Floating Captions",
         korean: "플로팅 자막 숨기기",
@@ -806,12 +807,13 @@ enum AppText {
         japanese: "両方",
         chineseSimplified: "两者"
     )
-    static let floatingDisplay = localized(english: "Floating Display", korean: "플로팅 표시", chineseSimplified: "悬浮字幕内容")
+    static let floatingDisplay = localized(english: "Floating Display", korean: "플로팅 표시", japanese: "フローティング表示", chineseSimplified: "悬浮字幕内容")
     static let floatingDisplayDescription = localized(
         english: "Choose what appears in the detachable floating caption window.",
-        korean: "따로 띄우는 플로팅 자막 창에 표시할 내용을 선택합니다.", chineseSimplified: "选择独立悬浮字幕窗口中显示的内容。"
+        korean: "따로 띄우는 플로팅 자막 창에 표시할 내용을 선택합니다.",
+        japanese: "フローティング字幕ウィンドウに表示する内容を選びます。", chineseSimplified: "选择独立悬浮字幕窗口中显示的内容。"
     )
-    static let floatingTextSize = localized(english: "Floating Text Size", korean: "플로팅 글자 크기", chineseSimplified: "悬浮字幕字号")
+    static let floatingTextSize = localized(english: "Floating Text Size", korean: "플로팅 글자 크기", japanese: "フローティング字幕の文字サイズ", chineseSimplified: "悬浮字幕字号")
     static let floatingCustomTextSize = localized(
         english: "Custom Text Size",
         korean: "사용자 지정 글자 크기",
@@ -866,7 +868,7 @@ enum AppText {
         japanese: "フローティング字幕リサイズハンドル",
         chineseSimplified: "悬浮字幕大小调整手柄"
     )
-    static let floatingLineCount = localized(english: "Floating Lines", korean: "플로팅 표시 줄 수", chineseSimplified: "悬浮字幕行数")
+    static let floatingLineCount = localized(english: "Floating Lines", korean: "플로팅 표시 줄 수", japanese: "フローティング字幕の行数", chineseSimplified: "悬浮字幕行数")
     static let originalOnly = localized(english: "Original", korean: "원문", japanese: "原文", chineseSimplified: "原文")
     static let originalAndTranslation = localized(english: "Original + Translation", korean: "원문 + 번역", japanese: "原文 + 翻訳", chineseSimplified: "原文 + 译文")
     static let translationOnly = localized(english: "Translation", korean: "번역", japanese: "翻訳", chineseSimplified: "译文")
@@ -895,32 +897,38 @@ enum AppText {
     static let captionAlignmentLeading = localized(english: "Left", korean: "왼쪽", japanese: "左", chineseSimplified: "左")
     static let noFloatingCaptionsYet = localized(
         english: "Live captions will appear here.",
-        korean: "실시간 자막이 여기에 표시됩니다.", chineseSimplified: "实时字幕将在这里显示。"
+        korean: "실시간 자막이 여기에 표시됩니다.",
+        japanese: "リアルタイム字幕がここに表示されます。", chineseSimplified: "实时字幕将在这里显示。"
     )
     static let transcriptLint = localized(english: "Transcript Word Lint", korean: "기록 단어 다듬기", japanese: "記録単語の補正", chineseSimplified: "记录词语修正")
     static let transcriptPolish = localized(english: "Transcript Polish", korean: "기록 다듬기", japanese: "記録を整える", chineseSimplified: "整理记录")
     static let transcriptLintDescription = localized(
         english: "During silence, conservatively fixes transcription words when macOS spelling suggestions are confident. It does not remove repeated sentences or transcript content.",
-        korean: "침묵 시간에 macOS 맞춤법 후보가 확실한 기록 단어만 보수적으로 고칩니다. 반복 문장이나 기록 내용은 제거하지 않습니다.", chineseSimplified: "在停顿时，利用 macOS 拼写建议谨慎修正识别词语，不删除重复句子或转写内容。"
+        korean: "침묵 시간에 macOS 맞춤법 후보가 확실한 기록 단어만 보수적으로 고칩니다. 반복 문장이나 기록 내용은 제거하지 않습니다.",
+        japanese: "無音時に、macOS の候補の確信度が高い場合だけ語句を修正します。繰り返しや文字起こしの内容は削除しません。", chineseSimplified: "在停顿时，利用 macOS 拼写建议谨慎修正识别词语，不删除重复句子或转写内容。"
     )
     static let paragraphBreakSilenceInterval = localized(
         english: "Paragraph Break Silence",
-        korean: "문단 개행 숨고르기", chineseSimplified: "分段停顿时长"
+        korean: "문단 개행 숨고르기",
+        japanese: "段落を区切る無音時間", chineseSimplified: "分段停顿时长"
     )
     static let paragraphBreakSilenceDescription = localized(
         english: "When speech resumes after this much silence, the transcript starts a new paragraph.",
-        korean: "이 시간만큼 말이 멈춘 뒤 다시 시작되면 기록을 새 문단으로 나눕니다.", chineseSimplified: "停顿达到此时长后，再次说话时将另起一段。"
+        korean: "이 시간만큼 말이 멈춘 뒤 다시 시작되면 기록을 새 문단으로 나눕니다.",
+        japanese: "指定した無音時間の後に発話が再開すると、文字起こしを新しい段落に分けます。", chineseSimplified: "停顿达到此时长后，再次说话时将另起一段。"
     )
     static let sessionLength = localized(english: "Session Length", korean: "세션 길이", japanese: "セッション長", chineseSimplified: "会话时长")
     static let sessionLengthStandard = localized(english: "Standard", korean: "일반", japanese: "標準", chineseSimplified: "标准")
     static let sessionLengthThirtyMinutesOrMore = localized(english: "30+ minutes", korean: "30분 이상", japanese: "30分以上", chineseSimplified: "30 分钟以上")
     static let sessionLengthStandardDescription = localized(
         english: "Keeps live updates as immediate as possible for short sessions.",
-        korean: "짧은 세션에서 실시간 반응성을 최대한 유지합니다.", chineseSimplified: "短时间使用时，尽量即时更新字幕。"
+        korean: "짧은 세션에서 실시간 반응성을 최대한 유지합니다.",
+        japanese: "短いセッションで字幕をできる限り早く更新します。", chineseSimplified: "短时间使用时，尽量即时更新字幕。"
     )
     static let sessionLengthThirtyMinutesOrMoreDescription = localized(
         english: "Uses long-session safeguards: less frequent full-text UI updates, delayed translation bursts, and tail rendering for very long transcripts.",
-        korean: "긴 세션 보호 모드를 사용합니다. 전체 텍스트 화면 갱신과 번역 폭주를 줄이고, 아주 긴 기록은 최근 부분만 렌더링합니다.", chineseSimplified: "长时间使用时，降低全文刷新频率、合并翻译请求，并仅显示超长文本的末尾内容。"
+        korean: "긴 세션 보호 모드를 사용합니다. 전체 텍스트 화면 갱신과 번역 폭주를 줄이고, 아주 긴 기록은 최근 부분만 렌더링합니다.",
+        japanese: "長時間のセッションでは全文の更新頻度を抑え、翻訳をまとめて処理し、長い文字起こしは末尾を優先して表示します。", chineseSimplified: "长时间使用时，降低全文刷新频率、合并翻译请求，并仅显示超长文本的末尾内容。"
     )
     static let savedTranscripts = localized(english: "Saved Transcripts", korean: "저장된 기록", japanese: "保存済み記録", chineseSimplified: "已保存记录")
     static let transcriptPersistence = localized(
@@ -937,20 +945,24 @@ enum AppText {
     )
     static let savedTranscriptContent = localized(
         english: "Saved Content",
-        korean: "저장 내용", chineseSimplified: "保存内容"
+        korean: "저장 내용",
+        japanese: "保存する内容", chineseSimplified: "保存内容"
     )
-    static let autoSave = localized(english: "Auto-save", korean: "자동 저장", chineseSimplified: "自动保存")
+    static let autoSave = localized(english: "Auto-save", korean: "자동 저장", japanese: "自動保存", chineseSimplified: "自动保存")
     static let autoSaveDescription = localized(
         english: "Choose which transcript text to save when transcript file saving is enabled.",
-        korean: "기록 파일 저장을 켰을 때 어떤 기록 텍스트를 저장할지 선택합니다.", chineseSimplified: "开启记录文件保存后，选择需要保存的文字内容。"
+        korean: "기록 파일 저장을 켰을 때 어떤 기록 텍스트를 저장할지 선택합니다.",
+        japanese: "ファイルへの保存を有効にしたときに記録する内容を選びます。", chineseSimplified: "开启记录文件保存后，选择需要保存的文字内容。"
     )
     static let openSaveFolder = localized(
         english: "Open Save Folder",
-        korean: "저장 폴더 열기", chineseSimplified: "打开保存文件夹"
+        korean: "저장 폴더 열기",
+        japanese: "保存フォルダを開く", chineseSimplified: "打开保存文件夹"
     )
     static let openLibrary = localized(
         english: "Open Library",
-        korean: "저장소 열기", chineseSimplified: "打开记录库"
+        korean: "저장소 열기",
+        japanese: "ライブラリを開く", chineseSimplified: "打开记录库"
     )
     static let manageSavedTranscripts = localized(
         english: "Manage Saved Transcripts",
@@ -960,101 +972,119 @@ enum AppText {
     )
     static let librarySummary = localized(
         english: "Review, edit, delete, or open saved transcript files in a focused library window.",
-        korean: "저장된 기록 확인, 수정, 삭제, 폴더 열기는 별도 관리 창에서 처리합니다.", chineseSimplified: "在独立窗口中查看、编辑、删除或打开已保存的记录文件。"
+        korean: "저장된 기록 확인, 수정, 삭제, 폴더 열기는 별도 관리 창에서 처리합니다.",
+        japanese: "ライブラリで保存済みの記録を確認、編集、削除できます。", chineseSimplified: "在独立窗口中查看、编辑、删除或打开已保存的记录文件。"
     )
     static let savedEmpty = localized(
         english: "Saved transcript files will appear here when file saving is enabled.",
-        korean: "기록 파일 저장을 켜면 저장된 기록이 여기에 표시됩니다.", chineseSimplified: "开启记录文件保存后，保存的字幕记录将在这里显示。"
+        korean: "기록 파일 저장을 켜면 저장된 기록이 여기에 표시됩니다.",
+        japanese: "ファイル保存を有効にすると、保存済みの記録がここに表示されます。", chineseSimplified: "开启记录文件保存后，保存的字幕记录将在这里显示。"
     )
     static let noSavedTranscriptSelected = localized(
         english: "Select a saved transcript.",
-        korean: "저장된 기록을 선택하세요.", chineseSimplified: "请选择一条已保存记录。"
+        korean: "저장된 기록을 선택하세요.",
+        japanese: "保存済みの記録を選んでください。", chineseSimplified: "请选择一条已保存记录。"
     )
     static let deleteAllSavedTranscripts = localized(
         english: "Delete All",
-        korean: "모두 지우기", chineseSimplified: "全部删除"
+        korean: "모두 지우기",
+        japanese: "すべて削除", chineseSimplified: "全部删除"
     )
     static let deleteAllSavedTranscriptsConfirmation = localized(
         english: "Delete all saved transcript files? This cannot be undone.",
-        korean: "저장된 기록 파일을 모두 지울까요? 이 작업은 되돌릴 수 없습니다.", chineseSimplified: "确定删除所有已保存的记录文件吗？此操作无法撤销。"
+        korean: "저장된 기록 파일을 모두 지울까요? 이 작업은 되돌릴 수 없습니다.",
+        japanese: "保存済みの記録をすべて削除しますか？この操作は取り消せません。", chineseSimplified: "确定删除所有已保存的记录文件吗？此操作无法撤销。"
     )
     static let deleteAllSavedTranscriptsHelp = localized(
         english: "Delete every saved transcript file.",
-        korean: "저장된 모든 기록 파일을 삭제합니다.", chineseSimplified: "删除所有已保存的记录文件。"
+        korean: "저장된 모든 기록 파일을 삭제합니다.",
+        japanese: "保存済みの記録をすべて削除します。", chineseSimplified: "删除所有已保存的记录文件。"
     )
-    static let editSaved = localized(english: "Edit Saved", korean: "저장본 편집", chineseSimplified: "编辑记录")
-    static let title = localized(english: "Title", korean: "제목", chineseSimplified: "标题")
-    static let original = localized(english: "Original", korean: "원문", chineseSimplified: "原文")
+    static let editSaved = localized(english: "Edit Saved", korean: "저장본 편집", japanese: "記録を編集", chineseSimplified: "编辑记录")
+    static let title = localized(english: "Title", korean: "제목", japanese: "タイトル", chineseSimplified: "标题")
+    static let original = localized(english: "Original", korean: "원문", japanese: "原文", chineseSimplified: "原文")
     static let originalDescription = localized(
         english: "Incoming speech with live paragraph cleanup.",
-        korean: "들어오는 음성을 실시간 문단 정리와 함께 보여줍니다.", chineseSimplified: "实时显示识别原文，并整理段落。"
+        korean: "들어오는 음성을 실시간 문단 정리와 함께 보여줍니다.",
+        japanese: "段落を整えながら表示する文字起こしです。", chineseSimplified: "实时显示识别原文，并整理段落。"
     )
-    static let transcriptText = localized(english: "Transcript Text", korean: "기록 텍스트", chineseSimplified: "记录正文")
-    static let deleteSavedTranscript = localized(english: "Delete Transcript", korean: "기록 삭제", chineseSimplified: "删除记录")
+    static let transcriptText = localized(english: "Transcript Text", korean: "기록 텍스트", japanese: "文字起こし", chineseSimplified: "记录正文")
+    static let deleteSavedTranscript = localized(english: "Delete Transcript", korean: "기록 삭제", japanese: "記録を削除", chineseSimplified: "删除记录")
     static let deleteSavedTranscriptConfirmation = localized(
         english: "Delete this saved transcript? This cannot be undone.",
         korean: "이 저장 기록을 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
         japanese: "この保存済み文字起こしを削除しますか？この操作は取り消せません。",
         chineseSimplified: "要删除这份已保存的转写记录吗？此操作无法撤销。"
     )
-    static let translation = localized(english: "Translation", korean: "번역", chineseSimplified: "译文")
+    static let translation = localized(english: "Translation", korean: "번역", japanese: "訳文", chineseSimplified: "译文")
     static let translationDescription = localized(
         english: "Translated output aligned to the same transcript flow.",
-        korean: "같은 기록 흐름에 맞춰 번역 결과를 정렬해 보여줍니다.", chineseSimplified: "与原文对应的翻译内容。"
+        korean: "같은 기록 흐름에 맞춰 번역 결과를 정렬해 보여줍니다.",
+        japanese: "原文に対応する訳文です。", chineseSimplified: "与原文对应的翻译内容。"
     )
-    static let saveEdits = localized(english: "Save Edits", korean: "수정 저장", chineseSimplified: "保存修改")
-    static let liveCaptions = localized(english: "Live Captions", korean: "실시간 기록", chineseSimplified: "实时字幕")
-    static let transcriptWorkspace = localized(english: "Transcript Workspace", korean: "실시간 기록", chineseSimplified: "字幕工作区")
-    static let delete = localized(english: "Delete", korean: "삭제", chineseSimplified: "删除")
+    static let saveEdits = localized(english: "Save Edits", korean: "수정 저장", japanese: "変更を保存", chineseSimplified: "保存修改")
+    static let liveCaptions = localized(english: "Live Captions", korean: "실시간 기록", japanese: "リアルタイム字幕", chineseSimplified: "实时字幕")
+    static let transcriptWorkspace = localized(english: "Transcript Workspace", korean: "실시간 기록", japanese: "文字起こし画面", chineseSimplified: "字幕工作区")
+    static let delete = localized(english: "Delete", korean: "삭제", japanese: "削除", chineseSimplified: "删除")
     static let waitingForTranscript = localized(
         english: "Captions will appear here.",
-        korean: "기록이 시작되면 여기에 표시됩니다.", chineseSimplified: "字幕将在这里显示。"
+        korean: "기록이 시작되면 여기에 표시됩니다.",
+        japanese: "字幕がここに表示されます。", chineseSimplified: "字幕将在这里显示。"
     )
     static let transcriptSavedToast = localized(
         english: "Transcript saved",
-        korean: "기록이 저장되었습니다", chineseSimplified: "记录已保存"
+        korean: "기록이 저장되었습니다",
+        japanese: "記録を保存しました", chineseSimplified: "记录已保存"
     )
-    static let copy = localized(english: "Copy", korean: "복사", chineseSimplified: "复制")
-    static let copied = localized(english: "Copied", korean: "복사됨", chineseSimplified: "已复制")
+    static let copy = localized(english: "Copy", korean: "복사", japanese: "コピー", chineseSimplified: "复制")
+    static let copied = localized(english: "Copied", korean: "복사됨", japanese: "コピーしました", chineseSimplified: "已复制")
     static let appleIntelligenceWritingTools = localized(
         english: "Apple Intelligence Writing Tools",
-        korean: "Apple Intelligence 글쓰기 도구", chineseSimplified: "Apple Intelligence 写作工具"
+        korean: "Apple Intelligence 글쓰기 도구",
+        japanese: "Apple Intelligence 作文ツール", chineseSimplified: "Apple Intelligence 写作工具"
     )
     static let localModelCleanup = localized(
         english: "Punctuate and format with local model",
-        korean: "Foundation Model로 전체 정리", chineseSimplified: "使用本地模型整理正文"
+        korean: "Foundation Model로 전체 정리",
+        japanese: "ローカルモデルで句読点と段落を整える", chineseSimplified: "使用本地模型整理正文"
     )
     static let localModelCleanupShort = localized(
         english: "Format with local model",
-        korean: "Foundation 정리", chineseSimplified: "本地模型整理正文"
+        korean: "Foundation 정리",
+        japanese: "ローカルモデルで整形", chineseSimplified: "本地模型整理正文"
     )
     static let localModelCleanupHelp = localized(
         english: "Use the configured local model to restore punctuation and paragraphs. Review the draft, then save edits.",
-        korean: "Apple 온디바이스 Foundation Model로 선택한 저장 기록 draft 전체를 정리합니다. 결과를 확인한 뒤 수정 저장하세요.", chineseSimplified: "使用通用设置中已配置的本地模型补标点、分段，并修正明显的转写错误。保留原语言和内容，检查后再保存。"
+        korean: "Apple 온디바이스 Foundation Model로 선택한 저장 기록 draft 전체를 정리합니다. 결과를 확인한 뒤 수정 저장하세요.",
+        japanese: "設定済みのローカルモデルで句読点と段落を整えます。下書きを確認してから変更を保存してください。", chineseSimplified: "使用通用设置中已配置的本地模型补标点、分段，并修正明显的转写错误。保留原语言和内容，检查后再保存。"
     )
     static let localModelCleanupRunning = localized(
         english: "Formatting transcript with local model...",
-        korean: "Foundation Model로 기록 정리 중...", chineseSimplified: "正在使用本地模型补标点和分段…"
+        korean: "Foundation Model로 기록 정리 중...",
+        japanese: "ローカルモデルで記録を整形中…", chineseSimplified: "正在使用本地模型补标点和分段…"
     )
     static let localModelCleanupComplete = localized(
         english: "Formatting complete. Review and save edits.",
-        korean: "Foundation Model 정리가 완료되었습니다. 확인 후 수정 저장하세요.", chineseSimplified: "本地模型整理正文完成，请检查并保存修改。"
+        korean: "Foundation Model 정리가 완료되었습니다. 확인 후 수정 저장하세요.",
+        japanese: "整形が完了しました。確認して変更を保存してください。", chineseSimplified: "本地模型整理正文完成，请检查并保存修改。"
     )
     static func localModelCleanupFailed(_ reason: String) -> String {
         localized(
             english: "Local model formatting failed: \(reason)",
-            korean: "Foundation Model 정리 실패: \(reason)", chineseSimplified: "本地模型整理正文失败：\(reason)"
+            korean: "Foundation Model 정리 실패: \(reason)",
+            japanese: "ローカルモデルでの整形に失敗しました：\(reason)", chineseSimplified: "本地模型整理正文失败：\(reason)"
         )
     }
     static func copyTranscriptPane(_ title: String) -> String {
-        localized(english: "Copy \(title)", korean: "\(title) 복사", chineseSimplified: "复制\(title)")
+        localized(english: "Copy \(title)", korean: "\(title) 복사", japanese: "\(title)をコピー", chineseSimplified: "复制\(title)")
     }
-    static let listening = localized(english: "Listening", korean: "듣는 중", chineseSimplified: "正在监听")
-    static let idle = localized(english: "Idle", korean: "대기", chineseSimplified: "空闲")
-    static let noCaptionsYet = localized(english: "No captions yet", korean: "아직 기록 없음", chineseSimplified: "暂无字幕")
+    static let listening = localized(english: "Listening", korean: "듣는 중", japanese: "聞き取り中", chineseSimplified: "正在监听")
+    static let idle = localized(english: "Idle", korean: "대기", japanese: "待機中", chineseSimplified: "空闲")
+    static let noCaptionsYet = localized(english: "No captions yet", korean: "아직 기록 없음", japanese: "字幕はまだありません", chineseSimplified: "暂无字幕")
     static let noCaptionsDescription = localized(
         english: "Start capture, play audio on this Mac, and grant Screen Recording, System Audio Recording, and Speech permissions.",
-        korean: "캡처를 시작하고 이 Mac에서 오디오를 재생한 뒤 화면 기록, 시스템 오디오 녹음, 음성 인식 권한을 허용하세요.", chineseSimplified: "开始监听后，在 Mac 上播放音频，并允许屏幕录制、系统音频录制和语音识别权限。"
+        korean: "캡처를 시작하고 이 Mac에서 오디오를 재생한 뒤 화면 기록, 시스템 오디오 녹음, 음성 인식 권한을 허용하세요.",
+        japanese: "収録を開始して Mac で音声を再生します。必要に応じて画面収録、システム音声の収録、音声認識を許可してください。", chineseSimplified: "开始监听后，在 Mac 上播放音频，并允许屏幕录制、系统音频录制和语音识别权限。"
     )
     static func gptTranscriptionNoCaptionsDescription(for source: AudioInputSource) -> String {
         switch source {
@@ -1076,7 +1106,8 @@ enum AppText {
     }
     static let openPrivacySettings = localized(
         english: "Open Privacy Settings",
-        korean: "개인정보 보호 설정 열기", chineseSimplified: "打开隐私设置"
+        korean: "개인정보 보호 설정 열기",
+        japanese: "プライバシー設定を開く", chineseSimplified: "打开隐私设置"
     )
     static let openAPIKeySettings = localized(
         english: "Open API Key Settings",
@@ -1102,26 +1133,31 @@ enum AppText {
         japanese: "開始失敗の案内を閉じる",
         chineseSimplified: "关闭启动失败提示"
     )
-    static let permissions = localized(english: "Permissions", korean: "권한", chineseSimplified: "权限")
+    static let permissions = localized(english: "Permissions", korean: "권한", japanese: "権限", chineseSimplified: "权限")
     static let permissionsHelp = localized(
         english: "文译 needs Screen Recording, System Audio Recording, and Speech Recognition permission. After changing privacy settings, quit and relaunch the app.",
-        korean: "文译에는 화면 기록, 시스템 오디오 녹음, 음성 인식 권한이 필요합니다. 개인정보 보호 설정을 변경한 뒤 앱을 종료하고 다시 실행하세요.", chineseSimplified: "文译需要屏幕录制、系统音频录制和语音识别权限。更改隐私设置后，请退出并重新打开应用。"
+        korean: "文译에는 화면 기록, 시스템 오디오 녹음, 음성 인식 권한이 필요합니다. 개인정보 보호 설정을 변경한 뒤 앱을 종료하고 다시 실행하세요.",
+        japanese: "文译には画面収録、システム音声の収録、音声認識の許可が必要です。設定を変更したらアプリを開き直してください。", chineseSimplified: "文译需要屏幕录制、系统音频录制和语音识别权限。更改隐私设置后，请退出并重新打开应用。"
     )
     static let checkingScreenPermission = localized(
         english: "Checking screen recording permission...",
-        korean: "화면 기록 권한 확인 중...", chineseSimplified: "正在检查屏幕录制权限…"
+        korean: "화면 기록 권한 확인 중...",
+        japanese: "画面収録の権限を確認中…", chineseSimplified: "正在检查屏幕录制权限…"
     )
     static let checkingMicrophonePermission = localized(
         english: "Checking microphone permission...",
-        korean: "마이크 권한 확인 중...", chineseSimplified: "正在检查麦克风权限…"
+        korean: "마이크 권한 확인 중...",
+        japanese: "マイクの権限を確認中…", chineseSimplified: "正在检查麦克风权限…"
     )
     static let checkingSpeechPermission = localized(
         english: "Checking speech recognition permission...",
-        korean: "음성 인식 권한 확인 중...", chineseSimplified: "正在检查语音识别权限…"
+        korean: "음성 인식 권한 확인 중...",
+        japanese: "音声認識の権限を確認中…", chineseSimplified: "正在检查语音识别权限…"
     )
     static let connectingGeminiLiveTranslation = localized(
         english: "Connecting to Gemini Live Translate...",
-        korean: "Gemini 실시간 번역에 연결 중...", chineseSimplified: "正在连接 Gemini Live Translate…"
+        korean: "Gemini 실시간 번역에 연결 중...",
+        japanese: "Gemini Live Translate に接続中…", chineseSimplified: "正在连接 Gemini Live Translate…"
     )
     static let connectingMetaScribe = localized(
         english: "Connecting to Meta Scribe...",
@@ -1138,32 +1174,34 @@ enum AppText {
     static func startingCapture(for source: AudioInputSource) -> String {
         switch source {
         case .systemAudio:
-            localized(english: "Starting Mac audio capture...", korean: "Mac 오디오 캡처 시작 중...", chineseSimplified: "正在启动 Mac 音频采集…")
+            localized(english: "Starting Mac audio capture...", korean: "Mac 오디오 캡처 시작 중...", japanese: "Mac の音声収録を開始中…", chineseSimplified: "正在启动 Mac 音频采集…")
         case .microphone:
-            localized(english: "Starting microphone capture...", korean: "마이크 캡처 시작 중...", chineseSimplified: "正在启动麦克风采集…")
+            localized(english: "Starting microphone capture...", korean: "마이크 캡처 시작 중...", japanese: "マイクの収録を開始中…", chineseSimplified: "正在启动麦克风采集…")
         }
     }
     static func listeningForSpeech(from source: AudioInputSource) -> String {
         switch source {
         case .systemAudio:
-            localized(english: "Listening to Mac audio, waiting for speech...", korean: "Mac 오디오를 듣는 중, 음성을 기다리는 중...", chineseSimplified: "正在监听 Mac 音频，等待语音…")
+            localized(english: "Listening to Mac audio, waiting for speech...", korean: "Mac 오디오를 듣는 중, 음성을 기다리는 중...", japanese: "Mac の音声から発話を検出中…", chineseSimplified: "正在监听 Mac 音频，等待语音…")
         case .microphone:
-            localized(english: "Listening to microphone, waiting for speech...", korean: "마이크를 듣는 중, 음성을 기다리는 중...", chineseSimplified: "正在监听麦克风，等待语音…")
+            localized(english: "Listening to microphone, waiting for speech...", korean: "마이크를 듣는 중, 음성을 기다리는 중...", japanese: "マイク入力から発話を検出中…", chineseSimplified: "正在监听麦克风，等待语音…")
         }
     }
-    static let translating = localized(english: "Translating...", korean: "번역 중...", chineseSimplified: "正在翻译…")
+    static let translating = localized(english: "Translating...", korean: "번역 중...", japanese: "翻訳中…", chineseSimplified: "正在翻译…")
     static let translationDisabledForSpeechOnly = localized(
         english: "Translation is off in Transcribe Only mode.",
-        korean: "전사만 모드에서는 번역이 꺼져 있습니다.", chineseSimplified: "仅转写模式不进行翻译。"
+        korean: "전사만 모드에서는 번역이 꺼져 있습니다.",
+        japanese: "文字起こしのみのモードでは翻訳を行いません。", chineseSimplified: "仅转写模式不进行翻译。"
     )
     static let sameLanguageTranslationUnavailable = localized(
         english: "Choose different source and target languages to translate.",
-        korean: "번역하려면 원문과 번역 언어를 다르게 선택하세요.", chineseSimplified: "请为翻译选择不同的源语言和目标语言。"
+        korean: "번역하려면 원문과 번역 언어를 다르게 선택하세요.",
+        japanese: "翻訳するには原文と訳文に別の言語を選んでください。", chineseSimplified: "请为翻译选择不同的源语言和目标语言。"
     )
-    static let untitledTranscript = localized(english: "Untitled Transcript", korean: "제목 없는 기록", chineseSimplified: "未命名记录")
+    static let untitledTranscript = localized(english: "Untitled Transcript", korean: "제목 없는 기록", japanese: "名称未設定の記録", chineseSimplified: "未命名记录")
 
     static func languageSummary(source: String, target: String) -> String {
-        localized(english: "\(source) to \(target)", korean: "\(source) → \(target)", chineseSimplified: "\(source) → \(target)")
+        localized(english: "\(source) to \(target)", korean: "\(source) → \(target)", japanese: "\(source) → \(target)", chineseSimplified: "\(source) → \(target)")
     }
 
     static func transcribeLanguageSummary(source: String) -> String {
@@ -1203,27 +1241,29 @@ enum AppText {
     }
 
     static func lineCount(_ count: Int) -> String {
-        localized(english: "\(count) lines", korean: "\(count)줄", chineseSimplified: "\(count) 行")
+        localized(english: "\(count) lines", korean: "\(count)줄", japanese: "\(count) 行", chineseSimplified: "\(count) 行")
     }
 
     static func seconds(_ seconds: Double) -> String {
         let value = seconds.rounded(.toNearestOrAwayFromZero) == seconds
             ? String(Int(seconds))
             : String(format: "%.1f", seconds)
-        return localized(english: "\(value) sec", korean: "\(value)초", chineseSimplified: "\(value) 秒")
+        return localized(english: "\(value) sec", korean: "\(value)초", japanese: "\(value) 秒", chineseSimplified: "\(value) 秒")
     }
 
     static func speechModelAvailabilityDetail(source: String, status: String) -> String {
         localized(
             english: "Source: \(source). Local asset: \(status).",
-            korean: "원문: \(source). 로컬 자산: \(status).", chineseSimplified: "源语言：\(source)。本地资源：\(status)。"
+            korean: "원문: \(source). 로컬 자산: \(status).",
+            japanese: "原文：\(source)。ローカルリソース：\(status)。", chineseSimplified: "源语言：\(source)。本地资源：\(status)。"
         )
     }
 
     static func translationModelAvailabilityDetail(source: String, target: String, status: String) -> String {
         localized(
             english: "\(source) to \(target). Local asset: \(status).",
-            korean: "\(source) → \(target). 로컬 자산: \(status).", chineseSimplified: "\(source) → \(target)。本地资源：\(status)。"
+            korean: "\(source) → \(target). 로컬 자산: \(status).",
+            japanese: "\(source) → \(target)。ローカルリソース：\(status)。", chineseSimplified: "\(source) → \(target)。本地资源：\(status)。"
         )
     }
 
@@ -1234,7 +1274,8 @@ enum AppText {
     ) -> String {
         localized(
             english: "Speech: \(speechStatus). Translation: \(translationStatus).",
-            korean: "음성 인식: \(speechStatus). 번역: \(translationStatus).", chineseSimplified: "语音识别：\(speechStatus)。翻译：\(translationStatus)。"
+            korean: "음성 인식: \(speechStatus). 번역: \(translationStatus).",
+            japanese: "音声認識：\(speechStatus)。翻訳：\(translationStatus)。", chineseSimplified: "语音识别：\(speechStatus)。翻译：\(translationStatus)。"
         )
     }
 
@@ -1248,21 +1289,25 @@ enum AppText {
     static func openAITranslationInstructions(source: String, target: String) -> String {
         localized(
             english: "Translate from \(source) to \(target). Return only the translated text. Preserve paragraph breaks and line breaks.",
-            korean: "\(source)에서 \(target)로 번역하세요. 번역문만 반환하고 문단과 줄바꿈은 유지하세요."
+            korean: "\(source)에서 \(target)로 번역하세요. 번역문만 반환하고 문단과 줄바꿈은 유지하세요.",
+            japanese: "\(source)から\(target)に翻訳してください。訳文のみを出力し、段落と改行を保ってください。",
+            chineseSimplified: "Translate from \(source) to \(target). Return only the translated text. Preserve paragraph breaks and line breaks."
         )
     }
 
     static func openAIAPIKeychainFailed(_ status: OSStatus) -> String {
         localized(
             english: "Keychain operation failed: \(status).",
-            korean: "Keychain 작업 실패: \(status).", chineseSimplified: "钥匙串操作失败：\(status)。"
+            korean: "Keychain 작업 실패: \(status).",
+            japanese: "キーチェーンの操作に失敗しました：\(status)。", chineseSimplified: "钥匙串操作失败：\(status)。"
         )
     }
 
     static func geminiAPIKeychainFailed(_ status: OSStatus) -> String {
         localized(
             english: "Keychain operation failed: \(status).",
-            korean: "Keychain 작업 실패: \(status).", chineseSimplified: "钥匙串操作失败：\(status)。"
+            korean: "Keychain 작업 실패: \(status).",
+            japanese: "キーチェーンの操作に失敗しました：\(status)。", chineseSimplified: "钥匙串操作失败：\(status)。"
         )
     }
 
@@ -1277,7 +1322,8 @@ enum AppText {
 
     static let openAIInvalidResponse = localized(
         english: "OpenAI returned an invalid response.",
-        korean: "OpenAI가 올바르지 않은 응답을 반환했습니다.", chineseSimplified: "OpenAI 返回了无效响应。"
+        korean: "OpenAI가 올바르지 않은 응답을 반환했습니다.",
+        japanese: "OpenAI から無効な応答が返されました。", chineseSimplified: "OpenAI 返回了无效响应。"
     )
     static let openAIRealtimeConnectionFailed = localized(
         english: "OpenAI Realtime connection failed. Check your network and API key, then try again.",
@@ -1287,24 +1333,28 @@ enum AppText {
     )
     static let openAIEmptyOutput = localized(
         english: "OpenAI returned no translated text.",
-        korean: "OpenAI가 번역 텍스트를 반환하지 않았습니다.", chineseSimplified: "OpenAI 未返回译文。"
+        korean: "OpenAI가 번역 텍스트를 반환하지 않았습니다.",
+        japanese: "OpenAI から訳文が返されませんでした。", chineseSimplified: "OpenAI 未返回译文。"
     )
 
     static func openAIRequestFailed(statusCode: Int, message: String?) -> String {
         let detail = message.map { ": \($0)" } ?? ""
         return localized(
             english: "OpenAI request failed (\(statusCode))\(detail)",
-            korean: "OpenAI 요청 실패(\(statusCode))\(detail)", chineseSimplified: "OpenAI 请求失败（\(statusCode)）\(detail)"
+            korean: "OpenAI 요청 실패(\(statusCode))\(detail)",
+            japanese: "OpenAI へのリクエストが失敗しました（\(statusCode)）\(detail)", chineseSimplified: "OpenAI 请求失败（\(statusCode)）\(detail)"
         )
     }
 
     static let geminiInvalidResponse = localized(
         english: "Gemini returned an invalid response.",
-        korean: "Gemini가 올바르지 않은 응답을 반환했습니다.", chineseSimplified: "Gemini 返回了无效响应。"
+        korean: "Gemini가 올바르지 않은 응답을 반환했습니다.",
+        japanese: "Gemini から無効な応答が返されました。", chineseSimplified: "Gemini 返回了无效响应。"
     )
     static let geminiConnectionFailed = localized(
         english: "Gemini Live connection failed. Check your network and API key, then try again.",
-        korean: "Gemini Live 연결에 실패했습니다. 네트워크와 API 키를 확인한 뒤 다시 시도하세요.", chineseSimplified: "Gemini Live 连接失败，请检查网络和 API 密钥后重试。"
+        korean: "Gemini Live 연결에 실패했습니다. 네트워크와 API 키를 확인한 뒤 다시 시도하세요.",
+        japanese: "Gemini Live に接続できませんでした。ネット接続と API キーを確認して、再度お試しください。", chineseSimplified: "Gemini Live 连接失败，请检查网络和 API 密钥后重试。"
     )
     static let metaInvalidResponse = localized(
         english: "Meta Scribe returned an invalid response.",
@@ -1333,17 +1383,19 @@ enum AppText {
 
     static let translationCancelled = localized(
         english: "Translation cancelled.",
-        korean: "번역이 취소되었습니다.", chineseSimplified: "翻译已取消。"
+        korean: "번역이 취소되었습니다.",
+        japanese: "翻訳をキャンセルしました。", chineseSimplified: "翻译已取消。"
     )
 
     static func startFailed(_ message: String) -> String {
-        localized(english: "Start failed: \(message)", korean: "시작 실패: \(message)", chineseSimplified: "启动失败：\(message)")
+        localized(english: "Start failed: \(message)", korean: "시작 실패: \(message)", japanese: "開始できませんでした：\(message)", chineseSimplified: "启动失败：\(message)")
     }
 
     static func saveLibraryFailed(_ message: String) -> String {
         localized(
             english: "Could not save transcript library: \(message)",
-            korean: "기록 저장소를 저장할 수 없습니다: \(message)", chineseSimplified: "无法保存记录库：\(message)"
+            korean: "기록 저장소를 저장할 수 없습니다: \(message)",
+            japanese: "記録ライブラリを保存できませんでした：\(message)", chineseSimplified: "无法保存记录库：\(message)"
         )
     }
 
@@ -1352,12 +1404,14 @@ enum AppText {
         case .systemAudio:
             localized(
                 english: "Receiving Mac audio (\(sampleCount) samples), waiting for speech...",
-                korean: "Mac 오디오 수신 중(\(sampleCount) 샘플), 음성을 기다리는 중...", chineseSimplified: "已接收 Mac 音频（\(sampleCount) 个采样），等待语音…"
+                korean: "Mac 오디오 수신 중(\(sampleCount) 샘플), 음성을 기다리는 중...",
+                japanese: "Mac の音声を受信中（\(sampleCount) サンプル）。発話を待機しています…", chineseSimplified: "已接收 Mac 音频（\(sampleCount) 个采样），等待语音…"
             )
         case .microphone:
             localized(
                 english: "Receiving microphone audio (\(sampleCount) samples), waiting for speech...",
-                korean: "마이크 오디오 수신 중(\(sampleCount) 샘플), 음성을 기다리는 중...", chineseSimplified: "已接收麦克风音频（\(sampleCount) 个采样），等待语音…"
+                korean: "마이크 오디오 수신 중(\(sampleCount) 샘플), 음성을 기다리는 중...",
+                japanese: "マイク音声を受信中（\(sampleCount) サンプル）。発話を待機しています…", chineseSimplified: "已接收麦克风音频（\(sampleCount) 个采样），等待语音…"
             )
         }
     }
@@ -1367,12 +1421,14 @@ enum AppText {
         case .systemAudio:
             localized(
                 english: "Receiving silent audio (\(sampleCount) samples, \(level) dB). Check System Audio Recording.",
-                korean: "무음 오디오 수신 중(\(sampleCount) 샘플, \(level) dB). 시스템 오디오 녹음 권한을 확인하세요.", chineseSimplified: "接收到静音音频（\(sampleCount) 个采样，\(level) dB），请检查系统音频录制权限。"
+                korean: "무음 오디오 수신 중(\(sampleCount) 샘플, \(level) dB). 시스템 오디오 녹음 권한을 확인하세요.",
+                japanese: "無音を受信中（\(sampleCount) サンプル、\(level) dB）。システム音声の収録設定を確認してください。", chineseSimplified: "接收到静音音频（\(sampleCount) 个采样，\(level) dB），请检查系统音频录制权限。"
             )
         case .microphone:
             localized(
                 english: "Receiving quiet microphone audio (\(sampleCount) samples, \(level) dB). Check Microphone permission or input level.",
-                korean: "마이크 무음에 가까운 오디오 수신 중(\(sampleCount) 샘플, \(level) dB). 마이크 권한 또는 입력 레벨을 확인하세요.", chineseSimplified: "麦克风声音较小（\(sampleCount) 个采样，\(level) dB），请检查麦克风权限或输入音量。"
+                korean: "마이크 무음에 가까운 오디오 수신 중(\(sampleCount) 샘플, \(level) dB). 마이크 권한 또는 입력 레벨을 확인하세요.",
+                japanese: "マイク入力が小さすぎます（\(sampleCount) サンプル、\(level) dB）。権限または入力レベルを確認してください。", chineseSimplified: "麦克风声音较小（\(sampleCount) 个采样，\(level) dB），请检查麦克风权限或输入音量。"
             )
         }
     }
@@ -1382,12 +1438,14 @@ enum AppText {
         case .systemAudio:
             localized(
                 english: "Receiving Mac audio (\(sampleCount) samples, \(level) dB), transcribing live...",
-                korean: "Mac 오디오 수신 중(\(sampleCount) 샘플, \(level) dB), 실시간 기록 중...", chineseSimplified: "正在接收 Mac 音频（\(sampleCount) 个采样，\(level) dB）并实时识别…"
+                korean: "Mac 오디오 수신 중(\(sampleCount) 샘플, \(level) dB), 실시간 기록 중...",
+                japanese: "Mac の音声を受信して文字起こし中（\(sampleCount) サンプル、\(level) dB）…", chineseSimplified: "正在接收 Mac 音频（\(sampleCount) 个采样，\(level) dB）并实时识别…"
             )
         case .microphone:
             localized(
                 english: "Receiving microphone audio (\(sampleCount) samples, \(level) dB), transcribing live...",
-                korean: "마이크 오디오 수신 중(\(sampleCount) 샘플, \(level) dB), 실시간 기록 중...", chineseSimplified: "正在接收麦克风音频（\(sampleCount) 个采样，\(level) dB）并实时识别…"
+                korean: "마이크 오디오 수신 중(\(sampleCount) 샘플, \(level) dB), 실시간 기록 중...",
+                japanese: "マイク音声を受信して文字起こし中（\(sampleCount) サンプル、\(level) dB）…", chineseSimplified: "正在接收麦克风音频（\(sampleCount) 个采样，\(level) dB）并实时识别…"
             )
         }
     }
@@ -1395,33 +1453,40 @@ enum AppText {
     static func unsupportedTranslation(source: String, target: String) -> String {
         localized(
             english: "Apple Translation does not support \(source) to \(target).",
-            korean: "Apple Translation은 \(source) → \(target) 번역을 지원하지 않습니다.", chineseSimplified: "Apple 翻译不支持从\(source)翻译为\(target)。"
+            korean: "Apple Translation은 \(source) → \(target) 번역을 지원하지 않습니다.",
+            japanese: "Apple 翻訳は \(source) → \(target) に対応していません。", chineseSimplified: "Apple 翻译不支持从\(source)翻译为\(target)。"
         )
     }
 
     static let speechPermissionDenied = localized(
         english: "Speech recognition permission was not granted.",
-        korean: "음성 인식 권한이 허용되지 않았습니다.", chineseSimplified: "未获得语音识别权限。"
+        korean: "음성 인식 권한이 허용되지 않았습니다.",
+        japanese: "音声認識が許可されていません。", chineseSimplified: "未获得语音识别权限。"
     )
     static let recognizerUnavailable = localized(
         english: "The selected speech recognizer is unavailable.",
-        korean: "선택한 음성 인식기를 사용할 수 없습니다.", chineseSimplified: "所选语音识别引擎不可用。"
+        korean: "선택한 음성 인식기를 사용할 수 없습니다.",
+        japanese: "選択した音声認識エンジンを利用できません。", chineseSimplified: "所选语音识别引擎不可用。"
     )
     static let screenRecordingNotGranted = localized(
         english: "macOS does not recognize Screen Recording access for this 文译 build. If it is already enabled, keep only the current app, toggle access once, then quit and relaunch 文译.",
-        korean: "macOS가 현재 文译 빌드의 화면 기록 권한을 인식하지 못합니다. 이미 허용했다면 현재 앱만 남기고 권한을 한 번 껐다 켠 뒤 文译를 종료하고 다시 실행하세요.", chineseSimplified: "macOS 未认可此版本文译的屏幕录制权限。如已开启，请仅保留当前应用，重新关闭并开启权限，然后退出并重新打开文译。"
+        korean: "macOS가 현재 文译 빌드의 화면 기록 권한을 인식하지 못합니다. 이미 허용했다면 현재 앱만 남기고 권한을 한 번 껐다 켠 뒤 文译를 종료하고 다시 실행하세요.",
+        japanese: "macOS がこのビルドの画面収録権限を認識していません。すでに許可している場合は現在のアプリだけを残し、権限を切り替えてから文译を開き直してください。", chineseSimplified: "macOS 未认可此版本文译的屏幕录制权限。如已开启，请仅保留当前应用，重新关闭并开启权限，然后退出并重新打开文译。"
     )
     static let microphoneNotGranted = localized(
         english: "macOS does not recognize Microphone access for this 文译 build. If it is already enabled, keep only the current app, toggle access once, then quit and relaunch 文译.",
-        korean: "macOS가 현재 文译 빌드의 마이크 권한을 인식하지 못합니다. 이미 허용했다면 현재 앱만 남기고 권한을 한 번 껐다 켠 뒤 文译를 종료하고 다시 실행하세요.", chineseSimplified: "macOS 未认可此版本文译的麦克风权限。如已开启，请仅保留当前应用，重新关闭并开启权限，然后退出并重新打开文译。"
+        korean: "macOS가 현재 文译 빌드의 마이크 권한을 인식하지 못합니다. 이미 허용했다면 현재 앱만 남기고 권한을 한 번 껐다 켠 뒤 文译를 종료하고 다시 실행하세요.",
+        japanese: "macOS がこのビルドのマイク権限を認識していません。すでに許可している場合は現在のアプリだけを残し、権限を切り替えてから文译を開き直してください。", chineseSimplified: "macOS 未认可此版本文译的麦克风权限。如已开启，请仅保留当前应用，重新关闭并开启权限，然后退出并重新打开文译。"
     )
     static let microphoneUnavailable = localized(
         english: "The microphone input could not be started.",
-        korean: "마이크 입력을 시작할 수 없습니다.", chineseSimplified: "无法启动麦克风输入。"
+        korean: "마이크 입력을 시작할 수 없습니다.",
+        japanese: "マイク入力を開始できませんでした。", chineseSimplified: "无法启动麦克风输入。"
     )
     static let noActiveDisplay = localized(
         english: "No active display was available for system audio capture.",
-        korean: "시스템 오디오 캡처에 사용할 수 있는 활성 디스플레이가 없습니다.", chineseSimplified: "未找到可用于采集系统音频的活动显示器。"
+        korean: "시스템 오디오 캡처에 사용할 수 있는 활성 디스플레이가 없습니다.",
+        japanese: "システム音声の収録に必要なディスプレイが見つかりませんでした。", chineseSimplified: "未找到可用于采集系统音频的活动显示器。"
     )
 
     static func languageTitle(for id: String, fallback: String) -> String {

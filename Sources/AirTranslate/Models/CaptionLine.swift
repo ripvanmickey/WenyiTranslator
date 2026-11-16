@@ -27,9 +27,11 @@ struct CaptionLine: Identifiable, Equatable {
     }
 
     var localTranslationStatus: String {
-        if isTranslationInterrupted { return "中断" }
-        if hasConfirmedTranslation && hasUsableTranslation { return "已完成" }
-        return hasUsableTranslation ? "预览" : "等待译文"
+        if isTranslationInterrupted { return InterfaceLocalization.ui("中断", "Interrupted", "中断") }
+        if hasConfirmedTranslation && hasUsableTranslation { return InterfaceLocalization.ui("已完成", "Complete", "完了") }
+        return hasUsableTranslation
+            ? InterfaceLocalization.ui("预览", "Preview", "プレビュー")
+            : InterfaceLocalization.ui("等待译文", "Waiting for translation", "訳文を待機中")
     }
 
     init(

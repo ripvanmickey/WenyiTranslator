@@ -15,10 +15,10 @@ struct LocalTranslationSettingsView: View {
     private var locked: Bool { session.isRunning || session.isStarting || isWorking }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            WhisperRecognitionSettingsView(session: session)
             if !isOnlineIndex {
-                SettingsControlRow(title: "本地模式 · 翻译引擎", detail: "先由选定的本地引擎识别语音，再选择译文的处理方式。", systemImage: "character.bubble") {
-                    Picker("翻译引擎", selection: Binding(
+                WhisperRecognitionSettingsView(session: session)
+                SettingsControlRow(title: AppText.ui("本地模式 · 翻译引擎", "Local Mode · Translation Engine", "ローカルモード・翻訳エンジン"), detail: AppText.ui("先由选定的本地引擎识别语音，再选择译文的处理方式。", "The selected local engine recognizes speech. Choose how to translate it.", "選択したローカルエンジンで音声を認識します。翻訳方法を選んでください。"), systemImage: "character.bubble") {
+                    Picker(AppText.ui("翻译引擎", "Translation Engine", "翻訳エンジン"), selection: Binding(
                         get: { session.localTranslation.enabled },
                         set: { enabled in
                             message = ""
@@ -26,17 +26,17 @@ struct LocalTranslationSettingsView: View {
                             else { session.enableLocalTranslation(false) }
                         }
                     )) {
-                        if PlatformSupport.supportsAppleSpeech { Text("Apple 翻译").tag(false) }
-                        Text("本地模型翻译").tag(true)
+                        if PlatformSupport.supportsAppleSpeech { Text(AppText.ui("Apple 翻译", "Apple Translation", "Apple 翻訳")).tag(false) }
+                        Text(AppText.ui("本地模型翻译", "Local Model Translation", "ローカルモデル翻訳")).tag(true)
                     }
                     .labelsHidden().frame(width: 220).disabled(locked)
                 }
             }
             if isOnlineIndex || session.localTranslation.enabled {
                 if !isOnlineIndex {
-                    Toggle("跨段回看纠错", isOn: $session.contextualCaptionCorrectionEnabled)
+                    Toggle(AppText.ui("跨段回看纠错", "Correct earlier captions", "前の字幕を文脈で修正"), isOn: $session.contextualCaptionCorrectionEnabled)
                         .disabled(locked)
-                    Text("翻译空闲时用后文纠正近期字幕中的同音词。")
+                    Text(AppText.ui("翻译空闲时用后文纠正近期字幕中的同音词。", "Use later context to correct homophones in recent captions while translation is idle.", "翻訳の待機中に、後続の文脈から直近の字幕の同音異義語を修正します。"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 10) {
@@ -46,23 +46,29 @@ struct LocalTranslationSettingsView: View {
                                 .font(.headline).textSelection(.enabled)
                             Text(session.localTranslation.activeBaseURL).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                             if isOnlineIndex {
-                                Text("语音在本机识别，待译字幕文字发送到哔哩哔哩。")
+                                Text(AppText.ui("语音在本机识别，待译字幕文字发送到哔哩哔哩。", "Speech is recognized on this Mac. Caption text is sent to Bilibili for translation.", "音声認識はこの Mac で行い、翻訳対象の字幕テキストは Bilibili に送信します。"))
                                     .font(.caption).foregroundStyle(.secondary)
+                                if session.whisperRecognitionEnabled {
+                                    Text(AppText.ui("语音识别模型在「本地模式」下载和管理。",
+                                        "Manage speech recognition models in Local Mode.",
+                                        "音声認識モデルは「ローカルモード」で管理します。"))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
                             } else {
-                                Text(LocalTranslationAPIKeyStore.hasAPIKey() ? "本地服务密钥：已保存" : "本地服务密钥：未配置（无认证）")
+                                Text(LocalTranslationAPIKeyStore.hasAPIKey() ? AppText.ui("本地服务密钥：已保存", "Local service key: Saved", "ローカルサービスのキー：保存済み") : AppText.ui("本地服务密钥：未配置（无认证）", "Local service key: None", "ローカルサービスのキー：未設定"))
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
                         Spacer()
                         if !isOnlineIndex {
-                            Button("配置…") { showingConfiguration = true }.disabled(locked)
+                            Button(AppText.ui("配置…", "Configure…", "設定…")) { showingConfiguration = true }.disabled(locked)
                         }
                     }
                     HStack {
-                        Button("测试翻译") { run(longSample: false) }
-                        Button("测试长句翻译") { run(longSample: true) }
+                        Button(AppText.ui("测试翻译", "Test Translation", "翻訳をテスト")) { run(longSample: false) }
+                        Button(AppText.ui("测试长句翻译", "Test Long Text", "長文翻訳をテスト")) { run(longSample: true) }
                         if isWorking { ProgressView().controlSize(.small) }
-                        Button("延迟诊断") { showingDiagnostics = true }
+                        Button(AppText.ui("延迟诊断", "Latency Diagnostics", "遅延診断")) { showingDiagnostics = true }
                         Spacer()
                         Text(session.languageSummary).font(.caption).foregroundStyle(.secondary)
                     }
@@ -80,7 +86,7 @@ struct LocalTranslationSettingsView: View {
         }
         .sheet(isPresented: $showingDiagnostics) {
             VStack(alignment: .leading, spacing: 18) {
-                Text("实际播放延迟诊断").font(.title2.bold())
+                Text(AppText.ui("实际播放延迟诊断", "Caption Latency Diagnostics", "字幕の遅延診断")).font(.title2.bold())
                 ScrollView {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         Text(session.latencySummary()).font(.callout.monospaced()).textSelection(.enabled)
@@ -89,14 +95,14 @@ struct LocalTranslationSettingsView: View {
                 }.frame(maxHeight: 420)
                 if !replayMessage.isEmpty { Text(replayMessage).font(.callout).textSelection(.enabled) }
                 HStack {
-                    Button("文字增量回放", action: runReplay).disabled(isWorking || session.isRunning || session.isStarting)
-                    Button("清空样本") { session.captionLatencyReadings.removeAll() }
-                    Button("复制报告") {
+                    Button(AppText.ui("文字增量回放", "Text Update Replay", "テキスト更新を再生"), action: runReplay).disabled(isWorking || session.isRunning || session.isStarting)
+                    Button(AppText.ui("清空样本", "Clear Samples", "サンプルを消去")) { session.captionLatencyReadings.removeAll() }
+                    Button(AppText.ui("复制报告", "Copy Report", "レポートをコピー")) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(session.latencySummary(), forType: .string)
                     }
                     Spacer()
-                    Button("关闭") { operation?.cancel(); showingDiagnostics = false }
+                    Button(AppText.ui("关闭", "Close", "閉じる")) { operation?.cancel(); showingDiagnostics = false }
                 }
             }.padding(24).frame(width: 640)
         }
@@ -109,13 +115,13 @@ struct LocalTranslationSettingsView: View {
     private var activeModelName: String {
         let modelID = session.localTranslation.activeModelID
         if modelID == indexTranslateModelID { return indexTranslateModelName }
-        return modelID.isEmpty ? "尚未配置本地模型" : modelID
+        return modelID.isEmpty ? AppText.ui("尚未配置本地模型", "No local model configured", "ローカルモデルが未設定です") : modelID
     }
 
     private func runReplay() {
         guard !locked else { return }
         let configuration = session.localTranslation
-        isWorking = true; replayMessage = "正在进行固定文字回放（不含音频识别）…"
+        isWorking = true; replayMessage = AppText.ui("正在进行固定文字回放（不含音频识别）…", "Replaying sample text updates…", "サンプルテキストの更新を再生中…")
         operation = Task { @MainActor in
             defer { isWorking = false }
             do {
@@ -141,17 +147,17 @@ struct LocalTranslationSettingsView: View {
                             source: language, target: "zh-CN", configuration: configuration, apiKey: key,
                             progress: { partial in
                                 if !partial.isEmpty && first == nil { first = ProcessInfo.processInfo.systemUptime }
-                                replayMessage = previousReports.joined(separator: "\n") + "\n" + language + " 回放中：\n" + partial
+                                replayMessage = previousReports.joined(separator: "\n") + "\n" + language + AppText.ui(" 回放中：\n", " replaying:\n", " 再生中：\n") + partial
                             })
                     }
                     let stats = await IncrementalLocalTranslator.shared.statistics(identity: identity,
                         source: language, target: "zh-CN", configuration: configuration)
                     let baseline = updates.reduce(0) { $0 + $1.count }
                     let ended = ProcessInfo.processInfo.systemUptime
-                    reports.append(String(format: "%@ · 首译 %.2f 秒 · 4 次修订完成 %.2f 秒 · 源文字提交 %d/%d 字 · 复用 %d 个前缀片段\n%@", language, (first ?? ended) - started, ended - started, stats.0, baseline, stats.1, final))
+                    reports.append(String(format: AppText.ui("%@ · 首译 %.2f 秒 · 4 次修订完成 %.2f 秒 · 源文字提交 %d/%d 字 · 复用 %d 个前缀片段\n%@", "%@ · First translation %.2f s · 4 updates in %.2f s · Sent %d/%d source characters · Reused %d chunks\n%@", "%@ · 初回訳文 %.2f 秒 · 4 回の更新を %.2f 秒で完了 · 原文 %d/%d 文字を送信 · %d 区間を再利用\n%@"), language, (first ?? ended) - started, ended - started, stats.0, baseline, stats.1, final))
                 }
-                replayMessage = reports.joined(separator: "\n\n") + "\n\n仅为文字修订回放。字符统计不含额外参考上下文，不代表模型 token 或真实音频延迟。"
-            } catch is CancellationError { replayMessage = "已取消回放。" }
+                replayMessage = reports.joined(separator: "\n\n") + AppText.ui("\n\n仅为文字修订回放。字符统计不含额外参考上下文，不代表模型 token 或真实音频延迟。", "\n\nText replay only. Character counts exclude reference context and do not measure tokens or audio latency.", "\n\nテキストの更新のみ再生します。文字数に参照情報は含まれず、トークン数や音声遅延とは異なります。")
+            } catch is CancellationError { replayMessage = AppText.ui("已取消回放。", "Replay cancelled.", "再生をキャンセルしました。") }
             catch { replayMessage = error.localizedDescription }
         }
     }
@@ -161,7 +167,7 @@ struct LocalTranslationSettingsView: View {
         let source = session.sourceLanguage
         let target = session.targetLanguage
         isWorking = true
-        message = "正在测试 \(source.localizedTitle) → \(target.localizedTitle)…"
+        message = AppText.ui("正在测试 \(source.localizedTitle) → \(target.localizedTitle)…", "Testing \(source.localizedTitle) → \(target.localizedTitle)…", "\(source.localizedTitle) → \(target.localizedTitle) をテスト中…")
         operation = Task { @MainActor in
             defer { isWorking = false }
             do {
@@ -174,15 +180,15 @@ struct LocalTranslationSettingsView: View {
                     progress: { partial in
                         guard !partial.isEmpty else { return }
                         if firstTextAt == nil { firstTextAt = ProcessInfo.processInfo.systemUptime }
-                        message = "正在翻译（流式）：\n\(partial)"
+                        message = AppText.ui("正在翻译（流式）：\n\(partial)", "Translating (streaming):\n\(partial)", "翻訳中（ストリーミング）：\n\(partial)")
                     }
                 )
                 guard !Task.isCancelled, configuration == session.localTranslation,
                       source == session.sourceLanguage, target == session.targetLanguage else { return }
                 let completedAt = ProcessInfo.processInfo.systemUptime
                 let firstSeconds = (firstTextAt ?? completedAt) - startedAt
-                message = String(format: "测试成功 · 首段译文 %.2f 秒 · 全部完成 %.2f 秒\n", firstSeconds, completedAt - startedAt) + result
-            } catch is CancellationError { message = "已取消。" }
+                message = String(format: AppText.ui("测试成功 · 首段译文 %.2f 秒 · 全部完成 %.2f 秒\n", "Test passed · First translation %.2f s · Complete %.2f s\n", "テスト成功 · 初回訳文 %.2f 秒 · 完了 %.2f 秒\n"), firstSeconds, completedAt - startedAt) + result
+            } catch is CancellationError { message = AppText.ui("已取消。", "Cancelled.", "キャンセルしました。") }
             catch { message = error.localizedDescription }
         }
     }
@@ -211,50 +217,50 @@ private struct LocalTranslationConfigurationSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("配置本地模型翻译").font(.title2.bold())
-                Text("选定的本地引擎识别语音，本机服务负责翻译。配置和密钥更改在点击「保存配置」后生效。")
+                Text(AppText.ui("配置本地模型翻译", "Configure Local Model Translation", "ローカルモデル翻訳の設定")).font(.title2.bold())
+                Text(AppText.ui("选定的本地引擎识别语音，本机服务负责翻译。配置和密钥更改在点击「保存配置」后生效。", "The selected engine recognizes speech, and the local server translates it. Save the configuration to apply your changes.", "選択したエンジンで音声を認識し、ローカルサービスで翻訳します。「設定を保存」で変更を適用します。"))
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("服务地址").font(.headline)
+                Text(AppText.ui("服务地址", "Server Address", "サーバーアドレス")).font(.headline)
                 TextField("http://localhost:1235/v1", text: $draft.baseURL).textFieldStyle(.roundedBorder)
                     .onChange(of: draft.baseURL) { _, _ in models = []; message = "" }
             }.disabled(locked)
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("模型").font(.headline)
+                    Text(AppText.ui("模型", "Model", "モデル")).font(.headline)
                     Spacer()
-                    Button("读取模型列表", action: readModels)
+                    Button(AppText.ui("读取模型列表", "Fetch Models", "モデル一覧を取得"), action: readModels)
                     if isReading { ProgressView().controlSize(.small) }
                 }
-                Picker("选择模型", selection: $draft.modelID) {
-                    Text("请选择模型").tag("")
+                Picker(AppText.ui("选择模型", "Select Model", "モデルを選択"), selection: $draft.modelID) {
+                    Text(AppText.ui("请选择模型", "Choose a model", "モデルを選んでください")).tag("")
                     Text(indexTranslateModelName).tag(indexTranslateModelID)
                     if !draft.modelID.isEmpty && draft.modelID != indexTranslateModelID && !models.contains(draft.modelID) {
                         Text(draft.modelID).tag(draft.modelID)
                     }
                     ForEach(models.filter { $0 != indexTranslateModelID }, id: \.self) { Text($0).tag($0) }
                 }.labelsHidden().frame(maxWidth: .infinity, alignment: .leading)
-                TextField("模型 ID", text: $draft.modelID).textFieldStyle(.roundedBorder)
+                TextField(AppText.ui("模型 ID", "Model ID", "モデル ID"), text: $draft.modelID).textFieldStyle(.roundedBorder)
                 if draft.modelID == indexTranslateModelID {
-                    Text("需要在 LM Studio 下载此模型并开启本地 API。")
+                    Text(AppText.ui("需要在 LM Studio 下载此模型并开启本地 API。", "Download this model and enable the local API in LM Studio.", "LM Studio でモデルをダウンロードし、ローカル API を有効にしてください。"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }.disabled(locked)
             VStack(alignment: .leading, spacing: 8) {
-                Text("本地服务密钥（可选）").font(.headline)
-                SecureField("无认证时留空；已保存的密钥不会回显", text: $keyText).textFieldStyle(.roundedBorder)
+                Text(AppText.ui("本地服务密钥（可选）", "Local Service Key (Optional)", "ローカルサービスのキー（任意）")).font(.headline)
+                SecureField(AppText.ui("无认证时留空；已保存的密钥不会回显", "Leave blank if authentication is disabled", "認証が不要な場合は空欄のままにします"), text: $keyText).textFieldStyle(.roundedBorder)
                 HStack {
-                    Button("保存密钥") {
+                    Button(AppText.ui("保存密钥", "Save Key", "キーを保存")) {
                         let key = keyText.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !key.isEmpty, key.utf8.count <= 16_384,
                               key.utf8.allSatisfy({ $0 >= 0x21 && $0 <= 0x7e }) else {
-                            message = "请输入有效的本地服务密钥。"; return
+                            message = AppText.ui("请输入有效的本地服务密钥。", "Enter a valid local service key.", "有効なローカルサービスのキーを入力してください。"); return
                         }
                         pendingKey = .save(key); keyText = ""
-                        message = "密钥已暂存，保存配置后生效。"
+                        message = AppText.ui("密钥已暂存，保存配置后生效。", "The key will be applied when you save the configuration.", "設定を保存するとキーが適用されます。")
                     }.disabled(keyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    Button("删除密钥") { pendingKey = .delete; keyText = ""; message = "已标记删除密钥，保存配置后生效。" }
+                    Button(AppText.ui("删除密钥", "Delete Key", "キーを削除")) { pendingKey = .delete; keyText = ""; message = AppText.ui("已标记删除密钥，保存配置后生效。", "The key will be removed when you save the configuration.", "設定を保存するとキーが削除されます。") }
                     Spacer()
                     Text(keyStatus).font(.caption).foregroundStyle(.secondary)
                 }
@@ -262,9 +268,9 @@ private struct LocalTranslationConfigurationSheet: View {
             if !message.isEmpty { Text(message).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
             Divider()
             HStack {
-                Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(AppText.ui("取消", "Cancel", "キャンセル")) { dismiss() }.keyboardShortcut(.cancelAction)
                 Spacer()
-                Button("保存配置", action: save).keyboardShortcut(.defaultAction).disabled(locked)
+                Button(AppText.ui("保存配置", "Save Configuration", "設定を保存"), action: save).keyboardShortcut(.defaultAction).disabled(locked)
             }
         }
         .padding(24).frame(width: 560)
@@ -273,9 +279,9 @@ private struct LocalTranslationConfigurationSheet: View {
 
     private var keyStatus: String {
         switch pendingKey {
-        case .unchanged: LocalTranslationAPIKeyStore.hasAPIKey() ? "已保存" : "无认证"
-        case .save: "待保存"
-        case .delete: "待删除"
+        case .unchanged: LocalTranslationAPIKeyStore.hasAPIKey() ? AppText.ui("已保存", "Saved", "保存済み") : AppText.ui("无认证", "No authentication", "認証なし")
+        case .save: AppText.ui("待保存", "Pending save", "保存待ち")
+        case .delete: AppText.ui("待删除", "Pending deletion", "削除待ち")
         }
     }
     private func effectiveKey() throws -> String? {
@@ -287,12 +293,12 @@ private struct LocalTranslationConfigurationSheet: View {
     }
     private func readModels() {
         let configuration = draft
-        isReading = true; message = "正在读取模型列表…"
+        isReading = true; message = AppText.ui("正在读取模型列表…", "Fetching models…", "モデル一覧を取得中…")
         operation = Task { @MainActor in
             defer { isReading = false }
             do {
                 models = try await LocalTranslationService.shared.models(configuration: configuration, apiKey: effectiveKey())
-                message = models.isEmpty ? "服务没有返回模型。" : "请选择用于翻译的聊天模型。"
+                message = models.isEmpty ? AppText.ui("服务没有返回模型。", "The server returned no models.", "サーバーからモデルが返されませんでした。") : AppText.ui("请选择用于翻译的聊天模型。", "Choose a chat model for translation.", "翻訳に使うチャットモデルを選んでください。")
             } catch is CancellationError { }
             catch { message = error.localizedDescription }
         }
@@ -301,7 +307,7 @@ private struct LocalTranslationConfigurationSheet: View {
         guard !locked else { return }
         do {
             _ = try draft.validatedBaseURL(); try draft.validateModel()
-            if !keyText.isEmpty { message = "请先点击「保存密钥」，或清空未保存的密钥输入。"; return }
+            if !keyText.isEmpty { message = AppText.ui("请先点击「保存密钥」，或清空未保存的密钥输入。", "Click Save Key or clear the unsaved key.", "「キーを保存」を押すか、未保存の入力を消去してください。"); return }
             switch pendingKey {
             case .unchanged: break
             case let .save(key): try LocalTranslationAPIKeyStore.saveAPIKey(key)

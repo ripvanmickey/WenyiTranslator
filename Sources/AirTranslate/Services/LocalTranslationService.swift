@@ -43,21 +43,21 @@ enum LocalTranslationError: LocalizedError {
     }
     var errorDescription: String? {
         switch self {
-        case .invalidURL: "本地服务地址必须使用 localhost、127.0.0.1 或 ::1，并以 /v1 结尾。"
-        case .modelRequired: "请先读取并选择本地模型，或填写准确的模型 ID。"
-        case .invalidResponse: "本地服务返回了无法识别的数据。"
-        case .emptyTranslation: "本地模型未返回译文，请检查模型设置并关闭思考模式后重试。"
-        case .interrupted: "流式翻译提前中断；请检查模型是否被卸载，或有其他客户端正在切换模型。"
-        case .truncated: "本地模型在短段重试后仍达到输出上限；请检查 LM Studio 的思考设置或更换模型。"
-        case .untranslatedJapanese: "本地模型重译后仍夹杂日语，这段译文未完成。"
-        case .indexInterrupted: "Index 在线翻译连接中断或超时，已显示的译文可能不完整。"
-        case .indexTruncated: "Index 在线翻译达到输出上限，这段译文未完成。"
-        case .indexWrongLanguage: "Index 在线翻译重试后仍返回日语，这段译文未完成。"
-        case .indexEmpty: "Index 在线翻译未返回译文。"
-        case .indexHTTP(429): "Index 在线翻译请求过多，请稍后再试。"
-        case let .indexHTTP(code): "Index 在线翻译返回 HTTP \(code)。"
-        case let .server(code, message): code >= 400 ? "本地服务 HTTP \(code)：\(message)" : "本地流式服务错误：\(message)"
-        case let .http(code): "本地服务返回 HTTP \(code)，请检查服务、模型 ID 和身份验证设置。"
+        case .invalidURL: InterfaceLocalization.ui("本地服务地址必须使用 localhost、127.0.0.1 或 ::1，并以 /v1 结尾。", "Use localhost, 127.0.0.1, or ::1 for the local server, with a URL ending in /v1.", "ローカルサーバーには localhost、127.0.0.1、または ::1 を使用し、URL の末尾を /v1 にしてください。")
+        case .modelRequired: InterfaceLocalization.ui("请先读取并选择本地模型，或填写准确的模型 ID。", "Fetch and select a local model, or enter its exact model ID.", "ローカルモデルを取得して選択するか、正確なモデル ID を入力してください。")
+        case .invalidResponse: InterfaceLocalization.ui("本地服务返回了无法识别的数据。", "The local server returned an unrecognized response.", "ローカルサーバーから認識できない応答が返されました。")
+        case .emptyTranslation: InterfaceLocalization.ui("本地模型未返回译文，请检查模型设置并关闭思考模式后重试。", "The local model returned no translation. Check its settings and turn off thinking mode before retrying.", "ローカルモデルから訳文が返されませんでした。モデル設定を確認し、思考モードをオフにして再試行してください。")
+        case .interrupted: InterfaceLocalization.ui("流式翻译提前中断；请检查模型是否被卸载，或有其他客户端正在切换模型。", "The translation stream ended early. Check whether the model was unloaded or switched by another client.", "翻訳の配信が途中で終了しました。モデルが解放されたか、別のクライアントが切り替えていないか確認してください。")
+        case .truncated: InterfaceLocalization.ui("本地模型在短段重试后仍达到输出上限；请检查 LM Studio 的思考设置或更换模型。", "The local model still reached its output limit after retrying a shorter segment. Check thinking mode in LM Studio or switch models.", "短い区間で再試行しても出力上限に達しました。LM Studio の思考モードを確認するか、モデルを変更してください。")
+        case .untranslatedJapanese: InterfaceLocalization.ui("本地模型重译后仍夹杂日语，这段译文未完成。", "Japanese text remained after retrying. The translation is incomplete.", "再試行後も日本語が残っています。この翻訳は未完了です。")
+        case .indexInterrupted: InterfaceLocalization.ui("Index 在线翻译连接中断或超时，已显示的译文可能不完整。", "The Index connection was interrupted or timed out. The displayed translation may be incomplete.", "Index への接続が中断またはタイムアウトしました。表示された訳文が不完全な可能性があります。")
+        case .indexTruncated: InterfaceLocalization.ui("Index 在线翻译达到输出上限，这段译文未完成。", "Index reached its output limit. This translation is incomplete.", "Index の出力上限に達しました。この翻訳は未完了です。")
+        case .indexWrongLanguage: InterfaceLocalization.ui("Index 在线翻译重试后仍返回日语，这段译文未完成。", "Index still returned Japanese after retrying. This translation is incomplete.", "再試行後も Index から日本語が返されました。この翻訳は未完了です。")
+        case .indexEmpty: InterfaceLocalization.ui("Index 在线翻译未返回译文。", "Index returned no translation.", "Index から訳文が返されませんでした。")
+        case .indexHTTP(429): InterfaceLocalization.ui("Index 在线翻译请求过多，请稍后再试。", "Index received too many requests. Try again later.", "Index へのリクエストが多すぎます。しばらくしてから再試行してください。")
+        case let .indexHTTP(code): InterfaceLocalization.ui("Index 在线翻译返回 HTTP \(code)。", "Index returned HTTP \(code).", "Index から HTTP \(code) が返されました。")
+        case let .server(code, message): code >= 400 ? InterfaceLocalization.ui("本地服务 HTTP \(code)：\(message)", "Local server HTTP \(code): \(message)", "ローカルサーバー HTTP \(code)：\(message)") : InterfaceLocalization.ui("本地流式服务错误：\(message)", "Local stream error: \(message)", "ローカル配信エラー：\(message)")
+        case let .http(code): InterfaceLocalization.ui("本地服务返回 HTTP \(code)，请检查服务、模型 ID 和身份验证设置。", "The local server returned HTTP \(code). Check the server, model ID, and authentication.", "ローカルサーバーから HTTP \(code) が返されました。サーバー、モデル ID、認証設定を確認してください。")
         }
     }
 }

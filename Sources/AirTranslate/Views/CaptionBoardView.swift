@@ -502,7 +502,7 @@ private struct CaptionLineView: View, Equatable {
                 if showsTranslationPane {
                     TurnTranscriptText(
                         lineID: line.id,
-                        title: showsRecognitionState ? AppText.original + (line.isFinal ? " · 已确认" : " · 临时识别") : AppText.original,
+                        title: showsRecognitionState ? AppText.original + (line.isFinal ? AppText.ui(" · 已确认", " · Confirmed", " · 確定") : AppText.ui(" · 临时识别", " · Draft", " · 暫定")) : AppText.original,
                         text: line.sourceText,
                         displayText: line.sourceDisplayText,
                         holdsLiveRewrites: isLive,
@@ -527,7 +527,7 @@ private struct CaptionLineView: View, Equatable {
                 } else {
                     TurnTranscriptText(
                         lineID: line.id,
-                        title: showsRecognitionState ? AppText.original + (line.isFinal ? " · 已确认" : " · 临时识别") : AppText.original,
+                        title: showsRecognitionState ? AppText.original + (line.isFinal ? AppText.ui(" · 已确认", " · Confirmed", " · 確定") : AppText.ui(" · 临时识别", " · Draft", " · 暫定")) : AppText.original,
                         text: line.sourceText,
                         displayText: line.sourceDisplayText,
                         holdsLiveRewrites: isLive,
@@ -1319,7 +1319,7 @@ private struct LegacyCaptionTranscriptFeed: View {
                                 viewportState.returnToLatest()
                                 reader.scrollTo("legacy-latest", anchor: .bottom)
                             }
-                            label: { Label("跳转到最新字幕", systemImage: "arrow.down.to.line") }
+                            label: { Label(AppText.ui("跳转到最新字幕", "Jump to Latest Captions", "最新の字幕へ移動"), systemImage: "arrow.down.to.line") }
                                 .buttonStyle(.borderedProminent).padding(12)
                         }
                     }

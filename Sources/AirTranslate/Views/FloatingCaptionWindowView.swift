@@ -66,7 +66,7 @@ struct FloatingCaptionWindowView: View {
             if hasText {
                 VStack(spacing: 0) {
                     // A small dedicated drag strip leaves text scrolling available.
-                    FloatingCaptionDragSurface().frame(height: 12).help("拖动字幕窗口；在文字区域滚动查看完整段落")
+                    FloatingCaptionDragSurface().frame(height: 12).help(AppText.ui("拖动字幕窗口；在文字区域滚动查看完整段落", "Drag this window, or scroll the text to read the full paragraph", "ウィンドウをドラッグできます。段落全体を読むにはテキストをスクロールしてください"))
                     ScrollViewReader { reader in
                         ScrollView(.vertical) {
                             VStack(alignment: .leading, spacing: 18) {
@@ -75,7 +75,7 @@ struct FloatingCaptionWindowView: View {
                                         text(source(latest), primary: false)
                                     }
                                     if session.isUsingLocalTranslation {
-                                        Text("当前译文 · " + latest.localTranslationStatus)
+                                        Text(AppText.ui("当前译文 · ", "Current translation · ", "現在の訳文 · ") + latest.localTranslationStatus)
                                             .font(.caption).foregroundStyle(session.floatingCaptionTextColor.opacity(0.72))
                                     }
                                     translationBlock(retainedTranslation, primary: true, previous: true)
@@ -226,7 +226,7 @@ struct FloatingCaptionWindowView: View {
         let value = translation(line)
         if session.isUsingLocalTranslation, !session.isPreviewingFloatingCaptions,
            !value.isEmpty || line.isTranslationInterrupted {
-            Text((previous ? "上一段译文 · " : "译文 · ") + line.localTranslationStatus)
+            Text((previous ? AppText.ui("上一段译文 · ", "Previous translation · ", "前の訳文 · ") : AppText.ui("译文 · ", "Translation · ", "訳文 · ")) + line.localTranslationStatus)
                 .font(.caption).foregroundStyle(session.floatingCaptionTextColor.opacity(0.72))
         }
         text(value, primary: primary)

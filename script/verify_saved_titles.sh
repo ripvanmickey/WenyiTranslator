@@ -7,6 +7,7 @@ swiftc -module-cache-path "$CHECK/modules" "$ROOT/script/SavedTranscriptTitleChe
  "$ROOT/Sources/AirTranslate/Models/SavedTranscriptTitleStore.swift" -o "$CHECK/storage"
 "$CHECK/storage"
 swiftc -swift-version 6 -module-cache-path "$CHECK/modules" "$ROOT/script/SavedTitleRequestChecks.swift" \
+ "$ROOT/Sources/AirTranslate/Models/InterfaceLocalization.swift" \
  "$ROOT/Sources/AirTranslate/Services/LocalTranslationService.swift" \
  "$ROOT/Sources/AirTranslate/Services/JapaneseTranslationEnvelope.swift" -o "$CHECK/request"
 "$CHECK/request"
