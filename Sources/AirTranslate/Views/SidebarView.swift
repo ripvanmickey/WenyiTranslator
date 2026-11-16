@@ -241,6 +241,7 @@ struct StageHeaderView: View {
 struct ConsoleBarView: View {
     @Bindable var session: TranslationSessionStore
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.displayScale) private var displayScale
     @FocusState private var isCaptureFocused: Bool
 
     var body: some View {
@@ -280,6 +281,13 @@ struct ConsoleBarView: View {
         .padding(.horizontal, AirTranslateDesign.Spacing.sm)
         .padding(.vertical, AirTranslateDesign.Spacing.xs)
         .frame(maxWidth: 1120)
+        .background(AirTranslateDesign.Palette.captureBarBackground, in: Capsule())
+        .overlay {
+            Capsule()
+                .strokeBorder(AirTranslateDesign.Palette.captureBarBorder, lineWidth: 1 / displayScale)
+                .allowsHitTesting(false)
+        }
+        .environment(\.colorScheme, .light)
     }
 
     private var captureButton: some View {

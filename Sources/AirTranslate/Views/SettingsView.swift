@@ -7,6 +7,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var session: TranslationSessionStore
     @Bindable private var localization = InterfaceLocalization.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @SceneStorage("AirTranslate.SettingsView.selectedCategory") private var selectedCategoryID = SettingsCategory.general.rawValue
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var credentialScrollTarget: String?
@@ -59,6 +60,7 @@ struct SettingsView: View {
                     sidebarToggle
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
                 }
             }
         }
@@ -91,7 +93,9 @@ struct SettingsView: View {
             : AppText.localized(english: "Show Sidebar", korean: "사이드바 보기", japanese: "サイドバーを表示", chineseSimplified: "显示侧栏")
 
         let button = Button {
-            columnVisibility = isVisible ? .detailOnly : .all
+            withAnimation(reduceMotion ? nil : AirTranslateDesign.Motion.enter) {
+                columnVisibility = isVisible ? .detailOnly : .all
+            }
         } label: {
             Image(systemName: "sidebar.left")
                 .font(.system(size: 16, weight: .medium))
