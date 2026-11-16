@@ -10,9 +10,11 @@ struct ProcessingModePicker: View {
         default: false
         }
     }
+    private var canChangeOutput: Bool { !locked && supportsOutputSwitch }
+
     private var outputSelection: Binding<LiveOutputMode> {
         Binding(get: { session.liveOutputMode }, set: { mode in
-            guard !locked, supportsOutputSwitch else { return }
+            guard canChangeOutput else { return }
             session.useLiveOutputMode(mode)
         })
     }
@@ -25,7 +27,9 @@ struct ProcessingModePicker: View {
         .controlSize(.large)
         .labelsHidden()
         .frame(width: 180)
-        .disabled(locked || !supportsOutputSwitch)
+        .allowsHitTesting(canChangeOutput)
+        .accessibilityRespondsToUserInteraction(canChangeOutput)
+        .opacity(canChangeOutput ? 1 : 0.6)
         .help(locked ? AppText.lockedDuringSession : supportsOutputSwitch ? QuickOutputCopy.title : QuickOutputCopy.providerOutput)
         .accessibilityLabel(QuickOutputCopy.title)
         .accessibilityIdentifier("quickOutputControls")

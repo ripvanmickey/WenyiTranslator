@@ -364,7 +364,8 @@ struct ConsoleBarView: View {
             .controlSize(.large)
             .labelsHidden()
             .frame(width: 168)
-            .disabled(!isConfigurationAvailable)
+            .allowsHitTesting(isConfigurationAvailable)
+            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
             .accessibilityLabel(AppText.audioInputSource)
         }
     }
