@@ -123,8 +123,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     ) async {
         guard response.notification.request.identifier == AppUpdateChecker.notificationID,
               response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
+        let userInfo = response.notification.request.content.userInfo
+        let tag = userInfo[AppUpdateChecker.notificationTagKey] as? String
+        let asset = userInfo[AppUpdateChecker.notificationAssetKey] as? String
         await MainActor.run {
-            NSWorkspace.shared.open(AppUpdateChecker.shared.availableUpdate?.url ?? AppUpdateRelease.releasesURL)
+            if let tag, let asset {
+                let release = AppUpdateRelease(tagName: tag, draft: false, prerelease: false, assets: [.init(name: asset)])
+                if let update = release.update(for: .current(), on: ProcessInfo.processInfo.operatingSystemVersion) {
+                    NSWorkspace.shared.open(update.downloadURL)
+                }
+            } else {
+                NSWorkspace.shared.open(AppUpdateChecker.shared.availableUpdate?.downloadURL ?? AppUpdateRelease.releasesURL)
+            }
         }
     }
 }

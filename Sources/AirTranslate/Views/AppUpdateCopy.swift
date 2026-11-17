@@ -6,7 +6,7 @@ enum AppUpdateCopy {
     static var upToDate: String { text("No newer compatible release was found.", "호환되는 새 버전이 없습니다.", "互換性のある新しいバージョンはありません。", "目前没有适用于本机的更新。") }
     static var failed: String { text("Couldn’t check GitHub. Try again later.", "GitHub를 확인하지 못했습니다. 나중에 다시 시도하세요.", "GitHubを確認できませんでした。後でもう一度お試しください。", "无法检查 GitHub，请稍后重试。") }
     static var available: String { text("Wenyi Update Available", "Wenyi 업데이트 알림", "文訳の更新があります", "文译有新版本") }
-    static var download: String { text("Go to Download", "다운로드 페이지 열기", "ダウンロードページを開く", "前往下载") }
+    static var download: String { text("Download DMG", "DMG 다운로드", "DMGをダウンロード", "下载 DMG") }
     static var notifications: String { text("New Version Notifications", "새 버전 알림", "新バージョンの通知", "新版本通知") }
     static var notificationDetail: String { text("Show a macOS notification when an update is available.", "업데이트가 있으면 macOS 알림을 표시합니다.", "更新があるとmacOSに通知します。", "发现新版本时发送 macOS 通知。") }
     static var notificationDenied: String { text("Allow Wenyi notifications in System Settings.", "시스템 설정에서 Wenyi 알림을 허용하세요.", "システム設定で文訳の通知を許可してください。", "请在系统设置中允许文译发送通知。") }

@@ -60,7 +60,7 @@ struct ContentView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 if let update = updates.availableUpdate {
                     Button {
-                        openURL(update.url)
+                        openURL(update.downloadURL)
                     } label: {
                         Image(systemName: "arrow.down.circle")
                     }

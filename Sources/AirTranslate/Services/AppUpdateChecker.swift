@@ -27,20 +27,20 @@ struct AppUpdateRelease: Decodable, Equatable {
 
         let prefix = "Wenyi-\(version)-"
         let suffix = "-arm64.dmg"
-        let builds = assets.compactMap { asset -> Int? in
+        let compatibleAssets = assets.compactMap { asset -> (build: Int, name: String)? in
             guard asset.name.hasPrefix(prefix), asset.name.hasSuffix(suffix) else { return nil }
             let fields = asset.name.dropFirst(prefix.count).dropLast(suffix.count).components(separatedBy: "-macOS")
             guard fields.count == 2, let build = Int(fields[0]), build > 0,
                   let minimumOS = Self.versionComponents(fields[1]),
                   ![os.majorVersion, os.minorVersion, os.patchVersion].lexicographicallyPrecedes(minimumOS) else { return nil }
-            return build
+            return (build, asset.name)
         }
-        guard let build = builds.max() else { return nil }
+        guard let asset = compatibleAssets.max(by: { $0.build < $1.build }) else { return nil }
 
         let isNewerVersion = installedVersion.lexicographicallyPrecedes(releaseVersion)
-        let isNewerBuild = installedVersion == releaseVersion && installed.build.flatMap(Int.init).map { $0 < build } == true
+        let isNewerBuild = installedVersion == releaseVersion && installed.build.flatMap(Int.init).map { $0 < asset.build } == true
         guard isNewerVersion || isNewerBuild else { return nil }
-        return AppUpdate(version: version, build: build, url: Self.releasesURL.appending(path: "tag").appending(path: tagName))
+        return AppUpdate(version: version, build: asset.build, tagName: tagName, assetName: asset.name)
     }
 
     private static func versionComponents(_ value: String) -> [Int]? {
@@ -55,9 +55,11 @@ struct AppUpdateRelease: Decodable, Equatable {
 struct AppUpdate: Equatable {
     let version: String
     let build: Int
-    let url: URL
+    let tagName: String
+    let assetName: String
 
     var summary: String { "\(version) (\(build))" }
+    var downloadURL: URL { AppUpdateRelease.releasesURL.appending(path: "download").appending(path: tagName).appending(path: assetName) }
 }
 
 @MainActor
@@ -65,6 +67,8 @@ struct AppUpdate: Equatable {
 final class AppUpdateChecker {
     static let shared = AppUpdateChecker()
     nonisolated static let notificationID = "wenyi.app-update.available"
+    nonisolated static let notificationTagKey = "releaseTag"
+    nonisolated static let notificationAssetKey = "releaseAsset"
     private static let endpoint = URL(string: "https://api.github.com/repos/ripvanmickey/WenyiTranslator/releases/latest")!
 
     enum Status {
@@ -147,6 +151,7 @@ final class AppUpdateChecker {
         content.title = AppUpdateCopy.available
         content.body = AppUpdateCopy.versionAvailable(update.summary)
         content.sound = .default
+        content.userInfo = [Self.notificationTagKey: update.tagName, Self.notificationAssetKey: update.assetName]
         do {
             defaults.set(update.summary, forKey: Key.lastNotified)
             try await center.add(UNNotificationRequest(identifier: Self.notificationID, content: content, trigger: nil))

@@ -766,7 +766,7 @@ struct SettingsView: View {
                         .accessibilityIdentifier("checkForAppUpdates")
 
                         if let update = updates.availableUpdate {
-                            Button(AppUpdateCopy.download) { openURL(update.url) }
+                            Button(AppUpdateCopy.download) { openURL(update.downloadURL) }
                                 .accessibilityIdentifier("downloadAppUpdate")
                         }
                     }
