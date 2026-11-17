@@ -5,6 +5,7 @@ CHECK="$(mktemp -d "${TMPDIR:-/tmp}/wenyi-reasoning.XXXXXX")"
 trap 'rm -rf "$CHECK"' EXIT
 swiftc -swift-version 6 -target arm64-apple-macosx14.0 -module-cache-path "$CHECK/modules" \
  "$ROOT/Sources/AirTranslate/Models/InterfaceLocalization.swift" \
+ "$ROOT/Sources/AirTranslate/Support/PipelineDiagnostics.swift" \
  "$ROOT/Sources/AirTranslate/Services/LocalTranslationService.swift" \
  "$ROOT/Sources/AirTranslate/Services/JapaneseTranslationEnvelope.swift" \
  "$ROOT/script/ReasoningCompatibilityChecks.swift" -o "$CHECK/check"

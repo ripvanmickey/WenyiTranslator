@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 struct LocalTranslationConfiguration: Codable, Equatable, Sendable {
     var enabled = false
@@ -109,6 +110,64 @@ struct CaptionContextCorrection: Decodable {
 actor LocalTranslationService {
     static let shared = LocalTranslationService()
     typealias Progress = @MainActor @Sendable (String) -> Void
+
+    private final class IndexAttemptTrace {
+        private static let logger = Logger(subsystem: "dev.appcaster.AirTranslate", category: "IndexTranslation")
+        let id = UUID().uuidString
+        let parentID: UUID?
+        let attempt: Int
+        let started = ProcessInfo.processInfo.systemUptime
+        var httpStatus: Int?
+        var headersAt: TimeInterval?
+        var firstByteAt: TimeInterval?
+        var firstTextAt: TimeInterval?
+
+        init(parentID: UUID?, attempt: Int) {
+            self.parentID = parentID
+            self.attempt = attempt
+            PipelineDiagnostics.record("index.request.start", id: id, parentID: parentID, values: ["attempt": Double(attempt)])
+        }
+
+        func finish(error: Error? = nil) {
+            let elapsed = (ProcessInfo.processInfo.systemUptime - started) * 1_000
+            var values = ["attempt": Double(attempt), "elapsed_ms": elapsed]
+            if let httpStatus { values["http_status"] = Double(httpStatus) }
+            if let headersAt { values["headers_ms"] = (headersAt - started) * 1_000 }
+            if let firstByteAt { values["first_byte_ms"] = (firstByteAt - started) * 1_000 }
+            if let firstTextAt { values["first_text_ms"] = (firstTextAt - started) * 1_000 }
+
+            let outcome = Self.outcome(error)
+            if let urlError = error as? URLError { values["url_error"] = Double(urlError.errorCode) }
+            PipelineDiagnostics.record("index.request.\(outcome)", id: id, parentID: parentID, values: values)
+            guard error != nil, outcome != "cancelled" else { return }
+            let phase = firstTextAt != nil ? "after_text" : firstByteAt != nil ? "stream" : headersAt != nil ? "headers" : "connect"
+            let parent = parentID?.uuidString ?? "none"
+            let urlCode = (error as? URLError)?.errorCode ?? 0
+            Self.logger.warning("request=\(self.id, privacy: .public) caption=\(parent, privacy: .public) attempt=\(self.attempt) outcome=\(outcome, privacy: .public) phase=\(phase, privacy: .public) elapsed_ms=\(Int(elapsed)) http_status=\(self.httpStatus ?? 0) url_error=\(urlCode)")
+        }
+
+        private static func outcome(_ error: Error?) -> String {
+            guard let error else { return "completed" }
+            if error is CancellationError { return "cancelled" }
+            if let urlError = error as? URLError {
+                switch urlError.code {
+                case .cancelled: return "cancelled"
+                case .timedOut: return "timeout"
+                case .networkConnectionLost: return "connection_lost"
+                default: return "transport_error"
+                }
+            }
+            return switch error as? LocalTranslationError {
+            case .interrupted: "stream_ended_without_stop"
+            case .indexHTTP: "http_error"
+            case .server: "service_error"
+            case .truncated: "output_limit"
+            case .untranslatedJapanese: "wrong_language"
+            case .emptyTranslation: "empty_translation"
+            default: "invalid_response"
+            }
+        }
+    }
     private var punctuatedSources: [String: String] = [:]
     private var punctuationOrder: [String] = []
     private func punctuationKey(_ text: String, _ configuration: LocalTranslationConfiguration) -> String {
@@ -355,6 +414,7 @@ actor LocalTranslationService {
                    configuration: LocalTranslationConfiguration, apiKey: String? = nil,
                    context: String = "",
                    asSingleCaption: Bool = false,
+                   diagnosticID: UUID? = nil,
                    progress: Progress? = nil) async throws -> String {
         try configuration.validateModel()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -375,7 +435,7 @@ actor LocalTranslationService {
                 relay = { @MainActor partial in progress((completed + [partial]).joined(separator: "\n")) }
             } else { relay = nil }
             results.append(try await translateWithRecovery(chunk, source: source, target: target,
-                configuration: configuration, apiKey: apiKey, depth: 0, context: context, progress: relay))
+                configuration: configuration, apiKey: apiKey, depth: 0, context: context, diagnosticID: diagnosticID, progress: relay))
         }
         if source.hasPrefix("ja") {
             let candidate = chunks.map { punctuatedSource($0, configuration: configuration) ?? $0 }.joined()
@@ -387,10 +447,11 @@ actor LocalTranslationService {
 
     private func translateWithRecovery(_ text: String, source: String, target: String,
                                       configuration: LocalTranslationConfiguration, apiKey: String?, depth: Int, context: String,
+                                      diagnosticID: UUID? = nil,
                                       progress: Progress?) async throws -> String {
         if configuration.usesOnlineIndex {
             return try await translateOnlineIndexWithRecovery(text, source: source, target: target,
-                configuration: configuration, progress: progress)
+                configuration: configuration, diagnosticID: diagnosticID, progress: progress)
         }
         do {
             do {
@@ -421,13 +482,22 @@ actor LocalTranslationService {
 
     private func translateOnlineIndexWithRecovery(_ text: String, source: String, target: String,
                                                  configuration: LocalTranslationConfiguration,
+                                                 diagnosticID: UUID?,
                                                  progress: Progress?) async throws -> String {
         let requiresChinese = Self.isJapaneseToChinese(source: source, target: target)
         for attempt in 0...1 {
             try Task.checkCancellation()
             do {
-                return try await translateOnlineIndex(text, target: target, configuration: configuration,
-                    requiresChinese: requiresChinese, isRetry: attempt > 0, progress: attempt == 0 ? progress : nil)
+                let trace = IndexAttemptTrace(parentID: diagnosticID, attempt: attempt + 1)
+                do {
+                    let result = try await translateOnlineIndex(text, target: target, configuration: configuration,
+                        requiresChinese: requiresChinese, isRetry: attempt > 0, trace: trace, progress: attempt == 0 ? progress : nil)
+                    trace.finish()
+                    return result
+                } catch {
+                    trace.finish(error: error)
+                    throw error
+                }
             } catch LocalTranslationError.untranslatedJapanese {
                 if attempt > 0 { throw LocalTranslationError.indexWrongLanguage }
             } catch LocalTranslationError.truncated {
@@ -446,7 +516,7 @@ actor LocalTranslationService {
     }
 
     private func translateOnlineIndex(_ text: String, target: String, configuration: LocalTranslationConfiguration,
-                                      requiresChinese: Bool, isRetry: Bool, progress: Progress?) async throws -> String {
+                                      requiresChinese: Bool, isRetry: Bool, trace: IndexAttemptTrace, progress: Progress?) async throws -> String {
         var request = try request("chat/completions", configuration: configuration, apiKey: nil)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -466,7 +536,7 @@ actor LocalTranslationService {
             "messages": [["role": "user", "content": instruction + "\n\n" + text]]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let translated = try await streamTranslation(request, native: false) { output in
+        let translated = try await streamTranslation(request, native: false, indexTrace: trace) { output in
             let visible = Self.captionLineBreaks(output, streaming: true)
             if !visible.isEmpty && (!requiresChinese || !Self.containsKana(visible)) { progress?(visible) }
         }
@@ -630,13 +700,16 @@ actor LocalTranslationService {
         return try Self.cleanTranslation(choice.message.content ?? "")
     }
 
-    private func streamTranslation(_ original: URLRequest, native: Bool, progress: @escaping Progress) async throws -> String {
+    private func streamTranslation(_ original: URLRequest, native: Bool, indexTrace: IndexAttemptTrace? = nil,
+                                   progress: @escaping Progress) async throws -> String {
         var request = original
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         let online = isIndexRequest(request)
         let (bytes, response) = try await (online ? onlineSession : session).bytes(for: request)
         defer { bytes.task.cancel() }
+        indexTrace?.headersAt = ProcessInfo.processInfo.systemUptime
         guard let http = response as? HTTPURLResponse else { throw LocalTranslationError.invalidResponse }
+        indexTrace?.httpStatus = http.statusCode
         if !(200..<300).contains(http.statusCode) {
             if online { throw LocalTranslationError.indexHTTP(http.statusCode) }
             var data = Data()
@@ -662,6 +735,7 @@ actor LocalTranslationService {
         var lineBuffer = Data()
         for try await byte in bytes {
             try Task.checkCancellation()
+            if let indexTrace, indexTrace.firstByteAt == nil { indexTrace.firstByteAt = ProcessInfo.processInfo.systemUptime }
             if byte != 10 {
                 lineBuffer.append(byte)
                 guard lineBuffer.count <= 512_000 else { throw LocalTranslationError.invalidResponse }
@@ -681,6 +755,7 @@ actor LocalTranslationService {
             }
             if let partial {
                 let now = ProcessInfo.processInfo.systemUptime
+                if let indexTrace, indexTrace.firstTextAt == nil, !partial.isEmpty { indexTrace.firstTextAt = now }
                 if partial != lastPublished && (lastPublished.isEmpty || now - lastPublishedAt >= 0.05 || parser.finished) {
                     lastPublished = partial
                     lastPublishedAt = now

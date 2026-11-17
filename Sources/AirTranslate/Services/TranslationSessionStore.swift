@@ -6966,6 +6966,7 @@ final class TranslationSessionStore {
         source: LanguageOption,
         target: LanguageOption,
         incrementalIdentity: String? = nil,
+        diagnosticID: UUID? = nil,
         punctuation: LocalTranslationService.Progress? = nil,
         progress: @escaping @MainActor @Sendable (String) -> Void = { _ in }
     ) async throws -> String {
@@ -6987,7 +6988,7 @@ final class TranslationSessionStore {
             return try await IncrementalLocalTranslator.shared.translate(text, identity: identity,
                 source: source.id, target: target.id, configuration: localTranslation,
                 apiKey: localTranslation.usesOnlineIndex ? nil : LocalTranslationAPIKeyStore.readAPIKey(),
-                punctuation: punctuation, progress: progress)
+                diagnosticID: diagnosticID, punctuation: punctuation, progress: progress)
         }
         let translationOptions = appleTranslationOptions
         let segmentationOptions = isUsingAppleTextTranslation ? translationOptions : AppleTranslationOptions()
@@ -7026,7 +7027,7 @@ final class TranslationSessionStore {
                     let completedSegments = translatedSegments
                     translatedSegment = try await LocalTranslationService.shared.translate(
                         segment, source: source.id, target: target.id,
-                        configuration: localTranslation, apiKey: key,
+                        configuration: localTranslation, apiKey: key, diagnosticID: diagnosticID,
                         progress: { partial in
                             let text = (completedParagraphs + [(completedSegments + [partial]).joined(separator: "\n")]).joined(separator: "\n\n")
                             guard !text.isEmpty else { return }
@@ -8012,6 +8013,7 @@ final class TranslationSessionStore {
                     source: request.source,
                     target: request.target,
                     incrementalIdentity: "\(request.pipelineGeneration):\(request.line.id.uuidString)",
+                    diagnosticID: request.requestID,
                     punctuation: { [weak self] candidate in
                         guard let self, self.acceptsTranslationUpdates(for: request),
                               let index = self.lines.firstIndex(where: { $0.id == request.line.id }),

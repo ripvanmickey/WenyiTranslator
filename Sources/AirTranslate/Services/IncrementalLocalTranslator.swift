@@ -76,6 +76,7 @@ actor IncrementalLocalTranslator {
 
     func translate(_ text: String, identity: String, source: String, target: String,
                    configuration: LocalTranslationConfiguration, apiKey: String?,
+                   diagnosticID: UUID? = nil,
                    punctuation: LocalTranslationService.Progress? = nil,
                    progress: @escaping LocalTranslationService.Progress) async throws -> String {
         let key = identity + "\t" + source + "\t" + target + "\t" + configuration.activeBaseURL + "\t" + configuration.activeModelID
@@ -105,7 +106,7 @@ actor IncrementalLocalTranslator {
             submittedCharacters[key, default: 0] += block.count
             let translated = try await client.translate(block, source: source, target: target,
                 configuration: configuration, apiKey: apiKey,
-                context: context,
+                context: context, diagnosticID: diagnosticID,
                 progress: { partial in
                     let value = [prefix, partial].filter { !$0.isEmpty }.joined(separator: "\n")
                     if !value.isEmpty { progress(value) }
