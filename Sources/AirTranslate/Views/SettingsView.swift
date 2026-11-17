@@ -283,7 +283,7 @@ struct SettingsView: View {
                 SettingsNoticeActionRow(
                     text: AppText.openAIAPIKeyRequiredForGPTMode,
                     systemImage: "key",
-                    actionTitle: SettingsCopy.enterOpenAIAPIKey
+                    actionTitle: SettingsCopy.configureAPIKey
                 ) {
                     selectedCategory.wrappedValue = .apiKeys
                 }
@@ -297,7 +297,7 @@ struct SettingsView: View {
                 SettingsNoticeActionRow(
                     text: AppText.geminiAPIKeyMissing,
                     systemImage: "key",
-                    actionTitle: SettingsCopy.enterGeminiAPIKey
+                    actionTitle: SettingsCopy.configureAPIKey
                 ) {
                     selectedCategory.wrappedValue = .apiKeys
                 }
@@ -1260,21 +1260,8 @@ enum SettingsCopy {
     }
     static var modeSettings: String { AppText.localized(english: "Mode Settings", korean: "모드 설정", japanese: "モード設定", chineseSimplified: "模式设置") }
     static var processingEngine: String { AppText.localized(english: "Processing Mode", korean: "처리 방식", japanese: "処理モード", chineseSimplified: "处理模式") }
-    static var enterOpenAIAPIKey: String {
-        AppText.localized(
-            english: "Enter OpenAI API key",
-            korean: "OpenAI API 키 입력",
-            japanese: "OpenAI APIキーを入力",
-            chineseSimplified: "输入 OpenAI API 密钥"
-        )
-    }
-    static var enterGeminiAPIKey: String {
-        AppText.localized(
-            english: "Enter Gemini API key",
-            korean: "Gemini API 키 입력",
-            japanese: "Gemini APIキーを入力",
-            chineseSimplified: "输入 Gemini API 密钥"
-        )
+    static var configureAPIKey: String {
+        AppText.localized(english: "Configure", korean: "설정", japanese: "設定", chineseSimplified: "配置")
     }
     static var enterMetaAPIKey: String {
         AppText.localized(
@@ -2024,7 +2011,7 @@ private struct SettingsNoticeActionRow: View {
     }
 
     private var noticeLabel: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
                 .foregroundStyle(AirTranslateDesign.Palette.warning)
