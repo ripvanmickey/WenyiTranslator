@@ -246,6 +246,7 @@ struct SettingsView: View {
                 Button(JevCopy.keySettings) { session.requestAPIKeySettings(provider: .jev) }
                     .disabled(isSessionConfigurationLocked)
                     .accessibilityIdentifier("jevAPIKeySettings")
+                    .padding(.leading, settingsLabelIndent)
             }
 
             }
@@ -254,7 +255,8 @@ struct SettingsView: View {
                 SettingsControlRow(
                     title: SettingsCopy.geminiLiveMode,
                     detail: SettingsCopy.geminiLiveModeDetail,
-                    systemImage: "waveform.badge.mic"
+                    systemImage: "waveform.badge.mic",
+                    controlBelowLabel: true
                 ) {
                     Picker(SettingsCopy.geminiLiveMode, selection: geminiModelSelection) {
                         ForEach(GeminiTranslationModel.selectableCases) { model in
@@ -304,17 +306,27 @@ struct SettingsView: View {
             }
 
             if processingModeSelection.wrappedValue == .azure {
-                Picker(AzureMAICopy.modelLabel, selection: lockedSessionConfigurationBinding($session.azureTranscriptionModel)) {
-                    ForEach(AzureTranscriptionModel.allCases) { model in Text(model.title).tag(model) }
+                SettingsControlRow(
+                    title: AzureMAICopy.modelLabel,
+                    detail: "",
+                    systemImage: "waveform",
+                    controlBelowLabel: true
+                ) {
+                    Picker(AzureMAICopy.modelLabel, selection: lockedSessionConfigurationBinding($session.azureTranscriptionModel)) {
+                        ForEach(AzureTranscriptionModel.allCases) { model in
+                            Text(model.title).tag(model)
+                        }
+                    }
+                    .labelsHidden()
+                    .disabled(isSessionConfigurationLocked)
+                    .accessibilityIdentifier("settingsAzureModelPicker")
                 }
-                .disabled(isSessionConfigurationLocked)
-                .accessibilityIdentifier("settingsAzureModelPicker")
                 SettingsNoticeRow(text: AzureMAICopy.detail(for: session.azureTranscriptionModel), systemImage: "waveform")
                 if let azureConfigurationIssue {
                     SettingsNoticeActionRow(
                         text: azureConfigurationIssue,
                         systemImage: "key",
-                        actionTitle: AzureMAICopy.configureSpeech
+                        actionTitle: SettingsCopy.configureAPIKey
                     ) {
                         selectedCategory.wrappedValue = .apiKeys
                     }
@@ -344,10 +356,12 @@ struct SettingsView: View {
                 SettingsControlRow(
                     title: SettingsCopy.speakerLabels,
                     detail: SettingsCopy.speakerLabelsDetail,
-                    systemImage: "person.2"
+                    systemImage: "person.2",
+                    controlBelowLabel: true
                 ) {
                     Toggle("", isOn: $session.isMetaSpeakerLabelsEnabled)
                         .labelsHidden()
+                        .toggleStyle(.switch)
                         .disabled(isSessionConfigurationLocked)
                         .tint(AirTranslateDesign.Palette.accent)
                         .accessibilityLabel(SettingsCopy.speakerLabels)
@@ -406,7 +420,8 @@ struct SettingsView: View {
             SettingsControlRow(
                 title: AppText.audioInputSource,
                 detail: SettingsCopy.audioInputDetail,
-                systemImage: "waveform.badge.magnifyingglass"
+                systemImage: "waveform.badge.magnifyingglass",
+                controlBelowLabel: true
             ) {
                 Picker(AppText.audioInputSource, selection: lockedSessionConfigurationBinding($session.audioInputSource)) {
                     ForEach(AudioInputSource.allCases) { source in
@@ -431,7 +446,8 @@ struct SettingsView: View {
             SettingsControlRow(
                 title: AppText.ui("纯音频采集（实验）", "Audio-Only Capture (Experimental)", "音声のみの収録（実験的）"),
                 detail: PlatformSupport.supportsAudioTap ? AppText.ui("开启后仅采集 Mac 系统声音，不启动屏幕捕获。首次使用需允许系统音频录制；不保证受保护的视频可用。失败时不会自动切回屏幕捕获。停止采集后可更改。", "Capture only Mac system audio. Allow system audio recording on first use. Protected video may be unavailable, and failures do not fall back to screen capture. Stop capture to change this setting.", "Mac のシステム音声のみを収録します。初回はシステム音声の収録を許可してください。保護された動画は利用できない場合があり、失敗時に画面収録へは切り替わりません。変更するには収録を停止してください。") : AppText.ui("纯音频采集需要 macOS 14.2或以上。当前可用麦克风或屏幕捕获兼容方式；兼容方式可能影响受保护视频的播放。", "Audio-only capture requires macOS 14.2 or later. Microphone and screen capture remain available. Screen capture may affect protected playback.", "音声のみの収録には macOS 14.2 以降が必要です。マイクまたは画面収録を利用できます。画面収録は保護された動画の再生に影響する場合があります。"),
-                systemImage: "waveform"
+                systemImage: "waveform",
+                controlBelowLabel: true
             ) {
                 Toggle(AppText.ui("纯音频采集", "Audio-Only Capture", "音声のみの収録"), isOn: lockedSessionConfigurationBinding($session.audioOnlySystemCapture))
                     .labelsHidden()
@@ -446,7 +462,8 @@ struct SettingsView: View {
                 detail: session.audioInputSource == .microphone
                     ? SettingsCopy.microphoneDeviceDetail
                     : SettingsCopy.microphoneDeviceUnavailableForSystemAudioDetail,
-                systemImage: "mic"
+                systemImage: "mic",
+                controlBelowLabel: true
             ) {
                 Picker(AppText.microphoneInputDevice, selection: lockedSessionConfigurationBinding($session.selectedMicrophoneInputDeviceID)) {
                     ForEach(session.microphoneInputDevices) { device in
@@ -479,7 +496,8 @@ struct SettingsView: View {
                 SettingsControlRow(
                     title: AppText.outputMode,
                     detail: SettingsCopy.outputModeDetail,
-                    systemImage: "rectangle.split.2x1"
+                    systemImage: "rectangle.split.2x1",
+                    controlBelowLabel: true
                 ) {
                     Picker(AppText.outputMode, selection: liveOutputModeBinding) {
                         ForEach(LiveOutputMode.allCases) { mode in
@@ -524,13 +542,18 @@ struct SettingsView: View {
     }
 
     private var openAIOutputControl: some View {
-        HStack(spacing: 12) {
-            Text(AppText.openAIAudio).font(.callout.weight(.medium))
-            InlineHelpIcon(symbol: "info.circle", help: AppText.openAIAudioDescription)
-            Spacer()
-            OpenAIOutputPicker(session: session)
+        SettingsControlRow(
+            title: AppText.openAIAudio,
+            detail: "",
+            systemImage: "waveform",
+            showsSeparator: false,
+            controlBelowLabel: true
+        ) {
+            HStack(spacing: 12) {
+                OpenAIOutputPicker(session: session)
+                InlineHelpIcon(symbol: "info.circle", help: AppText.openAIAudioDescription)
+            }
         }
-        .padding(.vertical, 6)
     }
 
     private var transcribeOnlyOutputDetail: String {
@@ -556,7 +579,8 @@ struct SettingsView: View {
             SettingsControlRow(
                 title: AppText.sessionLength,
                 detail: session.sessionDurationMode.detail,
-                systemImage: "timer"
+                systemImage: "timer",
+                controlBelowLabel: true
             ) {
                 Picker(AppText.sessionLength, selection: lockedSessionConfigurationBinding($session.sessionDurationMode)) {
                     ForEach(SessionDurationMode.allCases) { mode in
@@ -612,7 +636,8 @@ struct SettingsView: View {
             SettingsControlRow(
                 title: AppText.savedTranscriptContent,
                 detail: AppText.autoSaveDescription,
-                systemImage: "archivebox"
+                systemImage: "archivebox",
+                controlBelowLabel: true
             ) {
                 if session.isTranscribeOnlyMode {
                     Text(session.effectiveSavedTranscriptContentMode.title)
@@ -756,7 +781,8 @@ struct SettingsView: View {
         SettingsControlRow(
             title: NariCopy.modelLabel,
             detail: NariCopy.modelDetail + "\n" + session.nariTranscriptionModel.billingSummary,
-            systemImage: "waveform.badge.mic"
+            systemImage: "waveform.badge.mic",
+            controlBelowLabel: true
         ) {
             Picker(NariCopy.modelLabel, selection: lockedSessionConfigurationBinding($session.nariTranscriptionModel)) {
                 ForEach(NariTranscriptionModel.selectableCases) { model in
@@ -773,10 +799,12 @@ struct SettingsView: View {
         SettingsControlRow(
             title: AppText.autoDetectInput,
             detail: NariCopy.autoDetectDetail,
-            systemImage: "globe"
+            systemImage: "globe",
+            controlBelowLabel: true
         ) {
             Toggle("", isOn: lockedSessionConfigurationBinding($session.isNariSourceAutoDetectionEnabled))
                 .labelsHidden()
+                .toggleStyle(.switch)
                 .disabled(isSessionConfigurationLocked)
                 .accessibilityLabel(AppText.autoDetectInput)
         }
@@ -786,7 +814,7 @@ struct SettingsView: View {
             SettingsNoticeActionRow(
                 text: NariCopy.configurationRequired,
                 systemImage: "key",
-                actionTitle: NariCopy.configureSpeech
+                actionTitle: SettingsCopy.configureAPIKey
             ) {
                 selectedCategory.wrappedValue = .apiKeys
             }
@@ -798,7 +826,8 @@ struct SettingsView: View {
         SettingsControlRow(
             title: GrokCopy.modelLabel,
             detail: GrokCopy.detail,
-            systemImage: "waveform.badge.mic"
+            systemImage: "waveform.badge.mic",
+            controlBelowLabel: true
         ) {
             Picker(GrokCopy.modelLabel, selection: lockedSessionConfigurationBinding($session.grokTranscriptionModel)) {
                 ForEach(GrokTranscriptionModel.selectableCases) { model in
@@ -815,10 +844,12 @@ struct SettingsView: View {
         SettingsControlRow(
             title: AppText.autoDetectInput,
             detail: GrokCopy.autoDetectDetail,
-            systemImage: "globe"
+            systemImage: "globe",
+            controlBelowLabel: true
         ) {
             Toggle("", isOn: lockedSessionConfigurationBinding($session.isGrokSourceAutoDetectionEnabled))
                 .labelsHidden()
+                .toggleStyle(.switch)
                 .disabled(isSessionConfigurationLocked)
                 .accessibilityLabel(AppText.autoDetectInput)
         }
@@ -828,7 +859,7 @@ struct SettingsView: View {
             SettingsNoticeActionRow(
                 text: GrokCopy.configurationRequired,
                 systemImage: "key",
-                actionTitle: GrokCopy.configureSpeech
+                actionTitle: SettingsCopy.configureAPIKey
             ) {
                 selectedCategory.wrappedValue = .apiKeys
             }
@@ -940,7 +971,8 @@ struct SettingsView: View {
         SettingsControlRow(
             title: QwenCopy.modelLabel,
             detail: QwenCopy.modelDetail,
-            systemImage: "waveform"
+            systemImage: "waveform",
+            controlBelowLabel: true
         ) {
             Picker(QwenCopy.modelLabel, selection: lockedSessionConfigurationBinding($session.qwenTranslationModel)) {
                 ForEach(QwenTranslationModel.selectableCases) { model in
@@ -961,12 +993,13 @@ struct SettingsView: View {
         )
         if !session.hasQwenConfiguration {
             let model = session.qwenTranslationModel.isEnabled ? session.qwenTranslationModel : session.preferredQwenModel
-            SettingsNoticeActionRow(text: QwenCopy.configurationRequired(for: model), systemImage: "key", actionTitle: AppText.translationSettings) {
+            SettingsNoticeActionRow(text: QwenCopy.configurationRequired(for: model), systemImage: "key", actionTitle: SettingsCopy.configureAPIKey) {
                 session.requestAPIKeySettings(provider: .qwen)
                 selectedCategory.wrappedValue = .apiKeys
             }
         }
         QwenAudioFileTranscriptionView(hasAPIKey: session.hasQwenAPIKey)
+            .padding(.leading, settingsLabelIndent)
     }
 
     private var liveOutputModeBinding: Binding<LiveOutputMode> {
@@ -1967,6 +2000,7 @@ struct SettingsNoticeRow: View {
             AirTranslateDesign.Palette.pausedSoft,
             in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
         )
+        .padding(.leading, settingsLabelIndent)
         .padding(.vertical, AirTranslateDesign.Spacing.xxs)
         .accessibilityElement(children: .combine)
     }
@@ -1991,6 +2025,7 @@ private struct SettingsNoticeActionRow: View {
             AirTranslateDesign.Palette.pausedSoft,
             in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
         )
+        .padding(.leading, settingsLabelIndent)
         .padding(.vertical, AirTranslateDesign.Spacing.xxs)
     }
 
@@ -2052,7 +2087,7 @@ struct SettingsControlRow<Trailing: View>: View {
     var body: some View {
         Group {
             if controlBelowLabel {
-                stackedRow(controlIndent: settingsLabelIndent)
+                stackedRow
             } else {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .center, spacing: 10) {
@@ -2064,7 +2099,7 @@ struct SettingsControlRow<Trailing: View>: View {
                     }
                     .frame(minWidth: AirTranslateDesign.settingsRowBreakpoint)
 
-                    stackedRow()
+                    stackedRow
                 }
             }
         }
@@ -2077,14 +2112,14 @@ struct SettingsControlRow<Trailing: View>: View {
         SettingsRowLabel(title: title, detail: detail, systemImage: systemImage, detailLineLimit: detailLineLimit)
     }
 
-    private func stackedRow(controlIndent: CGFloat = 0) -> some View {
+    private var stackedRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             rowLabel
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             trailing
                 .controlSize(.regular)
-                .padding(.leading, controlIndent)
+                .padding(.leading, settingsLabelIndent)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -2098,7 +2133,7 @@ private struct SettingsToggleRow: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        SettingsControlRow(title: title, detail: detail, systemImage: systemImage, detailLineLimit: detailLineLimit) {
+        SettingsControlRow(title: title, detail: detail, systemImage: systemImage, detailLineLimit: detailLineLimit, controlBelowLabel: true) {
             Toggle(title, isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
@@ -2149,7 +2184,7 @@ private struct SettingsValueRow: View {
 
 private let settingsRowIconWidth: CGFloat = 20
 private let settingsRowIconSpacing: CGFloat = 9
-private let settingsLabelIndent = settingsRowIconWidth + settingsRowIconSpacing
+let settingsLabelIndent = settingsRowIconWidth + settingsRowIconSpacing
 
 private struct SettingsRowLabel: View {
     let title: String

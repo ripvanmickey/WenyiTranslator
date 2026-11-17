@@ -61,28 +61,37 @@ struct WhisperRecognitionSettingsView: View {
                 }
             }
             if !isOnlineIndex && session.localRecognitionEngine == "whisper" {
-                HStack {
-                    Picker(AppText.ui("识别模型", "Recognition Model", "認識モデル"), selection: $session.whisperModel) {
-                        Text(AppText.ui("Tiny · 更轻量", "Tiny · Lightweight", "Tiny · 軽量")).tag("tiny")
-                        Text(AppText.ui("Base · 均衡试用", "Base · Balanced Trial", "Base · バランス型")).tag("base")
-                        Text(AppText.ui("Small · 更大模型", "Small · Larger Model", "Small · 大きめのモデル")).tag("small")
-                    }.frame(width: 250).disabled(locked)
-                    Button(session.whisperModelFolder.isEmpty ? AppText.ui("下载并准备模型", "Download and Prepare Model", "モデルをダウンロードして準備") : AppText.ui("验证并加载已有模型", "Verify and Load Existing Model", "既存モデルを確認して読み込む"), action: prepare).disabled(locked)
-                    Button(AppText.ui("选择模型文件夹…", "Choose Model Folder…", "モデルフォルダを選択…"), action: chooseFolder).disabled(locked)
+                VStack(alignment: .leading, spacing: 8) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack { whisperKitModelControls }
+                        VStack(alignment: .leading, spacing: 8) { whisperKitModelControls }
+                    }
+                    Text(session.whisperModelFolder.isEmpty ? AppText.ui("尚未准备模型。首次下载从 Hugging Face 获取模型和分词器，需要联网及磁盘空间；不会上传音频。", "The model is not ready. The first download retrieves the model and tokenizer from Hugging Face and requires internet access and disk space.", "モデルの準備ができていません。初回は Hugging Face からモデルとトークナイザーを取得するため、ネット接続と空き容量が必要です。") : AppText.ui("已配置：", "Configured: ", "設定済み：") + session.whisperModelFolder)
+                        .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                    if preparing {
+                        ProgressView(value: progress)
+                        Button(AppText.ui("取消准备", "Cancel Preparation", "準備をキャンセル")) { operation?.cancel() }
+                    }
+                    if !message.isEmpty { Text(message).font(.callout).textSelection(.enabled) }
                 }
-                Text(session.whisperModelFolder.isEmpty ? AppText.ui("尚未准备模型。首次下载从 Hugging Face 获取模型和分词器，需要联网及磁盘空间；不会上传音频。", "The model is not ready. The first download retrieves the model and tokenizer from Hugging Face and requires internet access and disk space.", "モデルの準備ができていません。初回は Hugging Face からモデルとトークナイザーを取得するため、ネット接続と空き容量が必要です。") : AppText.ui("已配置：", "Configured: ", "設定済み：") + session.whisperModelFolder)
-                    .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                if preparing {
-                    ProgressView(value: progress)
-                    Button(AppText.ui("取消准备", "Cancel Preparation", "準備をキャンセル")) { operation?.cancel() }
-                }
-                if !message.isEmpty { Text(message).font(.callout).textSelection(.enabled) }
+                .padding(.leading, settingsLabelIndent)
             }
         }
         .task { manager.refresh() }
         .sheet(isPresented: $showsModelManagement) { modelManagementSheet }
         .onChange(of: session.whisperModel) { _, _ in message = "" }
         .onDisappear { operation?.cancel() }
+    }
+
+    @ViewBuilder
+    private var whisperKitModelControls: some View {
+        Picker(AppText.ui("识别模型", "Recognition Model", "認識モデル"), selection: $session.whisperModel) {
+            Text(AppText.ui("Tiny · 更轻量", "Tiny · Lightweight", "Tiny · 軽量")).tag("tiny")
+            Text(AppText.ui("Base · 均衡试用", "Base · Balanced Trial", "Base · バランス型")).tag("base")
+            Text(AppText.ui("Small · 更大模型", "Small · Larger Model", "Small · 大きめのモデル")).tag("small")
+        }.frame(width: 250).disabled(locked)
+        Button(session.whisperModelFolder.isEmpty ? AppText.ui("下载并准备模型", "Download and Prepare Model", "モデルをダウンロードして準備") : AppText.ui("验证并加载已有模型", "Verify and Load Existing Model", "既存モデルを確認して読み込む"), action: prepare).disabled(locked)
+        Button(AppText.ui("选择模型文件夹…", "Choose Model Folder…", "モデルフォルダを選択…"), action: chooseFolder).disabled(locked)
     }
 
     private var managedModelStatus: some View {

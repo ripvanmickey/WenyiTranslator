@@ -43,25 +43,25 @@ struct LocalTranslationSettingsView: View {
                     .font(AirTranslateDesign.Typography.sectionLabel)
                     .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                     .accessibilityAddTraits(.isHeader)
+                    .padding(.leading, settingsLabelIndent)
                     .padding(.top, 10)
                 } else {
                     let correctionTitle = AppText.ui("跨段回看纠错", "Correct earlier captions", "前の字幕を文脈で修正")
-                    Toggle(isOn: $session.contextualCaptionCorrectionEnabled) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(correctionTitle)
-                                .font(.callout.weight(.semibold))
-                            Text(AppText.ui("翻译空闲时用后文纠正近期字幕中的同音词。", "Use later context to correct homophones in recent captions while translation is idle.", "翻訳の待機中に、後続の文脈から直近の字幕の同音異義語を修正します。"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    SettingsControlRow(
+                        title: correctionTitle,
+                        detail: AppText.ui("翻译空闲时用后文纠正近期字幕中的同音词。", "Use later context to correct homophones in recent captions while translation is idle.", "翻訳の待機中に、後続の文脈から直近の字幕の同音異義語を修正します。"),
+                        systemImage: "text.badge.checkmark",
+                        showsSeparator: false,
+                        controlBelowLabel: true
+                    ) {
+                        Toggle(correctionTitle, isOn: $session.contextualCaptionCorrectionEnabled)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .tint(AirTranslateDesign.Palette.accent)
+                            .disabled(locked)
+                            .accessibilityLabel(correctionTitle)
+                            .accessibilityIdentifier("contextualCaptionCorrectionToggle")
                     }
-                    .toggleStyle(.switch)
-                    .tint(AirTranslateDesign.Palette.accent)
-                    .disabled(locked)
-                    .accessibilityLabel(correctionTitle)
-                    .accessibilityIdentifier("contextualCaptionCorrectionToggle")
                 }
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top) {
@@ -113,6 +113,7 @@ struct LocalTranslationSettingsView: View {
                 .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                .padding(.leading, settingsLabelIndent)
                 .padding(.top, isOnlineIndex ? 0 : 10)
                 .padding(.bottom, 12)
             }

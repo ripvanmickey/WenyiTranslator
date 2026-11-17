@@ -14,7 +14,8 @@ struct AppleTranslationSettingsView: View {
                 title: AppleTranslationCopy.quality,
                 detail: AppleTranslationCopy.detail,
                 systemImage: "character.bubble",
-                detailLineLimit: nil
+                detailLineLimit: nil,
+                controlBelowLabel: true
             ) {
                 Picker(AppleTranslationCopy.quality, selection: $session.appleTranslationQuality) {
                     ForEach(AppleTranslationQuality.allCases, id: \.self) { quality in
@@ -55,6 +56,7 @@ struct AppleTranslationSettingsView: View {
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("appleProtectedTermsCount")
             }
+            .padding(.leading, settingsLabelIndent)
             .padding(.vertical, AirTranslateDesign.Spacing.sm)
 
             if session.isUsingAppleRealtimeFallback && session.appleTranslationQuality == .highQuality {
