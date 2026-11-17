@@ -1848,7 +1848,7 @@ enum SettingsCopy {
             english: "Apple mode runs locally. Cloud providers receive audio only after you save their API key, choose the mode, and start capture.",
             korean: "Apple 모드는 로컬에서 실행됩니다. 클라우드 제공업체는 해당 API 키를 저장하고 모드를 선택한 뒤 캡처를 시작하면 오디오를 받습니다.",
             japanese: "Appleモードはローカルで動作します。クラウドサービスにはAPIキーを保存し、モードを選択してキャプチャを開始したときに音声が送信されます。",
-            chineseSimplified: "本地模式在本机运行。保存对应 API 密钥、选择模式并开始采集后，音频才会发送给云服务。"
+            chineseSimplified: "本体模型在本机运行。保存对应 API 密钥、选择模式并开始采集后，音频才会发送给云服务。"
         )
     }
     static var retry: String {

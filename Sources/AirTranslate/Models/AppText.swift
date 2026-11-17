@@ -652,7 +652,7 @@ enum AppText {
             chineseSimplified: "无法读取已保存的 Meta Model API 密钥。"
         )
     }
-    static var appleProcessingMode: String { localized(english: "Local Mode", korean: "로컬 모드", japanese: "ローカルモード", chineseSimplified: "本地模式") }
+    static var appleProcessingMode: String { localized(english: "Local Mode", korean: "로컬 모드", japanese: "ローカルモード", chineseSimplified: "本体模型") }
     static var appleProcessingModeDescription: String {
         localized(
             english: "The default local workflow. Keep this as the base, then add OpenAI Realtime below only when needed.",

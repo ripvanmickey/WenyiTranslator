@@ -17,7 +17,7 @@ struct LocalTranslationSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             WhisperRecognitionSettingsView(session: session, isOnlineIndex: isOnlineIndex)
             if !isOnlineIndex {
-                SettingsControlRow(title: AppText.ui("本地模式 · 翻译引擎", "Local Mode · Translation Engine", "ローカルモード・翻訳エンジン"), detail: AppText.ui("先由选定的本地引擎识别语音，再选择译文的处理方式。", "The selected local engine recognizes speech. Choose how to translate it.", "選択したローカルエンジンで音声を認識します。翻訳方法を選んでください。"), systemImage: "character.bubble", controlBelowLabel: true) {
+                SettingsControlRow(title: AppText.ui("本体模型 · 翻译引擎", "Local Mode · Translation Engine", "ローカルモード・翻訳エンジン"), detail: AppText.ui("先由选定的本地引擎识别语音，再选择译文的处理方式。", "The selected local engine recognizes speech. Choose how to translate it.", "選択したローカルエンジンで音声を認識します。翻訳方法を選んでください。"), systemImage: "character.bubble", controlBelowLabel: true) {
                     Picker(AppText.ui("翻译引擎", "Translation Engine", "翻訳エンジン"), selection: Binding(
                         get: { session.localTranslation.enabled },
                         set: { enabled in
@@ -62,7 +62,7 @@ struct LocalTranslationSettingsView: View {
                                 Text(AppText.ui("语音在本机识别，待译字幕文字发送到哔哩哔哩。", "Speech is recognized on this Mac. Caption text is sent to Bilibili for translation.", "音声認識はこの Mac で行い、翻訳対象の字幕テキストは Bilibili に送信します。"))
                                     .font(.caption).foregroundStyle(.secondary)
                                 if session.localRecognitionEngine == "whisper" {
-                                    Text(AppText.ui("WhisperKit 模型在「本地模式」下载和管理。",
+                                    Text(AppText.ui("WhisperKit 模型在「本体模型」下载和管理。",
                                         "Manage WhisperKit models in Local Mode.",
                                         "WhisperKit モデルは「ローカルモード」で管理します。"))
                                         .font(.caption).foregroundStyle(.secondary)

@@ -42,11 +42,11 @@
 
 ### 本地识别与断句
 
-在「**设置 → 通用**」切到「**本地模式**」，可选 Nemotron 0.6B、Qwen3-ASR 或实验性的多人识别。点击识别引擎旁的齿轮进入模型管理，可下载、校验、导入或删除模型。Nemotron 和 Qwen3-ASR 使用语音活动检测（VAD）。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
+在「**设置 → 通用**」切到「**本体模型**」，可选 Nemotron 0.6B、Qwen3-ASR 或实验性的多人识别。点击识别引擎旁的齿轮进入模型管理，可下载、校验、导入或删除模型。Nemotron 和 Qwen3-ASR 使用语音活动检测（VAD）。Apple Speech 和 Apple 系统翻译需要 macOS 26 或以上。
 
 ### LM Studio 本地翻译
 
-在「**本地模式**」中选择「**本地模型翻译**」，连接同一台 Mac 上的 LM Studio。可使用 Index-Translate 9B 预设，也可从服务的模型列表选择其他模型。设置页提供短句测试、长句测试和延迟诊断。选择本地识别和本地翻译后，音频和字幕在本机处理。
+在「**本体模型**」中选择「**本地模型翻译**」，连接同一台 Mac 上的 LM Studio。可使用 Index-Translate 9B 预设，也可从服务的模型列表选择其他模型。设置页提供短句测试、长句测试和延迟诊断。选择本地识别和本地翻译后，音频和字幕在本机处理。
 
 ### Index 在线翻译
 
@@ -54,7 +54,7 @@
 
 ## 致谢
 
-感谢哔哩哔哩 [Index-Translate 项目](https://github.com/bilibili/Index-Translate#inference) 免费开放翻译 API。使用 Index 在线翻译时，文译在 Mac 上识别语音，只将待译字幕文本发送给哔哩哔哩。首次安装默认使用 Nemotron。「本地模式」和「Index 在线翻译」均可选择识别引擎和管理模型。
+感谢哔哩哔哩 [Index-Translate 项目](https://github.com/bilibili/Index-Translate#inference) 免费开放翻译 API。使用 Index 在线翻译时，文译在 Mac 上识别语音，只将待译字幕文本发送给哔哩哔哩。首次安装默认使用 Nemotron。「本体模型」和「Index 在线翻译」均可选择识别引擎和管理模型。
 
 ## 字幕记录
 
@@ -65,7 +65,7 @@
 从 [GitHub Releases](https://github.com/ripvanmickey/WenyiTranslator/releases/latest) 下载 ARM64 DMG。文译支持 Apple Silicon（M1 或以上）和 macOS 14.0 或以上，包括 macOS 27。
 
 1. 打开 DMG，把「文译」拖入「应用程序」。
-2. 在「设置 → 通用」选择「本地模式」和语音识别引擎，按提示下载模型，并根据音频来源授予系统权限。
+2. 在「设置 → 通用」选择「本体模型」和语音识别引擎，按提示下载模型，并根据音频来源授予系统权限。
 3. 需要翻译时，先在 LM Studio 加载文本模型并启动本地 API。回到文译，配置服务地址（例如 `http://localhost:1235/v1`），读取模型列表并选择实际的模型 ID。只有本地服务开启身份验证时才需要填写密钥。也可在「处理模式」直接选择「Index 在线翻译（B 站免费开源）」，无需配置 LM Studio 或密钥。
 4. 点击「测试翻译」，然后选择原文和译文语言并开始监听。只看原文时可选「仅原文」。
 
