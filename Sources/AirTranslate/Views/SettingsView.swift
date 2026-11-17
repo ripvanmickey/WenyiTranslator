@@ -317,7 +317,9 @@ struct SettingsView: View {
                             Text(model.title).tag(model)
                         }
                     }
+                    .pickerStyle(.menu)
                     .labelsHidden()
+                    .fixedSize(horizontal: true, vertical: false)
                     .disabled(isSessionConfigurationLocked)
                     .accessibilityIdentifier("settingsAzureModelPicker")
                 }
