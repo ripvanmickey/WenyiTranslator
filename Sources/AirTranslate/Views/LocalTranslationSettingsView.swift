@@ -33,7 +33,18 @@ struct LocalTranslationSettingsView: View {
                 }
             }
             if isOnlineIndex || session.localTranslation.enabled {
-                if !isOnlineIndex {
+                if isOnlineIndex {
+                    Text(AppText.localized(
+                        english: "Translation Model",
+                        korean: "번역 모델",
+                        japanese: "翻訳モデル",
+                        chineseSimplified: "翻译模型"
+                    ))
+                    .font(AirTranslateDesign.Typography.sectionLabel)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.top, 10)
+                } else {
                     let correctionTitle = AppText.ui("跨段回看纠错", "Correct earlier captions", "前の字幕を文脈で修正")
                     Toggle(isOn: $session.contextualCaptionCorrectionEnabled) {
                         VStack(alignment: .leading, spacing: 5) {
@@ -102,7 +113,7 @@ struct LocalTranslationSettingsView: View {
                 .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
-                .padding(.top, 10)
+                .padding(.top, isOnlineIndex ? 0 : 10)
                 .padding(.bottom, 12)
             }
         }
