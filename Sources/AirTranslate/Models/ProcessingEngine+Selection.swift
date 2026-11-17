@@ -1,6 +1,13 @@
 import Foundation
 
 extension ProcessingEngine {
+    var usesOnDeviceRecognition: Bool {
+        switch self {
+        case .apple, .indexOnline: true
+        case .openAI, .gemini, .meta, .azure, .nari, .grok, .qwen: false
+        }
+    }
+
     var credentialProvider: CredentialProvider? {
         switch self {
         case .apple, .indexOnline: nil

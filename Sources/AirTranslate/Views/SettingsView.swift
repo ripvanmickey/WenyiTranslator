@@ -185,21 +185,22 @@ struct SettingsView: View {
     }
 
     private var generalSettings: some View {
-        SettingsGroup(title: SettingsCopy.modeSettings) {
+        let mode = selectedProcessingMode
+        return SettingsGroup(title: SettingsCopy.modeSettings) {
             if isSessionConfigurationLocked {
                 SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
             }
 
             SettingsControlRow(
                 title: SettingsCopy.processingEngine,
-                detail: SettingsCopy.processingEngineDetail,
+                detail: mode.recognitionDetail,
                 systemImage: "switch.2",
                 showsSeparator: false,
                 controlBelowLabel: true
             ) {
                 Picker(SettingsCopy.processingEngine, selection: processingModeSelection) {
-                    ForEach(SettingsProcessingMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
+                    ForEach(ProcessingEngine.allCases) { mode in
+                        Text(mode.settingsMenuTitle).tag(mode)
                     }
                 }
                 .pickerStyle(.menu)
@@ -208,18 +209,17 @@ struct SettingsView: View {
                 .allowsHitTesting(segmentedControlAllowsHitTesting())
                 .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
                 .opacity(isSessionConfigurationLocked ? 0.6 : 1)
-                .help(SettingsCopy.processingEngineDetail)
+                .help(mode.recognitionDetail)
                 .accessibilityLabel(SettingsCopy.processingEngine)
-                .accessibilityValue(processingModeSelection.wrappedValue.title)
+                .accessibilityValue(mode.settingsMenuTitle)
                 .accessibilityHint(
                     isSessionConfigurationLocked
                         ? SettingsCopy.captureRunningDisabledReason
-                        : SettingsCopy.processingEngineDetail
+                        : mode.recognitionDetail
                 )
             }
 
-            let mode = selectedProcessingMode
-            if mode == .apple || mode == .indexOnline {
+            if mode.usesOnDeviceRecognition {
                 LocalTranslationSettingsView(session: session, isOnlineIndex: mode == .indexOnline)
                     .id(mode)
             }
@@ -835,21 +835,8 @@ struct SettingsView: View {
         }
     }
 
-    private var selectedProcessingMode: SettingsProcessingMode {
-        if session.isUsingQwenTranslation { return .qwen }
-        if session.isUsingGrokSTT { return .grok }
-        if session.isUsingNariSTT { return .nari }
-        if session.isUsingAzureMAI { return .azure }
-        if session.isUsingMetaScribe {
-            return .meta
-        }
-        if session.isUsingOpenAIRealtime {
-            return .openAI
-        }
-        if session.isUsingGemini {
-            return .gemini
-        }
-        return session.localTranslation.usesOnlineIndex ? .indexOnline : .apple
+    private var selectedProcessingMode: ProcessingEngine {
+        ProcessingEngine.current(for: session)
     }
 
     private var azureConfigurationIssue: String? {
@@ -909,7 +896,7 @@ struct SettingsView: View {
         )
     }
 
-    private var processingModeSelection: Binding<SettingsProcessingMode> {
+    private var processingModeSelection: Binding<ProcessingEngine> {
         Binding {
             selectedProcessingMode
         } set: { mode in
@@ -1082,40 +1069,36 @@ private struct SettingsWindowTitle: NSViewRepresentable {
     }
 }
 
-private enum SettingsProcessingMode: String, CaseIterable, Identifiable {
-    case apple
-    case indexOnline
-    case openAI
-    case gemini
-    case meta
-    case azure
-    case nari
-    case grok
-    case qwen
-
-    var id: String { rawValue }
-
-    var title: String {
+private extension ProcessingEngine {
+    var settingsMenuTitle: String {
+        let name: String
         switch self {
-        case .apple:
-            AppText.appleProcessingMode
-        case .indexOnline:
-            ProcessingEngine.indexOnline.title
-        case .openAI:
-            AppText.openAIAudio
-        case .gemini:
-            "Gemini"
-        case .azure:
-            "Azure MAI"
-        case .qwen:
-            QwenCopy.title
-        case .grok:
-            GrokCopy.title
-        case .nari:
-            NariCopy.title
-        case .meta:
-            "Meta"
+        case .gemini: name = "Gemini"
+        case .azure: name = "Azure MAI"
+        case .meta: name = "Meta"
+        default: name = title
         }
+        let recognition = usesOnDeviceRecognition
+            ? AppText.localized(english: "On-device recognition", korean: "기기 내 음성 인식", japanese: "端末内認識", chineseSimplified: "本机识别")
+            : AppText.localized(english: "Cloud recognition", korean: "클라우드 음성 인식", japanese: "クラウド認識", chineseSimplified: "云端识别")
+        return "\(name) · \(recognition)"
+    }
+
+    var recognitionDetail: String {
+        if usesOnDeviceRecognition {
+            return AppText.localized(
+                english: "Speech is recognized on this Mac.",
+                korean: "이 Mac에서 음성을 인식합니다.",
+                japanese: "音声はこの Mac で認識されます。",
+                chineseSimplified: "语音在这台 Mac 上识别。"
+            )
+        }
+        return AppText.localized(
+            english: "When listening starts, captured audio is sent to the selected service for recognition.",
+            korean: "듣기를 시작하면 캡처한 오디오가 음성 인식을 위해 선택한 서비스로 전송됩니다.",
+            japanese: "聞き取りを開始すると、収録した音声を選択中のサービスに送信して認識します。",
+            chineseSimplified: "开始聆听后，采集的音频会发送给所选服务进行识别。"
+        )
     }
 }
 
@@ -1277,14 +1260,6 @@ enum SettingsCopy {
     }
     static var modeSettings: String { AppText.localized(english: "Mode Settings", korean: "모드 설정", japanese: "モード設定", chineseSimplified: "模式设置") }
     static var processingEngine: String { AppText.localized(english: "Processing Mode", korean: "처리 방식", japanese: "処理モード", chineseSimplified: "处理模式") }
-    static var processingEngineDetail: String {
-        AppText.localized(
-            english: "Choose a processing mode for speech recognition and translation.",
-            korean: "음성 인식 및 번역에 사용할 처리 방식을 선택합니다.",
-            japanese: "音声認識と翻訳に使う処理モードを選択します。",
-            chineseSimplified: "选择语音识别和翻译的处理方式。"
-        )
-    }
     static var enterOpenAIAPIKey: String {
         AppText.localized(
             english: "Enter OpenAI API key",

@@ -33,6 +33,10 @@ struct ProcessingModePickerTests {
         session.hasQwenAPIKey = enabled
     }
 
+    @Test func onlyLocalAndIndexModesUseOnDeviceRecognition() {
+        #expect(ProcessingEngine.allCases.filter(\.usesOnDeviceRecognition) == [.apple, .indexOnline])
+    }
+
     @Test func freshSettingsUseNemotronInLocalAndIndexModes() throws {
         try withSession { session in
             #expect(session.localRecognitionEngine == "nemotron")
