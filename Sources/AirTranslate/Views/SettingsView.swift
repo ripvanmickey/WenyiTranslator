@@ -358,7 +358,7 @@ struct SettingsView: View {
                 SettingsNoticeActionRow(
                     text: AppText.metaAPIKeyMissing,
                     systemImage: "key",
-                    actionTitle: SettingsCopy.enterMetaAPIKey
+                    actionTitle: SettingsCopy.configureAPIKey
                 ) {
                     selectedCategory.wrappedValue = .apiKeys
                 }
@@ -1263,14 +1263,6 @@ enum SettingsCopy {
     static var configureAPIKey: String {
         AppText.localized(english: "Configure", korean: "설정", japanese: "設定", chineseSimplified: "配置")
     }
-    static var enterMetaAPIKey: String {
-        AppText.localized(
-            english: "Enter Meta Model API key",
-            korean: "Meta Model API 키 입력",
-            japanese: "Meta Model APIキーを入力",
-            chineseSimplified: "输入 Meta Model API 密钥"
-        )
-    }
     static var sessionWorkflow: String { AppText.localized(english: "Session Workflow", korean: "세션 처리 방식", japanese: "セッションの処理方法", chineseSimplified: "字幕处理方式") }
     static var sessionWorkflowDetail: String {
         AppText.localized(
@@ -1987,20 +1979,12 @@ private struct SettingsNoticeActionRow: View {
     let action: () -> Void
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: 10) {
-                noticeLabel
+        HStack(alignment: .center, spacing: 12) {
+            noticeLabel
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer(minLength: 12)
-
-                actionButton
-            }
-            .frame(minWidth: 520)
-
-            VStack(alignment: .leading, spacing: 10) {
-                noticeLabel
-                actionButton
-            }
+            actionButton
+                .fixedSize()
         }
         .padding(AirTranslateDesign.Spacing.sm)
         .background(
