@@ -54,7 +54,7 @@
 
 ## 致谢
 
-感谢哔哩哔哩 [Index-Translate 项目](https://github.com/bilibili/Index-Translate#inference) 免费开放翻译 API。使用 Index 在线翻译时，文译在 Mac 上识别语音，只将待译字幕文本发送给哔哩哔哩。语音识别模型请在「本地模式」管理。
+感谢哔哩哔哩 [Index-Translate 项目](https://github.com/bilibili/Index-Translate#inference) 免费开放翻译 API。使用 Index 在线翻译时，文译在 Mac 上识别语音，只将待译字幕文本发送给哔哩哔哩。首次安装默认使用 Nemotron。「本地模式」和「Index 在线翻译」均可选择识别引擎和管理模型。
 
 ## 字幕记录
 

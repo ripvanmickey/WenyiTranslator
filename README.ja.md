@@ -54,7 +54,7 @@ Mac のシステム音声やマイク入力を取り込み、字幕をリアル�
 
 ## 謝辞
 
-翻訳 API を無料で公開してくださっている Bilibili の [Index-Translate チーム](https://github.com/bilibili/Index-Translate#inference)に感謝します。Index オンライン翻訳では、音声認識は Mac 内で行い、翻訳対象の字幕テキストだけを Bilibili に送信します。音声認識モデルはローカルモードで管理できます。
+翻訳 API を無料で公開してくださっている Bilibili の [Index-Translate チーム](https://github.com/bilibili/Index-Translate#inference)に感謝します。Index オンライン翻訳では、音声認識は Mac 内で行い、翻訳対象の字幕テキストだけを Bilibili に送信します。初回インストール時の音声認識エンジンは Nemotron です。ローカルモードと Index オンライン翻訳のどちらでも、音声認識エンジンの選択とモデルの管理ができます。
 
 ## 保存した文字起こし
 

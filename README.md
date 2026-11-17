@@ -54,7 +54,7 @@ Choose **Index Online Translation** under **Settings → General → Processing 
 
 ## Acknowledgments
 
-Thanks to Bilibili’s [Index-Translate team](https://github.com/bilibili/Index-Translate#inference) for making its translation API available for free. In Index Online Translation mode, Wenyi recognizes speech on your Mac and sends caption text to Bilibili for translation. Manage speech recognition models in Local Mode.
+Thanks to Bilibili’s [Index-Translate team](https://github.com/bilibili/Index-Translate#inference) for making its translation API available for free. In Index Online Translation mode, Wenyi recognizes speech on your Mac and sends caption text to Bilibili for translation. Nemotron is the default recognition engine for new installations. Choose an engine or manage its model in either Local Mode or Index Online Translation.
 
 ## Saved transcripts
 

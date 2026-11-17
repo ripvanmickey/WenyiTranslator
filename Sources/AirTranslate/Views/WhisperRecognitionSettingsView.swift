@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct WhisperRecognitionSettingsView: View {
     @Bindable var session: TranslationSessionStore
+    let isOnlineIndex: Bool
     @State private var manager = ASRModelManager.shared
     @State private var showsModelManagement = false
     @State private var confirmsDeletion = false
@@ -23,8 +24,11 @@ struct WhisperRecognitionSettingsView: View {
     }
 
     var body: some View {
+        let detail = isOnlineIndex
+            ? AppText.ui("选择在本机识别语音的引擎。停止聆听后可切换。", "Choose the on-device speech recognition engine. Stop listening before switching.", "端末内で音声認識を行うエンジンを選びます。切り替えるには、先に聞き取りを停止してください。")
+            : AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。")
         VStack(alignment: .leading, spacing: 10) {
-            SettingsControlRow(title: AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), detail: AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。"), systemImage: "waveform", controlBelowLabel: true) {
+            SettingsControlRow(title: AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), detail: detail, systemImage: "waveform", controlBelowLabel: true) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
                         recognitionEnginePicker
@@ -40,7 +44,7 @@ struct WhisperRecognitionSettingsView: View {
                             .accessibilityIdentifier("manageSpeechRecognitionModel")
                         }
                     }
-                    if usesManagedModel {
+                    if usesManagedModel && !isOnlineIndex {
                         qwenModelPicker
                         Text(selectedManagedModel.detail)
                             .font(.callout)
@@ -56,7 +60,7 @@ struct WhisperRecognitionSettingsView: View {
                     }
                 }
             }
-            if session.whisperRecognitionEnabled && !session.nemotronRecognitionEnabled {
+            if !isOnlineIndex && session.localRecognitionEngine == "whisper" {
                 HStack {
                     Picker(AppText.ui("识别模型", "Recognition Model", "認識モデル"), selection: $session.whisperModel) {
                         Text(AppText.ui("Tiny · 更轻量", "Tiny · Lightweight", "Tiny · 軽量")).tag("tiny")
@@ -98,6 +102,7 @@ struct WhisperRecognitionSettingsView: View {
             Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
             Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
             if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
+            if session.localRecognitionEngine == "whisper" { Text("WhisperKit").tag("whisper") }
             Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")
         }
         .pickerStyle(.menu)

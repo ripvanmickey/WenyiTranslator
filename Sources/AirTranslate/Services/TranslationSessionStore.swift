@@ -1039,8 +1039,15 @@ final class TranslationSessionStore {
             let provider = localTranslation.usesOnlineIndex ? AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳") : "LM Studio"
             return "\(recognitionEngineTitle) + \(provider) · \(localTranslation.activeModelID)"
         }
-        if whisperRecognitionEnabled && isTranscribeOnlyMode { return recognitionEngineTitle }
-        return ProcessingEngine.current(for: self).title + (isUsingJevSelection ? " + Jev" : "") + quality
+        let engine = ProcessingEngine.current(for: self)
+        if engine == .apple || engine == .indexOnline {
+            if isTranscribeOnlyMode { return recognitionEngineTitle }
+            if whisperRecognitionEnabled && isUsingAppleTextTranslation {
+                let apple = AppText.ui("Apple 翻译", "Apple Translation", "Apple 翻訳")
+                return "\(recognitionEngineTitle) + \(apple)" + quality
+            }
+        }
+        return engine.title + (isUsingJevSelection ? " + Jev" : "") + quality
     }
     var isUsingJevSelection: Bool { !isUsingLocalTranslation && isJevSelectionEnabled && isJevSelectionAvailable }
 
@@ -1632,7 +1639,7 @@ final class TranslationSessionStore {
                 )
                 return
             }
-            guard isUsingLocalTranslation || isTranscribeOnlyMode else {
+            guard isUsingLocalTranslation || isTranscribeOnlyMode || PlatformSupport.supportsAppleSpeech else {
                 presentCaptureStartFailure(
                     AppText.ui("使用本地识别时，请选择本地模型翻译、Index 在线翻译或仅转写。", "Choose local model translation, Index online translation, or transcription only with this recognition engine.", "この認識エンジンを使用する場合は、ローカルモデル翻訳、Index オンライン翻訳、または文字起こしのみを選んでください。"),
                     recoveryAction: .generalSettings
@@ -2210,8 +2217,11 @@ final class TranslationSessionStore {
     }
 
     private var requiredLocalModelForStart: IntelligenceModel? {
-        if whisperRecognitionEnabled && usesAppleSpeechTranscriber(for: currentStartConfiguration()),
-           isUsingLocalTranslation || isTranscribeOnlyMode { return nil }
+        if whisperRecognitionEnabled && usesAppleSpeechTranscriber(for: currentStartConfiguration()) {
+            // This recognition engine needs no Apple speech assets. Apple text translation
+            // still needs the language pack for the selected pair.
+            return isUsingLocalTranslation || isTranscribeOnlyMode ? nil : .appleOnDevice
+        }
         if isUsingLocalTranslation { return .appleSpeechOnly }
         if isUsingQwenTranslation { return nil }
         if isUsingNariSTT || isUsingGrokSTT {
@@ -4892,7 +4902,8 @@ final class TranslationSessionStore {
            let durationMode = SessionDurationMode(rawValue: durationModeID) {
             sessionDurationMode = durationMode
         }
-        whisperRecognitionEnabled = defaults.bool(forKey: "whisperRecognitionEnabled")
+        let hasSavedRecognitionEngine = defaults.object(forKey: "whisperRecognitionEnabled") != nil
+        whisperRecognitionEnabled = !hasSavedRecognitionEngine || defaults.bool(forKey: "whisperRecognitionEnabled")
         multitalkerRecognitionEnabled = defaults.bool(forKey: "multitalkerRecognitionEnabled")
         if let data = defaults.data(forKey: "speechActivity"),
            let settings = try? JSONDecoder().decode(SpeechActivitySettings.self, from: data) {
@@ -4900,7 +4911,7 @@ final class TranslationSessionStore {
         }
         contextualCaptionCorrectionEnabled = defaults.object(forKey: "contextualCaptionCorrectionEnabled") as? Bool ?? true
         qwenASRModel = defaults.string(forKey: "qwenASRModel") ?? ""
-        nemotronRecognitionEnabled = defaults.bool(forKey: "nemotronRecognitionEnabled")
+        nemotronRecognitionEnabled = !hasSavedRecognitionEngine || defaults.bool(forKey: "nemotronRecognitionEnabled")
         if let folder = defaults.string(forKey: "nemotronRuntimeFolder"), !folder.isEmpty { nemotronRuntimeFolder = folder }
         if let model = defaults.string(forKey: "whisperModel"), ["tiny", "base", "small"].contains(model) { whisperModel = model }
         whisperModelFolders = defaults.dictionary(forKey: "whisperModelFolders") as? [String: String] ?? [:]

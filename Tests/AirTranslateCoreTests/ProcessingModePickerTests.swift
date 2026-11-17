@@ -33,6 +33,45 @@ struct ProcessingModePickerTests {
         session.hasQwenAPIKey = enabled
     }
 
+    @Test func freshSettingsUseNemotronInLocalAndIndexModes() throws {
+        try withSession { session in
+            #expect(session.localRecognitionEngine == "nemotron")
+            #expect(ProcessingEngine.indexOnline.select(in: session))
+            #expect(session.localRecognitionEngine == "nemotron")
+
+            session.localRecognitionEngine = "qwen"
+            #expect(ProcessingEngine.apple.select(in: session))
+            #expect(session.localRecognitionEngine == "qwen")
+        }
+    }
+
+    @Test func openAITranscriptionTitleShowsCloudProviderWithNemotronConfigured() throws {
+        try withSession { session in
+            session.useOpenAIMode(.transcription)
+            #expect(session.localRecognitionEngine == "nemotron")
+            #expect(session.processingEngineTitle == ProcessingEngine.openAI.title)
+        }
+    }
+
+    @Test func previouslySelectedAppleSpeechIsRestored() throws {
+        guard PlatformSupport.supportsAppleSpeech else { return }
+        try withSession(preferences: ["whisperRecognitionEnabled": false]) { session in
+            #expect(session.localRecognitionEngine == "apple")
+        }
+    }
+
+    @Test func nemotronWithAppleTranslationRequiresTranslationAssetsOnly() throws {
+        guard PlatformSupport.supportsAppleSpeech else { return }
+        try withSession { session in
+            session.modelAvailabilityByModelID = [
+                IntelligenceModel.appleSystem.id: .init(state: .downloadRequired, detail: ""),
+                IntelligenceModel.appleSpeechOnly.id: .init(state: .downloadRequired, detail: ""),
+                IntelligenceModel.appleOnDevice.id: .init(state: .installed, detail: ""),
+            ]
+            #expect(session.startReadinessAssessment().canStart)
+        }
+    }
+
     @Test func retiredGraniteSelectionRestoresNemotronWithoutChangingOnlineTranslation() throws {
         var configuration = LocalTranslationConfiguration()
         configuration.onlineIndex = true

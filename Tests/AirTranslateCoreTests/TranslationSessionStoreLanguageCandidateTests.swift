@@ -749,8 +749,8 @@ struct TranslationSessionStoreLanguageCandidateTests {
     }
 
     @MainActor @Test
-    func incompatibleManagedRecognitionReportsASettingsRecovery() throws {
-        guard PlatformSupport.supportsAppleSpeech else { return }
+    func unavailableAppleTranslationReportsASettingsRecovery() throws {
+        guard !PlatformSupport.supportsAppleSpeech else { return }
         let suite = "IncompatibleRecognition-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
