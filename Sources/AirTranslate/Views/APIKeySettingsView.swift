@@ -88,7 +88,7 @@ struct APIKeySettingsView: View {
     private var indexAPIConfiguration: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(LocalTranslationConfiguration.indexBaseURL)
-                .font(.callout.monospaced())
+                .font(.callout)
                 .textSelection(.enabled)
                 .accessibilityLabel("API URL")
                 .accessibilityValue(LocalTranslationConfiguration.indexBaseURL)

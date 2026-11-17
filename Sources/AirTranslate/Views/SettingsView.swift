@@ -172,7 +172,8 @@ struct SettingsView: View {
                 title: AppText.ui("界面语言", "App Language", "アプリの言語"),
                 detail: AppText.ui("选择后立即更新界面。", "Changes apply immediately.", "選択すると表示言語がすぐに切り替わります。"),
                 systemImage: "globe",
-                showsSeparator: false
+                showsSeparator: false,
+                controlBelowLabel: true
             ) {
                 Picker(AppText.ui("界面语言", "App Language", "アプリの言語"), selection: $localization.preference) {
                     ForEach(AppInterfaceLanguage.allCases) { language in
@@ -181,7 +182,7 @@ struct SettingsView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
-                .frame(minWidth: 140, idealWidth: 160)
+                .fixedSize(horizontal: true, vertical: false)
             }
         }
     }
@@ -269,7 +270,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                     .tint(AirTranslateDesign.Palette.accent)
                     .labelsHidden()
-                    .frame(width: 170)
+                    .fixedSize(horizontal: true, vertical: false)
                     .allowsHitTesting(segmentedControlAllowsHitTesting())
                     .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
                     .opacity(isSessionConfigurationLocked ? 0.6 : 1)
@@ -435,7 +436,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .tint(AirTranslateDesign.Palette.accent)
                 .labelsHidden()
-                .frame(width: 190)
+                .fixedSize(horizontal: true, vertical: false)
                 .allowsHitTesting(segmentedControlAllowsHitTesting())
                 .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
                 .opacity(isSessionConfigurationLocked ? 0.6 : 1)
@@ -609,7 +610,8 @@ struct SettingsView: View {
             SettingsControlRow(
                 title: AppText.paragraphBreakSilenceInterval,
                 detail: AppText.paragraphBreakSilenceDescription,
-                systemImage: "text.append"
+                systemImage: "text.append",
+                controlBelowLabel: true
             ) {
                 Stepper(
                     AppText.seconds(session.paragraphBreakSilenceInterval),
@@ -617,7 +619,7 @@ struct SettingsView: View {
                     in: 1...15,
                     step: 0.5
                 )
-                .frame(width: 104)
+                .fixedSize(horizontal: true, vertical: false)
                 .disabled(isSessionConfigurationLocked)
             }
 
@@ -654,7 +656,8 @@ struct SettingsView: View {
                         }
                     }
                     .labelsHidden()
-                    .frame(minWidth: 150, idealWidth: 170, maxWidth: .infinity)
+                    .pickerStyle(.menu)
+                    .fixedSize(horizontal: true, vertical: false)
                     .disabled(isSessionConfigurationLocked)
                 }
             }
@@ -834,7 +837,8 @@ struct SettingsView: View {
                 }
             }
             .labelsHidden()
-            .frame(minWidth: 210, idealWidth: 250, maxWidth: 300)
+            .pickerStyle(.menu)
+            .fixedSize(horizontal: true, vertical: false)
             .disabled(isSessionConfigurationLocked)
             .accessibilityLabel(NariCopy.modelLabel)
             .accessibilityValue(session.nariTranscriptionModel.title)
@@ -879,7 +883,8 @@ struct SettingsView: View {
                 }
             }
             .labelsHidden()
-            .frame(minWidth: 210, idealWidth: 250, maxWidth: 300)
+            .pickerStyle(.menu)
+            .fixedSize(horizontal: true, vertical: false)
             .disabled(isSessionConfigurationLocked)
             .accessibilityLabel(GrokCopy.modelLabel)
             .accessibilityValue(session.grokTranscriptionModel.title)
@@ -1024,7 +1029,8 @@ struct SettingsView: View {
                 }
             }
             .labelsHidden()
-            .frame(minWidth: 210, idealWidth: 250, maxWidth: 300)
+            .pickerStyle(.menu)
+            .fixedSize(horizontal: true, vertical: false)
             .disabled(isSessionConfigurationLocked)
             .accessibilityLabel(QwenCopy.modelLabel)
             .accessibilityValue(session.qwenTranslationModel.title)
