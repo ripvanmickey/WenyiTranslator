@@ -47,7 +47,7 @@ actor IncrementalLocalTranslator {
             && LocalTranslationService.isJapaneseToChinese(source: source, target: target))
     }
 
-    nonisolated static func needsWholeFinalCaption(_ text: String, source: String, target: String,
+    nonisolated static func canRefineAfterCapture(_ text: String, source: String, target: String,
                                                    configuration: LocalTranslationConfiguration) -> Bool {
         !configuration.usesOnlineIndex
             && omitsNeighboringContext(source: source, target: target, configuration: configuration)
@@ -67,9 +67,15 @@ actor IncrementalLocalTranslator {
     private let client: LocalTranslationService
     init(client: LocalTranslationService = .shared) { self.client = client }
 
+    func refineAfterCapture(_ text: String, source: String, target: String,
+                            configuration: LocalTranslationConfiguration, apiKey: String?) async throws -> String {
+        // Publish only the complete replacement. Streaming still lets the client detect truncation.
+        try await client.translate(text, source: source, target: target,
+            configuration: configuration, apiKey: apiKey, asSingleCaption: true, progress: { _ in })
+    }
+
     func translate(_ text: String, identity: String, source: String, target: String,
                    configuration: LocalTranslationConfiguration, apiKey: String?,
-                   isFinal: Bool = false,
                    punctuation: LocalTranslationService.Progress? = nil,
                    progress: @escaping LocalTranslationService.Progress) async throws -> String {
         let key = identity + "\t" + source + "\t" + target + "\t" + configuration.activeBaseURL + "\t" + configuration.activeModelID
@@ -78,21 +84,6 @@ actor IncrementalLocalTranslator {
         if !order.contains(key) { order.append(key) }
         while order.count > 32 {
             let old = order.removeFirst(); previous[old] = nil; revisions[old] = nil; submittedCharacters[old] = nil; reusedClauses[old] = nil
-        }
-        if isFinal && Self.needsWholeFinalCaption(text, source: source, target: target, configuration: configuration) {
-            previous[key] = nil
-            submittedCharacters[key, default: 0] += text.count
-            // Keep the existing preview visible while this replacement streams from the model.
-            let translation = try await client.translate(text, source: source, target: target,
-                configuration: configuration, apiKey: apiKey, asSingleCaption: true, progress: { _ in })
-            try Task.checkCancellation()
-            guard revisions[key] == revision else { throw CancellationError() }
-            if let punctuation, let restored = await client.punctuatedSource(text, configuration: configuration) {
-                try Task.checkCancellation()
-                guard revisions[key] == revision else { throw CancellationError() }
-                await punctuation(restored)
-            }
-            return translation
         }
         let plan = IncrementalCaptionPlan(text: text, previous: previous[key] ?? [], onlineIndex: configuration.usesOnlineIndex)
         let includesContext = !Self.omitsNeighboringContext(source: source, target: target, configuration: configuration)

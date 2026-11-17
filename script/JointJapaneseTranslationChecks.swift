@@ -151,16 +151,20 @@ final class Mock: URLProtocol, @unchecked Sendable {
         _ = try await incremental.translate(whole, identity: "index-confirmation", source: "ja-JP", target: "zh-CN",
             configuration: model, apiKey: nil, progress: { previews.append($0) })
         precondition(Mock.calls == start + 2 && !previews.isEmpty)
-        let previewCount = previews.count
-        let final = try await incremental.translate(whole, identity: "index-confirmation", source: "ja-JP", target: "zh-CN",
-            configuration: model, apiKey: nil, isFinal: true, progress: { previews.append($0) })
-        precondition(final == "完成。" && Mock.calls == start + 3 && previews.count == previewCount)
+        let live = try await incremental.translate(whole, identity: "index-confirmation", source: "ja-JP", target: "zh-CN",
+            configuration: model, apiKey: nil, progress: { previews.append($0) })
+        precondition(live == "完成。\n完成。" && Mock.calls == start + 2, "Confirmation should reuse the live translation")
+        precondition(IncrementalLocalTranslator.canRefineAfterCapture(whole, source: "ja-JP", target: "zh-CN", configuration: model))
+        let final = try await incremental.refineAfterCapture(whole, source: "ja-JP", target: "zh-CN",
+            configuration: model, apiKey: nil)
+        precondition(final == "完成。" && Mock.calls == start + 3)
 
         let legacy = try JSONDecoder().decode(LocalTranslationConfiguration.self,
             from: Data(#"{"enabled":true,"baseURL":"http://localhost:1235/v1","modelID":"index-translate-9b"}"#.utf8))
         precondition(!legacy.usesOnlineIndex && legacy.activeModelID == "index-translate-9b")
         var online = legacy
         online.onlineIndex = true
+        precondition(!IncrementalLocalTranslator.canRefineAfterCapture(whole, source: "ja-JP", target: "zh-CN", configuration: online))
         online.baseURL = "https://example.invalid/v1"
         Mock.raw = "田中下周去东京。"
         Mock.checkRequest = { body in
@@ -187,7 +191,7 @@ final class Mock: URLProtocol, @unchecked Sendable {
         let longPreview = try await incremental.translate(longCaption, identity: "index-online-long",
             source: "ja-JP", target: "zh-CN", configuration: online, apiKey: nil, progress: { _ in })
         let longFinal = try await incremental.translate(longCaption, identity: "index-online-long",
-            source: "ja-JP", target: "zh-CN", configuration: online, apiKey: nil, isFinal: true, progress: { _ in })
+            source: "ja-JP", target: "zh-CN", configuration: online, apiKey: nil, progress: { _ in })
         precondition(longPreview == longResult && longFinal == longResult && Mock.calls == longStart + 1)
         let longer = longCaption + longCaption
         let chunks = LocalTranslationService.onlineCaptionChunks(longer)
@@ -229,7 +233,7 @@ final class Mock: URLProtocol, @unchecked Sendable {
         print("PASS joint response, one request, streaming marker fragmentation, no footer leak, source validation and incremental cache reuse")
         print("PASS mixed Japanese hidden from progress, one translation-only retry, halfwidth kana rejected and Japanese target preserved")
         print("PASS escaped line breaks in previews and final output; no previous bilingual captions or naming policy")
-        print("PASS Index previews omit neighboring source; final replaces the preview using one whole-caption request")
+        print("PASS Index confirmation reuses live blocks; stopping submits the whole caption once")
         print("PASS explicit online Index route uses a fixed host, current fragment only, and no local credentials")
     }
 }

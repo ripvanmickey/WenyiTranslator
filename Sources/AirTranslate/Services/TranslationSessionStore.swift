@@ -1427,6 +1427,8 @@ final class TranslationSessionStore {
     private var permissionSuspendedStartContinuations: [UInt64: CheckedContinuation<Void, Never>] = [:]
 #endif
     private var captureStopTask: Task<Void, Never>?
+    private var localTranslationFinishTask: Task<Void, Never>?
+    var isFinishingLocalTranslation: Bool { localTranslationFinishTask != nil }
     private var pipelineLifecycle = PipelineLifecycleState()
     private var activeCaptionerGeneration: UInt64?
     private var dubbingSpeechProgress = DubbingSpeechProgress()
@@ -1800,7 +1802,7 @@ final class TranslationSessionStore {
     }
 
     func stop() {
-        guard isRunning || isStarting else { return }
+        guard (isRunning || isStarting), !isFinishingLocalTranslation else { return }
         if isUsingQwenTranslation, isRunning {
             finishQwenCapture()
             return
@@ -1836,7 +1838,85 @@ final class TranslationSessionStore {
             return
         }
         pipelineLifecycle.stop()
+        if isRunning, isUsingLocalTranslation, finishLocalCaptionRefinementsIfNeeded() {
+            return
+        }
         finishPipeline(statusOverride: nil)
+    }
+
+    private func finishLocalCaptionRefinementsIfNeeded() -> Bool {
+        let configuration = localTranslation
+        guard !configuration.usesOnlineIndex,
+              configuration.activeModelID.lowercased().contains("index-translate") else { return false }
+
+        flushPendingRecognizedCaption()
+        flushPendingCaptionPresentation()
+
+        let target = targetLanguage
+        let candidates = lines.compactMap { line -> (CaptionLine, LanguageOption)? in
+            guard line.isFinal,
+                  let source = sourceLanguageByLineID[line.id],
+                  IncrementalLocalTranslator.canRefineAfterCapture(
+                      line.sourceText, source: source.id, target: target.id, configuration: configuration
+                  ) else { return nil }
+            return (line, source)
+        }
+        guard !candidates.isEmpty,
+              case .success(let apiKey) = Result(catching: { try LocalTranslationAPIKeyStore.readAPIKey() })
+        else { return false }
+
+        statusMessage = AppText.finishingCapture
+        transcriptCheckpointTask?.cancel()
+        transcriptCheckpointTask = nil
+        cancelTranslationSessionWarmup()
+        let liveTranslation = translationTask
+        cancelTranslationRequests()
+
+        localTranslationFinishTask = Task { @MainActor in
+            await stopCapture()
+
+            // This is a best-effort pass. Keep the live results if the model is slow or unavailable.
+            let refinement = Task { @MainActor in
+                await liveTranslation?.value
+                let translator = IncrementalLocalTranslator.shared
+                for (line, source) in candidates {
+                    guard !Task.isCancelled else { break }
+                    guard let translated = try? await translator.refineAfterCapture(
+                        line.sourceText, source: source.id, target: target.id, configuration: configuration, apiKey: apiKey
+                    ) else { continue }
+                    guard !Task.isCancelled,
+                          let index = lines.firstIndex(where: { $0.id == line.id && $0.sourceText == line.sourceText })
+                    else { continue }
+                    let text = Self.organizedTranslationSegment(translated, language: target, options: .init())
+                    guard !text.isEmpty else { continue }
+                    var refined = CaptionLine(
+                        id: line.id, sourceText: line.sourceText, translatedText: text,
+                        translatedSourceText: line.sourceText, createdAt: line.createdAt,
+                        isFinal: true, isTranslationComplete: true, revision: line.revision + 1,
+                        speakerLabel: line.speakerLabel, usesLongSessionDisplay: usesLongSessionMode
+                    )
+                    refined.sourceDisplayText = line.sourceDisplayText
+                    lines[index] = refined
+                    // Multi-line recordings are assembled from lines by the save path.
+                    if lines.count == 1 { activeAutosaveTranslatedText = text }
+                }
+            }
+            let timeout = Task { @MainActor in
+                do { try await Task.sleep(for: .seconds(20)) }
+                catch { return }
+                finishPipeline(statusOverride: nil)
+            }
+            await withTaskCancellationHandler {
+                await refinement.value
+            } onCancel: {
+                refinement.cancel()
+            }
+            timeout.cancel()
+            guard !Task.isCancelled else { return }
+            localTranslationFinishTask = nil
+            finishPipeline(statusOverride: nil)
+        }
+        return true
     }
 
     private func drainAzureTranslations() async throws -> Bool {
@@ -1850,6 +1930,8 @@ final class TranslationSessionStore {
     }
 
     private func finishPipeline(statusOverride: String?) {
+        localTranslationFinishTask?.cancel()
+        localTranslationFinishTask = nil
         isFinishingQwenTranslation = false
         isReconnectingQwenTranslation = false
         isFinishingGrokSTT = false
@@ -2202,7 +2284,7 @@ final class TranslationSessionStore {
     }
 
     func pause() {
-        guard isRunning, !isPaused, !isFinishingAzureMAI, !isFinishingNariSTT, !isFinishingGrokSTT, !isFinishingQwenTranslation, !isReconnectingQwenTranslation else { return }
+        guard isRunning, !isPaused, !isFinishingLocalTranslation, !isFinishingAzureMAI, !isFinishingNariSTT, !isFinishingGrokSTT, !isFinishingQwenTranslation, !isReconnectingQwenTranslation else { return }
 
         if isUsingQwenTranslation {
             pauseQwenCapture()
@@ -2232,7 +2314,7 @@ final class TranslationSessionStore {
     }
 
     func resume() {
-        guard isRunning, isPaused, !isFinishingAzureMAI, !isFinishingNariSTT, !isReconnectingNariSTT, !isFinishingGrokSTT, !isReconnectingGrokSTT, !isFinishingQwenTranslation, !isReconnectingQwenTranslation else { return }
+        guard isRunning, isPaused, !isFinishingLocalTranslation, !isFinishingAzureMAI, !isFinishingNariSTT, !isReconnectingNariSTT, !isFinishingGrokSTT, !isReconnectingGrokSTT, !isFinishingQwenTranslation, !isReconnectingQwenTranslation else { return }
         if isUsingQwenTranslation {
             resumeQwenCapture()
             return
@@ -2299,6 +2381,7 @@ final class TranslationSessionStore {
     }
 
     func prepareForTermination() {
+        localTranslationFinishTask?.cancel()
         cancelModelAssetDownload()
         cancelTranslationSessionWarmup()
         transcriptCheckpointTask?.cancel()
@@ -6872,7 +6955,6 @@ final class TranslationSessionStore {
         source: LanguageOption,
         target: LanguageOption,
         incrementalIdentity: String? = nil,
-        isFinalCaption: Bool = false,
         punctuation: LocalTranslationService.Progress? = nil,
         progress: @escaping @MainActor @Sendable (String) -> Void = { _ in }
     ) async throws -> String {
@@ -6893,7 +6975,7 @@ final class TranslationSessionStore {
         if isUsingLocalTranslation, let identity = incrementalIdentity {
             return try await IncrementalLocalTranslator.shared.translate(text, identity: identity,
                 source: source.id, target: target.id, configuration: localTranslation,
-                apiKey: localTranslation.usesOnlineIndex ? nil : LocalTranslationAPIKeyStore.readAPIKey(), isFinal: isFinalCaption,
+                apiKey: localTranslation.usesOnlineIndex ? nil : LocalTranslationAPIKeyStore.readAPIKey(),
                 punctuation: punctuation, progress: progress)
         }
         let translationOptions = appleTranslationOptions
@@ -7778,10 +7860,7 @@ final class TranslationSessionStore {
         contextualCaptionCorrectionTask?.cancel()
         let sourceText = line.sourceText
         let preservesOrdering = preservesOrdering ?? (isUsingMetaScribe || isUsingAzureMAI || isUsingNariSTT || isUsingGrokSTT)
-        let needsWholeFinal = appleIdentity?.isFinal == true && isUsingLocalTranslation
-            && IncrementalLocalTranslator.needsWholeFinalCaption(
-                sourceText, source: source.id, target: target.id, configuration: localTranslation)
-        if appleIdentity?.isFinal == true, !needsWholeFinal, jevInput == nil,
+        if appleIdentity?.isFinal == true, jevInput == nil,
            let active = activeTranslationRequest,
            active.request.line.id == line.id,
            active.request.sourceText == sourceText,
@@ -7857,7 +7936,7 @@ final class TranslationSessionStore {
     }
 
     private func startTranslationDriverIfNeeded() {
-        guard translationTask == nil, isRunning,
+        guard translationTask == nil, isRunning, !isFinishingLocalTranslation,
               latestTranslationRequest != nil || !orderedTranslationRequests.isEmpty else { return }
         let driverID = UUID()
         translationDriverID = driverID
@@ -7922,7 +8001,6 @@ final class TranslationSessionStore {
                     source: request.source,
                     target: request.target,
                     incrementalIdentity: "\(request.pipelineGeneration):\(request.line.id.uuidString)",
-                    isFinalCaption: request.appleIdentity?.isFinal ?? request.line.isFinal,
                     punctuation: { [weak self] candidate in
                         guard let self, self.acceptsTranslationUpdates(for: request),
                               let index = self.lines.firstIndex(where: { $0.id == request.line.id }),
@@ -7979,7 +8057,7 @@ final class TranslationSessionStore {
     }
 
     private var canReviewCaptionContext: Bool {
-        contextualCaptionCorrectionEnabled && isUsingLocalTranslation && !localTranslation.usesOnlineIndex && isRunning && !isPaused
+        contextualCaptionCorrectionEnabled && isUsingLocalTranslation && !localTranslation.usesOnlineIndex && isRunning && !isPaused && !isFinishingLocalTranslation
             && translationTask == nil && latestTranslationRequest == nil && orderedTranslationRequests.isEmpty
     }
 
