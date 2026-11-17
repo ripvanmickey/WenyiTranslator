@@ -11,8 +11,10 @@ struct TranscriptPersistenceTests {
         defer { cleanup(directory: directory, defaults: defaults, suiteName: suiteName) }
 
         #expect(!session.isTranscriptPersistenceEnabled)
+        #expect(!session.savesTranscriptTimestamps)
 
         session.isTranscriptPersistenceEnabled = true
+        session.savesTranscriptTimestamps = true
         let restored = TranslationSessionStore(
             modelAvailabilityProvider: { _, _ in [:] },
             settingsDefaults: defaults,
@@ -20,6 +22,7 @@ struct TranscriptPersistenceTests {
         )
 
         #expect(restored.isTranscriptPersistenceEnabled)
+        #expect(restored.savesTranscriptTimestamps)
     }
 
     @Test
@@ -62,6 +65,38 @@ struct TranscriptPersistenceTests {
             .compactMap { try? String(contentsOf: $0, encoding: .utf8) }
             .joined(separator: "\n")
         #expect(savedText.contains("Opt-in persistence writes this text."))
+        #expect(!savedText.hasPrefix("["))
+    }
+
+    @Test
+    @MainActor
+    func savedCaptionsCarryMatchingElapsedTimestamps() throws {
+        let (session, directory, defaults, suiteName) = try makeSession()
+        defer { cleanup(directory: directory, defaults: defaults, suiteName: suiteName) }
+
+        session.useTranslationMode()
+        session.isTranscriptPersistenceEnabled = true
+        session.savesTranscriptTimestamps = true
+        session.savedTranscriptContentMode = .originalAndTranslation
+        _ = session.activateLiveCallbackPipelineForTesting()
+        let now = Date()
+        session.lines = [
+            CaptionLine(sourceText: "First caption.", translatedText: "第一段。", createdAt: now, isFinal: true),
+            CaptionLine(sourceText: "Second caption.", translatedText: "第二段。", createdAt: now.addingTimeInterval(3), isFinal: true),
+        ]
+        session.prepareForTermination()
+
+        let files = transcriptFiles(in: directory)
+        let sourceURL = try #require(files.first { $0.lastPathComponent.hasSuffix("_original.txt") })
+        let translationURL = try #require(files.first { $0.lastPathComponent.hasSuffix("_translation.txt") })
+        let source = try String(contentsOf: sourceURL, encoding: .utf8).components(separatedBy: "\n\n")
+        let translation = try String(contentsOf: translationURL, encoding: .utf8).components(separatedBy: "\n\n")
+        #expect(source.map { String($0.prefix(15)) } == translation.map { String($0.prefix(15)) })
+        #expect(source.first?.hasPrefix("[00:00:00.") == true)
+        #expect(source.last?.hasPrefix("[00:00:03.") == true)
+        #expect(source.map(SavedTranscriptTimestamp.removingPrefix(from:)) == ["First caption.", "Second caption."])
+        #expect(translation.map(SavedTranscriptTimestamp.removingPrefix(from:)) == ["第一段。", "第二段。"])
+        #expect(session.savedTranscripts.first?.title == "First caption.")
     }
 
     @MainActor

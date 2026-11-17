@@ -50,11 +50,12 @@ struct SavedTranscript: Identifiable, Equatable {
             .first
             .map(String.init)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let titleText = title.map(SavedTranscriptTimestamp.removingPrefix(from:))
 
-        guard let title, !title.isEmpty else {
+        guard let titleText, !titleText.isEmpty else {
             return fallback.replacingOccurrences(of: ".txt", with: "")
         }
 
-        return String(title.prefix(48))
+        return String(titleText.prefix(48))
     }
 }

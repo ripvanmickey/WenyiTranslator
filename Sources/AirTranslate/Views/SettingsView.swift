@@ -632,6 +632,19 @@ struct SettingsView: View {
             .disabled(isSessionConfigurationLocked)
 
             SettingsToggleRow(
+                title: AppText.ui("保存时间戳", "Save Timestamps", "タイムスタンプを保存"),
+                detail: AppText.ui(
+                    "在保存的记录中标注每段字幕从开始聆听到首次显示的时间。",
+                    "Mark when each saved caption first appeared, measured from the start of listening.",
+                    "聴き取り開始から各字幕が初めて表示されるまでの時間を記録に追加します。"
+                ),
+                systemImage: "clock",
+                isOn: lockedSessionConfigurationBinding($session.savesTranscriptTimestamps)
+            )
+            .disabled(isSessionConfigurationLocked || !session.isTranscriptPersistenceEnabled)
+            .accessibilityIdentifier("saveTranscriptTimestamps")
+
+            SettingsToggleRow(
                 title: AppText.transcriptLint,
                 detail: AppText.transcriptLintDescription,
                 systemImage: "wand.and.sparkles",

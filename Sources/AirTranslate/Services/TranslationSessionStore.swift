@@ -98,6 +98,7 @@ private enum SettingsKey {
     static let isJevSelectionEnabled = "isJevSelectionEnabled"
     static let isTranscriptLintEnabled = "isTranscriptLintEnabled"
     static let isTranscriptPersistenceEnabled = "isTranscriptPersistenceEnabled"
+    static let savesTranscriptTimestamps = "savesTranscriptTimestamps"
     static let floatingCaptionDisplayMode = "floatingCaptionDisplayMode"
     static let floatingCaptionTextSize = "floatingCaptionTextSize"
     static let floatingCaptionLineCount = "floatingCaptionLineCount"
@@ -1066,6 +1067,9 @@ final class TranslationSessionStore {
             activeAutosaveBaseFileName = nil
         }
     }
+    var savesTranscriptTimestamps = false {
+        didSet { persistSelectedSettings() }
+    }
     var floatingCaptionDisplayMode = FloatingCaptionDisplayMode.originalAndTranslation {
         didSet {
             if isTranscribeOnlyMode, floatingCaptionDisplayMode != .original {
@@ -1406,6 +1410,7 @@ final class TranslationSessionStore {
     private var activeAutosaveSourceText = ""
     private var activeAutosaveTranslatedText = ""
     private var activeAutosaveBaseFileName: String?
+    private var transcriptStartedAt: Date?
     private var transcriptCheckpointTask: Task<Void, Never>?
     private let transcriptCheckpointInterval: TimeInterval
     private var isRestoringSelectedSettings = false
@@ -4627,6 +4632,7 @@ final class TranslationSessionStore {
         activeAutosaveBaseFileName = nil
         transcriptCheckpointTask?.cancel()
         transcriptCheckpointTask = nil
+        transcriptStartedAt = clearsVisibleLines ? .now : nil
         stopSpeaking()
         dubbingSpeechProgress.reset()
         transcriptCleanupTask?.cancel()
@@ -4835,6 +4841,7 @@ final class TranslationSessionStore {
         if defaults.object(forKey: SettingsKey.isTranscriptPersistenceEnabled) != nil {
             isTranscriptPersistenceEnabled = defaults.bool(forKey: SettingsKey.isTranscriptPersistenceEnabled)
         }
+        savesTranscriptTimestamps = defaults.bool(forKey: SettingsKey.savesTranscriptTimestamps)
         if let modeID = defaults.string(forKey: SettingsKey.floatingCaptionDisplayMode),
            let mode = FloatingCaptionDisplayMode(rawValue: modeID) {
             if isTranscribeOnlyMode {
@@ -5064,6 +5071,7 @@ final class TranslationSessionStore {
         defaults.set(isJevSelectionEnabled, forKey: SettingsKey.isJevSelectionEnabled)
         defaults.set(isTranscriptLintEnabled, forKey: SettingsKey.isTranscriptLintEnabled)
         defaults.set(isTranscriptPersistenceEnabled, forKey: SettingsKey.isTranscriptPersistenceEnabled)
+        defaults.set(savesTranscriptTimestamps, forKey: SettingsKey.savesTranscriptTimestamps)
         defaults.set(
             (floatingCaptionDisplayModeBeforeTranscribeOnly ?? floatingCaptionDisplayMode).id,
             forKey: SettingsKey.floatingCaptionDisplayMode
@@ -5380,8 +5388,18 @@ final class TranslationSessionStore {
         translatedText: String,
         baseFileName: String
     ) -> [(fileName: String, text: String)] {
-        let sourceText = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let translatedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        var sourceText = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        var translatedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if savesTranscriptTimestamps, let transcriptStartedAt {
+            sourceText = SavedTranscriptTimestamp.annotate(sourceText, segments: lines.map { line in
+                let text = isUsingMetaScribe ? metaSavedSourceText(for: line) : line.sourceText
+                return .init(text: text, shownAt: line.createdAt)
+            }, startedAt: transcriptStartedAt)
+            translatedText = SavedTranscriptTimestamp.annotate(translatedText, segments: lines.compactMap {
+                guard $0.hasUsableTranslation else { return nil }
+                return .init(text: $0.translatedText, shownAt: $0.createdAt)
+            }, startedAt: transcriptStartedAt)
+        }
 
         switch effectiveSavedTranscriptContentMode {
         case .original:
@@ -7585,7 +7603,7 @@ final class TranslationSessionStore {
         lastRecognitionAt = Date()
         presentFloatingSourceText(sourceText, identity: floatingIdentity(for: line.id))
 
-        let savedTurn = speakerLabel.map { "\($0): \(sourceText)" } ?? sourceText
+        let savedTurn = metaSavedSourceText(for: line)
         metaSavedTranscriptText = metaSavedTranscriptText.isEmpty
             ? savedTurn
             : metaSavedTranscriptText + "\n" + savedTurn
@@ -7595,6 +7613,10 @@ final class TranslationSessionStore {
         if metaActiveTurnID == turnId {
             metaActiveTurnID = nil
         }
+    }
+
+    private func metaSavedSourceText(for line: CaptionLine) -> String {
+        line.speakerLabel.map { "\($0): \(line.sourceText)" } ?? line.sourceText
     }
 
     private func accumulatedRealtimeText(current: String, next: String) -> String {
@@ -8979,6 +9001,7 @@ final class TranslationSessionStore {
         )
         isStarting = false
         isRunning = true
+        if transcriptStartedAt == nil { transcriptStartedAt = .now }
         return (generation, transcriber, openAITranscriber)
     }
 
