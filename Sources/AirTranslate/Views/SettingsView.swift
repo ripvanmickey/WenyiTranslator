@@ -8,6 +8,8 @@ struct SettingsView: View {
     @Bindable var session: TranslationSessionStore
     @Bindable private var localization = InterfaceLocalization.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openURL) private var openURL
+    private let updates = AppUpdateChecker.shared
     @SceneStorage("AirTranslate.SettingsView.selectedCategory") private var selectedCategoryID = SettingsCategory.general.rawValue
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var credentialScrollTarget: String?
@@ -754,6 +756,36 @@ struct SettingsView: View {
                 versionInfoRow(SettingsCopy.version, value: currentVersion.version, systemImage: "tag", identifier: "appVersionNumber")
                 Divider().padding(.leading, settingsLabelIndent)
                 versionInfoRow(SettingsCopy.buildNumber, value: currentVersion.build, systemImage: "hammer", identifier: "appBuildNumber")
+                Divider().padding(.leading, settingsLabelIndent)
+                SettingsControlRow(title: AppUpdateCopy.title, detail: updateStatus, systemImage: "arrow.down.circle") {
+                    HStack {
+                        Button(AppUpdateCopy.check) {
+                            Task { await updates.check() }
+                        }
+                        .disabled(updates.status == .checking)
+                        .accessibilityIdentifier("checkForAppUpdates")
+
+                        if let update = updates.availableUpdate {
+                            Button(AppUpdateCopy.download) { openURL(update.url) }
+                                .accessibilityIdentifier("downloadAppUpdate")
+                        }
+                    }
+                }
+                SettingsControlRow(
+                    title: AppUpdateCopy.notifications,
+                    detail: updates.notificationPermissionUnavailable ? AppUpdateCopy.notificationDenied : AppUpdateCopy.notificationDetail,
+                    systemImage: "bell",
+                    showsSeparator: false
+                ) {
+                    Toggle(AppUpdateCopy.notifications, isOn: Binding(
+                        get: { updates.notificationsEnabled },
+                        set: { enabled in Task { await updates.setNotificationsEnabled(enabled) } }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .disabled(updates.isChangingNotificationPreference)
+                    .accessibilityIdentifier("appUpdateNotifications")
+                }
             }
 
             SettingsGroup(title: SettingsCopy.aboutAirTranslate) {
@@ -775,6 +807,16 @@ struct SettingsView: View {
                 }
                 .padding(.vertical, 12)
             }
+        }
+    }
+
+    private var updateStatus: String {
+        switch updates.status {
+        case .checking: return AppUpdateCopy.checking
+        case .failed: return AppUpdateCopy.failed
+        case .upToDate: return AppUpdateCopy.upToDate
+        case .idle, .available:
+            return updates.availableUpdate.map { AppUpdateCopy.versionAvailable($0.summary) } ?? AppUpdateCopy.automatic
         }
     }
 

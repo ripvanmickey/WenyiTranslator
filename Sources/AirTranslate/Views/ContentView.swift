@@ -5,6 +5,8 @@ struct ContentView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openURL) private var openURL
+    private let updates = AppUpdateChecker.shared
     @State private var isLibraryPresented = false
     @State private var isFloatingCaptionVisible = FloatingCaptionWindowController.isOpen
     @State private var isMainCaptionVisible = false
@@ -56,6 +58,17 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                if let update = updates.availableUpdate {
+                    Button {
+                        openURL(update.url)
+                    } label: {
+                        Image(systemName: "arrow.down.circle")
+                    }
+                    .help(AppUpdateCopy.versionAvailable(update.summary))
+                    .accessibilityLabel(AppUpdateCopy.available)
+                    .accessibilityIdentifier("wenyiUpdateAvailable")
+                }
+
                 Button {
                     isLibraryPresented = true
                 } label: {

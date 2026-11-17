@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 @main
 struct AirTranslateApp: App {
@@ -75,8 +76,9 @@ private struct CaptureCommands: Commands {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var session: TranslationSessionStore?
+    private var updateTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let appIcon = NSImage(named: "AppIcon") {
@@ -84,9 +86,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        if Bundle.main.bundleIdentifier != nil {
+            UNUserNotificationCenter.current().delegate = self
+        }
+        updateTask = Task {
+            while !Task.isCancelled {
+                await AppUpdateChecker.shared.checkIfDue()
+                do {
+                    try await Task.sleep(for: .seconds(86_400))
+                } catch {
+                    break
+                }
+            }
+        }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { await AppUpdateChecker.shared.checkIfDue() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        updateTask?.cancel()
         session?.prepareForTermination()
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        notification.request.identifier == AppUpdateChecker.notificationID ? [.banner, .list] : []
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard response.notification.request.identifier == AppUpdateChecker.notificationID,
+              response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
+        await MainActor.run {
+            NSWorkspace.shared.open(AppUpdateChecker.shared.availableUpdate?.url ?? AppUpdateRelease.releasesURL)
+        }
     }
 }
