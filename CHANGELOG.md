@@ -2,6 +2,12 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.1 - 2026-11-17
+
+- Check GitHub for compatible Wenyi releases at launch or in Settings → About. The update buttons open the matching DMG directly, and optional macOS notifications announce new versions.
+- Move Qwen audio-file transcription settings into a dialog and remember the last saved audio link.
+- Keep macOS 14 as the minimum system version for the Apple Silicon installer, built with the macOS 27.2 SDK.
+
 ## 1.16.0 - 2026-10-04
 
 ### Added
