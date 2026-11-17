@@ -1618,34 +1618,56 @@ final class TranslationSessionStore {
     }
 
     func start() {
+        guard !isRunning, !isStarting else { return }
         cancelSavedTitleGeneration()
         cancelTranscriptCleanup()
-        isPreviewingFloatingCaptions = false
-        guard !isRunning, !isStarting else { return }
 
         if whisperRecognitionEnabled && usesAppleSpeechTranscriber(for: currentStartConfiguration()) {
             if multitalkerRecognitionEnabled && !sourceLanguage.id.lowercased().hasPrefix("en") {
-                statusMessage = AppText.ui("Multitalker Parakeet 仅支持英语，请切换源语言或识别引擎。", "Multitalker Parakeet supports English only. Change the source language or engine.", "Multitalker Parakeet は英語のみ対応しています。原文の言語またはエンジンを変更してください。")
+                presentCaptureStartFailure(
+                    AppText.ui("Multitalker Parakeet 仅支持英语，请切换源语言或识别引擎。", "Multitalker Parakeet supports English only. Change the source language or engine.", "Multitalker Parakeet は英語のみ対応しています。原文の言語またはエンジンを変更してください。"),
+                    recoveryAction: .generalSettings
+                )
+                return
+            }
+            guard isUsingLocalTranslation || isTranscribeOnlyMode else {
+                presentCaptureStartFailure(
+                    AppText.ui("使用本地识别时，请选择本地模型翻译、Index 在线翻译或仅转写。", "Choose local model translation, Index online translation, or transcription only with this recognition engine.", "この認識エンジンを使用する場合は、ローカルモデル翻訳、Index オンライン翻訳、または文字起こしのみを選んでください。"),
+                    recoveryAction: .generalSettings
+                )
+                return
+            }
+            guard !isPreparingWhisperModel, !ASRModelManager.shared.isBusy else {
+                presentCaptureStartFailure(
+                    AppText.ui("请等待模型操作完成，或先取消下载。", "Wait for the model operation to finish or cancel the download.", "モデルの処理が終わるまで待つか、ダウンロードをキャンセルしてください。"),
+                    recoveryAction: .generalSettings
+                )
                 return
             }
             if nemotronRecognitionEnabled {
                 do {
                     if multitalkerRecognitionEnabled { try NemotronSpeechTranscriber.validateMultitalker(folder: nemotronRuntimeFolder) }
                     else { try ManagedASRRuntime.validate(ManagedASRRuntime.modelID(qwen: qwenASRModel)) }
+                } catch {
+                    presentCaptureStartFailure(error.localizedDescription, recoveryAction: .generalSettings)
+                    return
                 }
-                catch { statusMessage = error.localizedDescription; return }
-            }
-            guard !isPreparingWhisperModel, !ASRModelManager.shared.isBusy else { statusMessage = AppText.ui("请等待模型操作完成，或先取消下载。", "Wait for the model operation to finish or cancel the download.", "モデルの処理が終わるまで待つか、ダウンロードをキャンセルしてください。"); return }
-            guard isUsingLocalTranslation || isTranscribeOnlyMode else {
-                statusMessage = AppText.ui("使用本地识别时，请选择本地模型翻译、Index 在线翻译或仅转写。", "Choose local model translation, Index online translation, or transcription only with this recognition engine.", "この認識エンジンを使用する場合は、ローカルモデル翻訳、Index オンライン翻訳、または文字起こしのみを選んでください。"); return
-            }
-            guard nemotronRecognitionEnabled || !whisperModelFolder.isEmpty else {
-                statusMessage = AppText.ui("请先在 General 的识别引擎设置中下载或选择 WhisperKit 模型。", "Download or choose a WhisperKit model in Settings → General.", "「設定 → 一般」で WhisperKit モデルをダウンロードするか選択してください。"); return
+            } else if whisperModelFolder.isEmpty {
+                presentCaptureStartFailure(
+                    AppText.ui("请先在 General 的识别引擎设置中下载或选择 WhisperKit 模型。", "Download or choose a WhisperKit model in Settings → General.", "「設定 → 一般」で WhisperKit モデルをダウンロードするか選択してください。"),
+                    recoveryAction: .generalSettings
+                )
+                return
             }
         }
         if isUsingLocalTranslation {
-            do { _ = try localTranslation.validatedBaseURL(); try localTranslation.validateModel() }
-            catch { statusMessage = error.localizedDescription; return }
+            do {
+                _ = try localTranslation.validatedBaseURL()
+                try localTranslation.validateModel()
+            } catch {
+                presentCaptureStartFailure(error.localizedDescription, recoveryAction: .generalSettings)
+                return
+            }
         }
         let readiness = startReadinessAssessment()
         guard readiness.canStart else {
@@ -1662,6 +1684,7 @@ final class TranslationSessionStore {
             return
         }
 
+        isPreviewingFloatingCaptions = false
         captureStartFailureMessage = nil
         captureStartRecoveryAction = nil
         invalidateCaptureStartAttempt()

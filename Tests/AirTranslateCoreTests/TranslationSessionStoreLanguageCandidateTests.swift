@@ -748,6 +748,26 @@ struct TranslationSessionStoreLanguageCandidateTests {
         #expect(readiness.canStart)
     }
 
+    @MainActor @Test
+    func incompatibleManagedRecognitionReportsASettingsRecovery() throws {
+        guard PlatformSupport.supportsAppleSpeech else { return }
+        let suite = "IncompatibleRecognition-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] }, settingsDefaults: defaults)
+        session.useAppleDefaultMode()
+        session.localRecognitionEngine = "nemotron"
+        session.localTranslation.enabled = false
+
+        session.start()
+
+        #expect(session.captureControlState.phase == .idle)
+        #expect(session.captureStartFailureMessage != nil)
+        #expect(session.captureStartFailureMessage == session.statusMessage)
+        #expect(session.captureStartRecoveryAction == .generalSettings)
+    }
+
     @Test
     func captureStartFailuresChooseActionableRecovery() {
         #expect(

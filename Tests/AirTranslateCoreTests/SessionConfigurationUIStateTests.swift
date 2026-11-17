@@ -5,17 +5,18 @@ import Testing
 struct SessionConfigurationUIStateTests {
     @Test
     func menuBarStartingPhaseOffersCancellationAndReportsCurrentStatus() {
-        let phase = MenuBarCapturePhase(
+        let state = CaptureControlState(
             isRunning: false,
             isStarting: true,
             isPaused: false
         )
         let status = AppText.connectingGeminiLiveTranslation
 
+        let phase = state.phase
         #expect(phase == .starting)
         #expect(phase.actionSystemImage == "xmark")
         #expect(phase.actionTitle == AppText.cancel)
-        #expect(phase.actionSubtitle(statusMessage: status) == status)
+        #expect(state.statusTitle(statusMessage: status) == status)
     }
 
     @Test
@@ -36,16 +37,17 @@ struct SessionConfigurationUIStateTests {
         #expect(running.actionTitle == AppText.stop)
         #expect(running.actionSystemImage == "stop.fill")
 
-        let paused = MenuBarCapturePhase(
+        let pausedState = CaptureControlState(
             isRunning: true,
             isStarting: false,
             isPaused: true
         )
 
+        let paused = pausedState.phase
         #expect(paused == .paused)
         #expect(paused.actionTitle == AppText.stop)
         #expect(paused.actionSystemImage == "stop.fill")
-        #expect(paused.actionSubtitle(statusMessage: "ignored") == AppText.paused)
+        #expect(pausedState.statusTitle(statusMessage: "ignored") == AppText.paused)
     }
 
     @Test

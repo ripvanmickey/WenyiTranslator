@@ -5,7 +5,6 @@ import SwiftUI
 struct AirTranslateApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = TranslationSessionStore()
-    @State private var menuBarPanelController = MenuBarPanelController()
 
     init() {
         appDelegate.session = session
@@ -20,7 +19,6 @@ struct AirTranslateApp: App {
                     minHeight: AirTranslateDesign.mainWindowMinimumHeight
                 )
                 .tint(AirTranslateDesign.Palette.accent)
-                .background(MenuBarPanelInstaller(session: session, controller: menuBarPanelController))
         }
         .windowToolbarStyle(.unifiedCompact(showsTitle: true))
         .commands {
@@ -34,6 +32,15 @@ struct AirTranslateApp: App {
                 .environment(\.locale, AppText.interfaceLocale)
         }
         .windowResizability(.contentSize)
+
+        MenuBarExtra {
+            MenuBarStatusView(session: session)
+                .environment(\.locale, AppText.interfaceLocale)
+        } label: {
+            Image(systemName: session.isFloatingCaptionPresentationActive ? "captions.bubble.fill" : "captions.bubble")
+                .accessibilityLabel(session.isPaused ? AppText.menuBarPausedTitle : session.isRunning ? AppText.menuBarRunningTitle : AppText.menuBarTitle)
+        }
+        .menuBarExtraStyle(.menu)
 
         Settings {
             SettingsView(session: session)
