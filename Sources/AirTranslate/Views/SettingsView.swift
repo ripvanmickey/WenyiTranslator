@@ -1001,7 +1001,6 @@ struct SettingsView: View {
             }
         }
         QwenAudioFileTranscriptionView(hasAPIKey: session.hasQwenAPIKey)
-            .padding(.leading, settingsLabelIndent)
     }
 
     private var liveOutputModeBinding: Binding<LiveOutputMode> {

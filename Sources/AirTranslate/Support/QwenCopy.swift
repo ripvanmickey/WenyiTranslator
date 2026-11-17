@@ -34,6 +34,9 @@ enum QwenCopy {
     static let reconnecting = copy("Reconnecting to Qwen…", "Qwen 다시 연결 중…", "Qwenに再接続中…", "正在重新连接 Qwen…")
     static let price = copy("Singapore · input $0.189/hour + translated text $20/1M tokens; speech output +$1.35/hour. Source transcript is free. Checked 2026-09-20.", "싱가포르 · 입력 $0.189/시간 + 번역문 $20/100만 토큰 · 음성 출력 추가 $1.35/시간. 원문 전사는 무료. 2026-09-20 확인.", "シンガポール · 入力 $0.189/時間 + 翻訳文 $20/100万トークン · 音声出力 +$1.35/時間。原文文字起こしは無料。2026-09-20確認。", "新加坡 · 输入 $0.189/小时 + 译文 $20/百万 token；语音输出另加 $1.35/小时。原文转写免费。2026-09-20 确认。")
     static let fileTranscriptionTitle = copy("Transcribe an audio file", "오디오 파일 전사", "音声ファイルを文字起こし", "转写音频文件")
+    static var fileTranscriptionConfigure: String { copy("Configure", "설정", "設定", "配置") }
+    static var fileTranscriptionNoSavedURL: String { copy("No audio URL saved", "저장된 오디오 URL 없음", "保存済みの音声URLなし", "尚未保存音频链接") }
+    static var fileTranscriptionSave: String { copy("Save", "저장", "保存", "保存") }
     static let fileTranscriptionDetail = copy("Qwen Audio 3.1 ASR Flash Filetrans processes a publicly accessible audio URL asynchronously (up to 12 hours / 2 GB). The file URL is sent to QwenCloud; local files are not uploaded by AirTranslate.", "Qwen Audio 3.1 ASR Flash Filetrans가 공개된 오디오 URL을 비동기로 처리합니다(최대 12시간/2GB). 파일 URL은 QwenCloud에 전송되며 AirTranslate가 로컬 파일을 업로드하지 않습니다.", "Qwen Audio 3.1 ASR Flash Filetransは公開音声URLを非同期で処理します（最大12時間/2GB）。ファイルURLはQwenCloudへ送信され、AirTranslateがローカルファイルをアップロードすることはありません。", "Qwen Audio 3.1 ASR Flash Filetrans 异步处理可公开访问的音频 URL（最长 12 小时/2 GB）。文件 URL 会发送给 QwenCloud；AirTranslate 不会上传本地文件。")
     static let fileTranscriptionURLLabel = copy("Public HTTPS audio URL", "공개 HTTPS 오디오 URL", "公開HTTPS音声URL", "公开 HTTPS 音频 URL")
     static let fileTranscriptionURLPlaceholder = "https://example.com/audio.mp3"

@@ -4,7 +4,9 @@ import SwiftUI
 struct QwenAudioFileTranscriptionView: View {
     let hasAPIKey: Bool
     private let service: QwenAudioFileTranscriptionService
-    @State private var fileURL = ""
+    @AppStorage("qwenFileTranscriptionURL") private var savedFileURL = ""
+    @State private var showsConfiguration = false
+    @State private var draftFileURL = ""
     @State private var transcript = ""
     @State private var errorMessage: String?
     @State private var isWorking = false
@@ -16,20 +18,45 @@ struct QwenAudioFileTranscriptionView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
-            Text(QwenCopy.fileTranscriptionTitle)
-                .font(AirTranslateDesign.Typography.sectionLabel)
-                .tracking(0.6)
-                .textCase(.uppercase)
-                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+        SettingsControlRow(
+            title: QwenCopy.fileTranscriptionTitle,
+            detail: savedFileURL.isEmpty ? QwenCopy.fileTranscriptionNoSavedURL : savedFileURL,
+            systemImage: "waveform",
+            detailLineLimit: 1,
+            showsSeparator: false
+        ) {
+            HStack {
+                if isWorking {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel(QwenCopy.fileTranscriptionWorking)
+                }
+                Button(QwenCopy.fileTranscriptionConfigure) {
+                    if !isWorking { draftFileURL = savedFileURL }
+                    showsConfiguration = true
+                }
+                .accessibilityIdentifier("qwenFileTranscriptionConfigure")
+            }
+        }
+        .sheet(isPresented: $showsConfiguration) {
+            configurationSheet
+        }
+    }
 
-            VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.sm) {
+    private var configurationSheet: some View {
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.sm) {
+            Text(QwenCopy.fileTranscriptionTitle)
+                .font(.title2.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+
             Text(QwenCopy.fileTranscriptionDetail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextField(QwenCopy.fileTranscriptionURLPlaceholder, text: $fileURL)
+            TextField(QwenCopy.fileTranscriptionURLLabel, text: $draftFileURL,
+                      prompt: Text(QwenCopy.fileTranscriptionURLPlaceholder))
+                .labelsHidden()
                 .textFieldStyle(.roundedBorder)
                 .disabled(isWorking)
                 .accessibilityLabel(QwenCopy.fileTranscriptionURLLabel)
@@ -39,6 +66,13 @@ struct QwenAudioFileTranscriptionView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if !trimmedDraftURL.isEmpty, validatedDraftURL == nil {
+                Label(QwenCopy.fileTranscriptionInvalidURL, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(AirTranslateDesign.Palette.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             HStack {
                 if isWorking {
@@ -53,14 +87,14 @@ struct QwenAudioFileTranscriptionView: View {
                         .accessibilityIdentifier("qwenFileTranscriptionCancel")
                 } else {
                     Button(QwenCopy.fileTranscriptionStart, action: start)
-                        .disabled(!hasAPIKey)
+                        .disabled(!hasAPIKey || validatedDraftURL == nil)
                         .accessibilityIdentifier("qwenFileTranscriptionStart")
                     Spacer()
                     if !hasAPIKey {
                         Label(QwenCopy.apiKeyRequired, systemImage: "key")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -91,21 +125,48 @@ struct QwenAudioFileTranscriptionView: View {
                         .accessibilityIdentifier("qwenFileTranscriptionCopy")
                 }
             }
+
+            HStack {
+                Spacer()
+                Button(AppText.close) { showsConfiguration = false }
+                    .keyboardShortcut(.cancelAction)
+                Button(QwenCopy.fileTranscriptionSave, action: save)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isWorking || (!trimmedDraftURL.isEmpty && validatedDraftURL == nil))
+                    .accessibilityIdentifier("qwenFileTranscriptionSave")
             }
-            .padding(.horizontal, AirTranslateDesign.Spacing.md)
-            .padding(.vertical, AirTranslateDesign.Spacing.xxs)
-            .airRaisedSurface()
         }
+        .padding(24)
+        .frame(width: 520)
+    }
+
+    private var trimmedDraftURL: String {
+        draftFileURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var validatedDraftURL: URL? {
+        try? QwenAudioFileTranscriptionService.publicAudioURL(draftFileURL)
+    }
+
+    private func save() {
+        if let validatedDraftURL {
+            savedFileURL = validatedDraftURL.absoluteString
+        } else if trimmedDraftURL.isEmpty {
+            savedFileURL = ""
+        } else {
+            return
+        }
+        showsConfiguration = false
     }
 
     private func start() {
-        guard !isWorking, hasAPIKey else { return }
+        guard !isWorking, hasAPIKey, let fileURL = validatedDraftURL else { return }
         transcript = ""
         errorMessage = nil
         isWorking = true
         task = Task {
             do {
-                transcript = try await service.transcribe(fileURL: fileURL)
+                transcript = try await service.transcribe(fileURL: fileURL.absoluteString)
             } catch is CancellationError {
                 // Cancellation is initiated by the user.
             } catch {
