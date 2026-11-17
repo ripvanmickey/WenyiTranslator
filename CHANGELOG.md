@@ -2,6 +2,12 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.2 - 2026-11-17
+
+- Add optional elapsed timestamps to saved transcripts. Source and translated captions share a timestamp for the same segment.
+- Add per-request diagnostics for Index online translation to help distinguish timeouts and incomplete responses.
+- Align settings controls and use the system font for the Index endpoint address.
+
 ## 1.16.1 - 2026-11-17
 
 - Check GitHub for compatible Wenyi releases at launch or in Settings → About. The update buttons open the matching DMG directly, and optional macOS notifications announce new versions.
