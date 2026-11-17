@@ -267,7 +267,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                     .tint(AirTranslateDesign.Palette.accent)
                     .labelsHidden()
-                    .frame(minWidth: 230, idealWidth: 300, maxWidth: .infinity)
+                    .frame(width: 170)
                     .allowsHitTesting(segmentedControlAllowsHitTesting())
                     .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
                     .opacity(isSessionConfigurationLocked ? 0.6 : 1)
