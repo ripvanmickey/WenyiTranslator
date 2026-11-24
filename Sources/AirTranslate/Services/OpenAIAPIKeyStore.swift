@@ -4,6 +4,7 @@ import Security
 enum OpenAIAPIKeyStore {
     private static let service = "AirTranslate.OpenAI"
     private static let account = "OPENAI_API_KEY"
+    private static let cache = APIKeyReadCache()
 
     static func hasAPIKey() -> Bool {
         var item: CFTypeRef?
@@ -11,7 +12,11 @@ enum OpenAIAPIKeyStore {
         return status == errSecSuccess
     }
 
-    static func readAPIKey() throws -> String? {
+    static func readAPIKey(retryAfterFailure: Bool = false) throws -> String? {
+        try cache.read(retryAfterFailure: retryAfterFailure, using: readFromKeychain)
+    }
+
+    private static func readFromKeychain() throws -> String? {
         var query = baseQuery()
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -33,37 +38,35 @@ enum OpenAIAPIKeyStore {
 
     static func saveAPIKey(_ key: String) throws {
         let trimmedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedKey.isEmpty else {
-            throw OpenAIAPIKeyStoreError.emptyKey
-        }
+        guard !trimmedKey.isEmpty else { throw OpenAIAPIKeyStoreError.emptyKey }
         guard let data = trimmedKey.data(using: .utf8) else {
             throw OpenAIAPIKeyStoreError.invalidStoredKey
         }
-
-        let attributes: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        ]
-        let update = SecItemUpdate(baseQuery() as CFDictionary, attributes as CFDictionary)
-        if update == errSecSuccess { return }
-        guard update == errSecItemNotFound else {
-            throw OpenAIAPIKeyStoreError.keychainStatus(update)
-        }
-
-        var query = baseQuery()
-        query[kSecValueData as String] = data
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw OpenAIAPIKeyStoreError.keychainStatus(status)
+        try cache.replace {
+            let attributes: [String: Any] = [
+                kSecValueData as String: data,
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            ]
+            let update = SecItemUpdate(baseQuery() as CFDictionary, attributes as CFDictionary)
+            if update == errSecSuccess { return trimmedKey }
+            guard update == errSecItemNotFound else {
+                throw OpenAIAPIKeyStoreError.keychainStatus(update)
+            }
+            var query = baseQuery()
+            query.merge(attributes) { _, new in new }
+            let status = SecItemAdd(query as CFDictionary, nil)
+            guard status == errSecSuccess else { throw OpenAIAPIKeyStoreError.keychainStatus(status) }
+            return trimmedKey
         }
     }
 
     static func deleteAPIKey() throws {
-        let status = SecItemDelete(baseQuery() as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw OpenAIAPIKeyStoreError.keychainStatus(status)
+        try cache.replace {
+            let status = SecItemDelete(baseQuery() as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw OpenAIAPIKeyStoreError.keychainStatus(status)
+            }
+            return nil
         }
     }
 
@@ -96,7 +99,15 @@ enum OpenAIAPIKeyStoreError: LocalizedError {
         case .invalidStoredKey:
             AppText.openAIAPIKeyInvalidStoredValue
         case let .keychainStatus(status):
-            AppText.openAIAPIKeychainFailed(status)
+            if status == errSecUserCanceled || status == errSecAuthFailed || status == errSecInteractionNotAllowed {
+                AppText.ui(
+                    "未能取得 OpenAI 密钥的钥匙串授权。请在设置 → API 密钥 → OpenAI 中查看或重新保存密钥，再开始聆听。",
+                    "OpenAI Keychain access was not granted. Show or save the key in Settings → API Keys → OpenAI, then start listening again.",
+                    "OpenAI キーのキーチェーン認証を取得できませんでした。「設定 → API キー → OpenAI」でキーを表示または保存してから、聞き取りを再開してください。"
+                )
+            } else {
+                AppText.openAIAPIKeychainFailed(status)
+            }
         }
     }
 }

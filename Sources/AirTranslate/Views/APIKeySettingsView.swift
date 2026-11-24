@@ -266,7 +266,7 @@ struct APIKeySettingsView: View {
     private func read(_ provider: CredentialProvider) throws -> String? {
         switch provider {
         case .indexOnline: nil
-        case .openAI: try OpenAIAPIKeyStore.readAPIKey()
+        case .openAI: try OpenAIAPIKeyStore.readAPIKey(retryAfterFailure: true)
         case .gemini: try GeminiAPIKeyStore.readAPIKey()
         case .meta: try MetaAPIKeyStore.readAPIKey()
         case .azure: try AzureSpeechAPIKeyStore.readAPIKey()

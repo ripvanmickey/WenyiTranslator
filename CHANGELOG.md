@@ -4,6 +4,7 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.3 - Unreleased
 
+- Authorize the OpenAI key before capture and reuse it in memory. Failed authorization waits for an explicit retry, preventing repeated Keychain dialogs for caption requests.
 - Allow OpenAI translation to use an on-device ASR engine and GPT-4.1 mini text translation, uploading caption text only. Keep the existing system picker and settings-row layout.
 - Split OpenAI realtime translation into completed caption paragraphs and a live tail, retaining all paragraphs in saved transcripts and their timestamps.
 - Show and hide saved API keys on demand in API Keys settings. Saving a key now gives explicit storage and access-validation feedback.

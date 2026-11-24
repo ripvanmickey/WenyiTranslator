@@ -1725,6 +1725,17 @@ final class TranslationSessionStore {
                     self.captureStopTask = nil
                 }
                 try validatePipelineStart(generation: generation, configuration: configuration)
+                if configuration.openAITranslationModel.isEnabled || configuration.openAITranscriptionModel.isEnabled {
+                    statusMessage = AppText.ui("正在读取 OpenAI 密钥…", "Reading the OpenAI key…", "OpenAI キーを読み取り中…")
+                    // Resolve authorization before starting audio capture. Translation requests
+                    // reuse the in-memory credential instead of prompting for each caption.
+                    try await Task.detached(priority: .userInitiated) {
+                        guard let key = try OpenAIAPIKeyStore.readAPIKey(retryAfterFailure: true), !key.isEmpty else {
+                            throw OpenAITranslationError.missingAPIKey
+                        }
+                    }.value
+                    try validatePipelineStart(generation: generation, configuration: configuration)
+                }
                 if configuration.audioInputSource == .systemAudio && !configuration.audioOnlySystemCapture {
                     try systemAudioCapture.requestScreenRecordingAccess()
                 }
