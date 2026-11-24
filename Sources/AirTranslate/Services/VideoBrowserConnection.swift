@@ -57,7 +57,8 @@ actor VideoBrowserConnection {
             if code == -1743 || code == -10004 {
                 throw VideoPreloadProblem(message: "请在系统设置 → 隐私与安全性 → 自动化中，允许文译访问 \(browser.title)。")
             }
-            throw VideoPreloadProblem(message: "请保持 YouTube 视频为 \(browser.title) 的当前标签页，并在浏览器的开发者菜单开启“允许来自 Apple 事件的 JavaScript”，然后重新连接。")
+            let explanation = details[NSAppleScript.errorMessage] as? String ?? "浏览器未返回播放位置"
+            throw VideoPreloadProblem(message: "连接 \(browser.title) 失败（\(code)）：\(explanation)")
         }
         guard let raw = descriptor.stringValue?.data(using: .utf8), raw.count < 16_384,
               let snapshot = try? JSONDecoder().decode(VideoPlaybackSnapshot.self, from: raw),
