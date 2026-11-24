@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.4 - Unreleased
 
+- Automatically restore matching local video subtitle caches when the video or language selection changes. Reuse complete caches without network requests and only translate missing cues on explicit resume. Show concrete browser automation errors for connection failures.
+
 - Add an opt-in YouTube subtitle preloader with Chrome/Safari media-time synchronization, local subtitle cache, bilingual SRT export and a separate white/yellow overlay. Choose existing/imported timed subtitles or explicitly start OpenAI audio transcription. See docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md for setup, data flow and test boundaries.
 
 - Use fixed white source captions and yellow translated captions in the main window, floating captions and settings preview, regardless of provider or preset. Keep a dark caption surface in light appearance for readable white text.

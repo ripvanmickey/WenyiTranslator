@@ -56,7 +56,55 @@ final class VideoSubtitlePreloadStore {
     @ObservationIgnored private var overlay: VideoSubtitleOverlayController?
 
     var translatedCount: Int { document?.cues.filter { !$0.translation.isEmpty }.count ?? 0 }
-    var canPrepare: Bool { !isPreparing && (try? YouTubeVideoReference(videoURL)) != nil && (input != .imported || !imported.isEmpty) }
+    private var inputKey: String { input == .imported ? "import:" + importedHash : input.rawValue }
+    var cacheSelectionKey: String {
+        [(try? YouTubeVideoReference(videoURL))?.id ?? "", sourceLanguage.id, targetLanguage.id,
+         translator.rawValue, inputKey].joined(separator: "\u{0}")
+    }
+    private var hasMatchingDocument: Bool {
+        guard let document, let video = try? YouTubeVideoReference(videoURL) else { return false }
+        return document.videoID == video.id && document.sourceLanguage == sourceLanguage.id
+            && document.targetLanguage == targetLanguage.id && document.provider == translator.rawValue
+            && document.input == inputKey
+    }
+    var prepareTitle: String {
+        guard hasMatchingDocument else { return "开始预加载" }
+        return document?.completed == true ? "已从本机载入" : "补齐缺失字幕"
+    }
+    var canPrepare: Bool {
+        !isPreparing && (try? YouTubeVideoReference(videoURL)) != nil
+            && (input != .imported || !imported.isEmpty)
+            && !(hasMatchingDocument && document?.completed == true)
+    }
+
+    /// Selection changes only read local data; missing translations need an explicit start.
+    func restoreCachedSelection() async {
+        guard !isPreparing else { return }
+        let selection = cacheSelectionKey
+        if hasMatchingDocument { return }
+        document = nil; activeCue = nil; error = nil; progress = 0
+        guard let video = try? YouTubeVideoReference(videoURL), input != .imported || !imported.isEmpty else {
+            status = "输入 YouTube 链接，先准备字幕，再连接浏览器播放。"; return
+        }
+        let source = sourceLanguage.id, target = targetLanguage.id, provider = translator.rawValue, selectedInput = inputKey
+        do {
+            let saved = try await cache.load(videoID: video.id, source: source, target: target,
+                                             provider: provider, input: selectedInput)
+            guard !Task.isCancelled, !isPreparing, cacheSelectionKey == selection else { return }
+            guard let saved else {
+                status = "未找到匹配的本机缓存，可开始预加载。"; return
+            }
+            document = saved
+            progress = Double(translatedCount) / Double(max(1, saved.cues.count))
+            status = saved.completed
+                ? "已自动载入本机缓存，无需重新下载或翻译。可直接连接浏览器显示字幕。"
+                : "已自动载入本机缓存，已准备的字幕可直接播放；点击“补齐缺失字幕”只处理未完成部分。"
+            refreshCue()
+        } catch {
+            guard !Task.isCancelled, !isPreparing, cacheSelectionKey == selection else { return }
+            status = "本机缓存无法读取，可重新预加载。"
+        }
+    }
 
     func prepare() {
         guard canPrepare, let video = try? YouTubeVideoReference(videoURL) else { return }

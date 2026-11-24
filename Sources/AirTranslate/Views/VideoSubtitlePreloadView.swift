@@ -49,7 +49,7 @@ struct VideoSubtitlePreloadView: View {
                     .disabled(model.isPreparing)
                 }
                 HStack {
-                    Button("开始预加载", systemImage: "arrow.down.circle") { model.prepare() }
+                    Button(model.prepareTitle, systemImage: "arrow.down.circle") { model.prepare() }
                         .buttonStyle(.borderedProminent).disabled(!model.canPrepare)
                     if model.isPreparing {
                         Button("停止", systemImage: "stop.fill") { model.cancel() }
@@ -113,6 +113,7 @@ struct VideoSubtitlePreloadView: View {
             }.padding(24)
         }
         .frame(minWidth: 720, minHeight: 650)
+        .task(id: model.cacheSelectionKey) { await model.restoreCachedSelection() }
         .onChange(of: model.timingOffset) { _, _ in model.refreshCue() }
     }
 }
