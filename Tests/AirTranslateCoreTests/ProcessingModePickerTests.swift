@@ -57,6 +57,47 @@ struct ProcessingModePickerTests {
         }
     }
 
+    @Test func openAICanUseLocalASRAndTextTranslation() throws {
+        try withSession { session in
+            session.useOpenAIMode(.translation)
+            session.localRecognitionEngine = "qwen"
+            session.useOpenAIOnDeviceRecognition(true)
+            #expect(ProcessingEngine.current(for: session) == .openAI)
+            #expect(session.localRecognitionEngine == "qwen")
+            #expect(session.openAITranslationModel == .gpt41Mini)
+            #expect(!session.isUsingOpenAIRealtime)
+            #expect(!session.isUsingProviderRealtimeTranslation)
+            #expect(!session.isTranscribeOnlyMode)
+            #expect(session.openAITranscriptionModel == .off)
+            #expect(session.processingEngineTitle.contains("GPT-4.1 mini"))
+            #expect(session.startReadinessAssessment().issue == .openAIAPIKeyMissing)
+            session.hasOpenAIAPIKey = true
+            #expect(session.startReadinessAssessment().canStart)
+            session.useOpenAIOnDeviceRecognition(false)
+            #expect(session.isUsingOpenAIRealtimeTranslation)
+            #expect(session.openAITranslationModel == .gptRealtimeTranslate)
+        }
+    }
+
+    @Test func openAILocalRecognitionRestoresAndCannotChangeDuringCapture() throws {
+        try withSession(preferences: [
+            "openAITranslationModelID": "gpt-4.1-mini",
+            "whisperRecognitionEnabled": true,
+            "nemotronRecognitionEnabled": true,
+        ]) { session in
+            #expect(session.openAITranslationModel == .gpt41Mini)
+            #expect(session.localRecognitionEngine == "nemotron")
+            #expect(!session.isUsingOpenAIRealtime)
+            session.isRunning = true
+            session.useOpenAIOnDeviceRecognition(false)
+            #expect(session.openAITranslationModel == .gpt41Mini)
+            session.isRunning = false
+            session.isStarting = true
+            session.useOpenAIOnDeviceRecognition(false)
+            #expect(session.openAITranslationModel == .gpt41Mini)
+        }
+    }
+
     @Test func previouslySelectedAppleSpeechIsRestored() throws {
         guard PlatformSupport.supportsAppleSpeech else { return }
         try withSession(preferences: ["whisperRecognitionEnabled": false]) { session in

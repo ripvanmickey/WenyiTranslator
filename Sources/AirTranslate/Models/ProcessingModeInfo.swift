@@ -112,7 +112,14 @@ struct ProcessingModeInfo {
 extension ProcessingEngine {
     @MainActor
     func information(in session: TranslationSessionStore) -> ProcessingModeInfo {
-        ProcessingModeInfo.information(
+        if self == .openAI, session.openAITranslationModel.usesTextTranslation {
+            return ProcessingModeInfo(
+                modelID: session.openAITranslationModel.apiModelID,
+                summary: AppText.ui("本机识别 · OpenAI 文字翻译", "On-device recognition · OpenAI text translation", "端末内認識・OpenAI テキスト翻訳"),
+                price: AppText.ui("按文字令牌计费", "Billed by text tokens", "テキストトークンに応じて課金")
+            )
+        }
+        return ProcessingModeInfo.information(
             for: self,
             openAIOutputMode: session.openAIOutputMode,
             geminiModel: session.geminiTranslationModel.isEnabled ? session.geminiTranslationModel : session.preferredGeminiModel,

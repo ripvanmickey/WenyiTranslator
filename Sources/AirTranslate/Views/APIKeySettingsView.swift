@@ -207,7 +207,7 @@ struct APIKeySettingsView: View {
         if session.isUsingAzureMAI { return .azure }
         if session.isUsingMetaScribe { return .meta }
         if session.isUsingGemini { return .gemini }
-        if session.isUsingOpenAIRealtime || session.isUsingGPTTranscriptionMode { return .openAI }
+        if session.openAITranslationModel.isEnabled || session.openAITranscriptionModel.isEnabled { return .openAI }
         return nil
     }
 
@@ -245,7 +245,9 @@ struct APIKeySettingsView: View {
     private func detail(for provider: CredentialProvider) -> String {
         switch provider {
         case .indexOnline: indexPublicAPIDetail
-        case .openAI: AppText.openAIAudioDescription
+        case .openAI: session.openAITranslationModel.usesTextTranslation
+            ? AppText.ui("语音在本机识别，仅上传字幕文字进行翻译。", "On-device recognition. Only caption text is uploaded for translation.", "音声は端末内で認識し、翻訳する字幕テキストのみを送信します。")
+            : AppText.openAIAudioDescription
         case .gemini: AppText.geminiAPIKeyDescription
         case .meta: AppText.metaScribeDetail
         case .azure: AzureMAICopy.detail(for: session.azureTranscriptionModel)

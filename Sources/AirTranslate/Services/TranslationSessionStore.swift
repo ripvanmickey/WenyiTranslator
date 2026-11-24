@@ -860,7 +860,7 @@ final class TranslationSessionStore {
                 grokTranscriptionModel = .off
                 nariTranscriptionModel = .off
                 isUsingAzureMAI = false
-                guard openAITranslationModel.isSupportedLiveTranslationModel else {
+                guard openAITranslationModel.isSupportedLiveTranslationModel || openAITranslationModel.usesTextTranslation else {
                     openAITranslationModel = .gptRealtimeTranslate
                     return
                 }
@@ -1039,6 +1039,9 @@ final class TranslationSessionStore {
         if isUsingLocalTranslation {
             let provider = localTranslation.usesOnlineIndex ? AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳") : "LM Studio"
             return "\(recognitionEngineTitle) + \(provider) · \(localTranslation.activeModelID)"
+        }
+        if openAITranslationModel.usesTextTranslation {
+            return "\(recognitionEngineTitle) + OpenAI · \(openAITranslationModel.title)"
         }
         let engine = ProcessingEngine.current(for: self)
         if engine == .apple || engine == .indexOnline {
@@ -1645,7 +1648,7 @@ final class TranslationSessionStore {
                 )
                 return
             }
-            guard isUsingLocalTranslation || isTranscribeOnlyMode || PlatformSupport.supportsAppleSpeech else {
+            guard isUsingLocalTranslation || isTranscribeOnlyMode || openAITranslationModel.usesTextTranslation || PlatformSupport.supportsAppleSpeech else {
                 presentCaptureStartFailure(
                     AppText.ui("使用本地识别时，请选择本地模型翻译、Index 在线翻译或仅转写。", "Choose local model translation, Index online translation, or transcription only with this recognition engine.", "この認識エンジンを使用する場合は、ローカルモデル翻訳、Index オンライン翻訳、または文字起こしのみを選んでください。"),
                     recoveryAction: .generalSettings
@@ -2212,7 +2215,7 @@ final class TranslationSessionStore {
             return StartReadinessAssessment(issue: .azureConfigurationMissing)
         }
         return StartReadinessPolicy.assess(
-            requiresOpenAIAPIKey: isUsingOpenAIRealtime,
+            requiresOpenAIAPIKey: openAITranscriptionModel.isEnabled || openAITranslationModel.isEnabled,
             hasOpenAIAPIKey: hasOpenAIAPIKey,
             requiresGeminiAPIKey: isUsingGemini,
             hasGeminiAPIKey: hasGeminiAPIKey,
@@ -2226,9 +2229,9 @@ final class TranslationSessionStore {
         if whisperRecognitionEnabled && usesAppleSpeechTranscriber(for: currentStartConfiguration()) {
             // This recognition engine needs no Apple speech assets. Apple text translation
             // still needs the language pack for the selected pair.
-            return isUsingLocalTranslation || isTranscribeOnlyMode ? nil : .appleOnDevice
+            return isUsingLocalTranslation || isTranscribeOnlyMode || openAITranslationModel.usesTextTranslation ? nil : .appleOnDevice
         }
-        if isUsingLocalTranslation { return .appleSpeechOnly }
+        if isUsingLocalTranslation || openAITranslationModel.usesTextTranslation { return .appleSpeechOnly }
         if isUsingQwenTranslation { return nil }
         if isUsingNariSTT || isUsingGrokSTT {
             return isTranscribeOnlyMode ? nil : .appleOnDevice
@@ -2602,6 +2605,22 @@ final class TranslationSessionStore {
         case .transcription:
             useGPTTranscriptionMode()
         }
+    }
+
+    func useOpenAIOnDeviceRecognition(_ enabled: Bool) {
+        guard !isRunning, !isStarting else { return }
+        if !enabled {
+            useGPTRealtimeMode(model: .gptRealtimeTranslate)
+            return
+        }
+        useAppleDefaultMode()
+        preferredOpenAIOutputMode = .translation
+        openAITranscriptionModel = .off
+        openAITranslationModel = .gpt41Mini
+        if !PlatformSupport.supportsAppleSpeech && !whisperRecognitionEnabled {
+            localRecognitionEngine = "nemotron"
+        }
+        restoreFloatingCaptionDisplayModeAfterTranscribeOnly()
     }
 
     func useGPTRealtimeMode() {
@@ -4796,7 +4815,7 @@ final class TranslationSessionStore {
             openAITranslationModel = .gptRealtimeTranslate
         } else if let modelID = defaults.string(forKey: SettingsKey.openAITranslationModelID),
                   let model = OpenAIRealtimeTranslationModel(rawValue: modelID) {
-            openAITranslationModel = (model.isEnabled && !model.isSupportedLiveTranslationModel)
+            openAITranslationModel = (model.isEnabled && !model.isSupportedLiveTranslationModel && !model.usesTextTranslation)
                 ? .gptRealtimeTranslate
                 : model
         }

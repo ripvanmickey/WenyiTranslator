@@ -196,14 +196,14 @@ struct SettingsView: View {
 
             SettingsControlRow(
                 title: SettingsCopy.processingEngine,
-                detail: mode.recognitionDetail,
+                detail: mode.recognitionDetail(in: session),
                 systemImage: "switch.2",
                 showsSeparator: false,
                 controlBelowLabel: true
             ) {
                 Picker(SettingsCopy.processingEngine, selection: processingModeSelection) {
                     ForEach(ProcessingEngine.allCases) { mode in
-                        Text(mode.settingsMenuTitle).tag(mode)
+                        Text(mode.settingsMenuTitle(in: session)).tag(mode)
                     }
                 }
                 .pickerStyle(.menu)
@@ -212,14 +212,42 @@ struct SettingsView: View {
                 .allowsHitTesting(segmentedControlAllowsHitTesting())
                 .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
                 .opacity(isSessionConfigurationLocked ? 0.6 : 1)
-                .help(mode.recognitionDetail)
+                .help(mode.recognitionDetail(in: session))
                 .accessibilityLabel(SettingsCopy.processingEngine)
-                .accessibilityValue(mode.settingsMenuTitle)
+                .accessibilityValue(mode.settingsMenuTitle(in: session))
                 .accessibilityHint(
                     isSessionConfigurationLocked
                         ? SettingsCopy.captureRunningDisabledReason
-                        : mode.recognitionDetail
+                        : mode.recognitionDetail(in: session)
                 )
+            }
+
+            if mode == .openAI {
+                SettingsControlRow(
+                    title: AppText.ui("识别方式", "Recognition Location", "認識方法"),
+                    detail: mode.recognitionDetail(in: session),
+                    systemImage: "waveform", controlBelowLabel: true
+                ) {
+                    Picker(AppText.ui("识别方式", "Recognition Location", "認識方法"), selection: Binding(
+                        get: { session.openAITranslationModel.usesTextTranslation },
+                        set: { session.useOpenAIOnDeviceRecognition($0) }
+                    )) {
+                        Text(AppText.ui("云端识别", "Cloud Recognition", "クラウド認識")).tag(false)
+                        Text(AppText.ui("本机识别", "On-device Recognition", "端末内認識")).tag(true)
+                    }
+                    .pickerStyle(.menu).labelsHidden()
+                    .fixedSize(horizontal: true, vertical: false)
+                    .disabled(isSessionConfigurationLocked)
+                    .accessibilityIdentifier("openAIRecognitionLocationPicker")
+                }
+                if session.openAITranslationModel.usesTextTranslation {
+                    WhisperRecognitionSettingsView(session: session, isOnlineIndex: false)
+                    SettingsValueRow(
+                        title: AppText.ui("翻译模型", "Translation Model", "翻訳モデル"),
+                        detail: AppText.ui("语音在本机识别，只将字幕文字发送到 OpenAI。", "Speech is recognized on this Mac. Only caption text is sent to OpenAI.", "音声はこの Mac で認識し、字幕テキストのみを OpenAI に送信します。"),
+                        systemImage: "character.bubble", value: session.openAITranslationModel.title
+                    )
+                }
             }
 
             if mode.usesOnDeviceRecognition {
@@ -294,7 +322,7 @@ struct SettingsView: View {
                 }
             }
 
-            if processingModeSelection.wrappedValue == .openAI {
+            if processingModeSelection.wrappedValue == .openAI, !session.openAITranslationModel.usesTextTranslation {
                 openAIOutputControl
             }
 
@@ -1165,6 +1193,22 @@ private struct SettingsWindowTitle: NSViewRepresentable {
 }
 
 private extension ProcessingEngine {
+    @MainActor
+    func settingsMenuTitle(in session: TranslationSessionStore) -> String {
+        if self == .openAI, session.openAITranslationModel.usesTextTranslation {
+            return AppText.ui("OpenAI · 本机识别", "OpenAI · On-device Recognition", "OpenAI · 端末内認識")
+        }
+        return settingsMenuTitle
+    }
+
+    @MainActor
+    func recognitionDetail(in session: TranslationSessionStore) -> String {
+        if self == .openAI, session.openAITranslationModel.usesTextTranslation {
+            return AppText.ui("语音在本机识别，只将字幕文字发送到 OpenAI 翻译。", "Recognize speech on this Mac and send only caption text to OpenAI for translation.", "この Mac で音声を認識し、字幕テキストのみを OpenAI に送信して翻訳します。")
+        }
+        return recognitionDetail
+    }
+
     var settingsMenuTitle: String {
         let name: String
         switch self {

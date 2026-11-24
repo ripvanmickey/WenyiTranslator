@@ -98,6 +98,7 @@ enum OpenAIRealtimeTranscriptionModel: String, CaseIterable, Identifiable {
 
 enum OpenAIRealtimeTranslationModel: String, CaseIterable, Identifiable {
     case off
+    case gpt41Mini = "gpt-4.1-mini"
     case gptRealtimeTranslate = "gpt-realtime-translate"
     case gptRealtime21 = "gpt-realtime-2.1"
     case gptRealtime21Mini = "gpt-realtime-2.1-mini"
@@ -116,6 +117,8 @@ enum OpenAIRealtimeTranslationModel: String, CaseIterable, Identifiable {
         switch self {
         case .off:
             AppText.localized(english: "Use Apple Translation", korean: "Apple Translation 사용", japanese: "Apple Translationを使用", chineseSimplified: "使用 Apple Translation")
+        case .gpt41Mini:
+            "GPT-4.1 mini"
         case .gptRealtimeTranslate:
             AppText.localized(
                 english: "gpt-realtime-translate · translation-only",
@@ -144,6 +147,8 @@ enum OpenAIRealtimeTranslationModel: String, CaseIterable, Identifiable {
         self != .off
     }
 
+    var usesTextTranslation: Bool { self == .gpt41Mini }
+
     var usesRealtimeAudioTranslation: Bool {
         self == .gptRealtimeTranslate
     }
@@ -156,7 +161,7 @@ enum OpenAIRealtimeTranslationModel: String, CaseIterable, Identifiable {
         switch self {
         case .off:
             ""
-        case .gptRealtimeTranslate, .gptRealtime21, .gptRealtime21Mini:
+        case .gpt41Mini, .gptRealtimeTranslate, .gptRealtime21, .gptRealtime21Mini:
             rawValue
         }
     }
