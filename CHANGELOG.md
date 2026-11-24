@@ -2,7 +2,7 @@
 
 All notable changes to AirTranslate are documented in this file.
 
-## 1.16.4 - Unreleased
+## 1.16.4 - 2026-11-25
 
 - Automatically restore matching local video subtitle caches when the video or language selection changes. Reuse complete caches without network requests and only translate missing cues on explicit resume. Show concrete browser automation errors for connection failures.
 

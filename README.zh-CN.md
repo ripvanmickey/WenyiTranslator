@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 支持 macOS 27 · 1.16.0（构建 1238）
+  <strong>Apple Silicon</strong> · macOS 14+ · 支持 macOS 27 · 1.16.4（构建 1249）
 </p>
 
 <p align="center">
@@ -33,6 +33,10 @@
 在「**设置 → 通用**」底部的「**界面语言**」选择英语、日语、简体中文或跟随系统，界面会立即更新。字幕的原文和译文语言可单独设置。
 
 ![简体中文通用设置，已选择 Index 在线翻译](./docs/assets/wenyi-settings-zh-CN.jpg)
+
+## YouTube 字幕预加载与同步
+
+视频继续在 Chrome 或 Safari 播放。点击首页右上角「视频字幕预加载」，输入链接并选择语言，即可自动载入匹配的本机缓存。完整缓存无需重新下载或翻译；点击「补齐缺失字幕」只继续未完成的翻译。可使用 YouTube 已有字幕、导入 SRT/VTT，或主动选择 OpenAI 音轨识别（会上传音频并产生 API 用量）。已在 macOS 27 的 Chrome 实测暂停、前后跳转和 2 倍速同步。连接浏览器需允许自动化访问，并开启「允许 Apple 事件中的 JavaScript」。详见[配置与限制](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md)。
 
 ## 实时字幕与本地翻译
 
@@ -96,7 +100,7 @@ Swift 主程序可独立编译。完整安装包还需要准备 Python/MLX 运�
 
 ## 验证与限制
 
-构建 1238 已通过签名、DMG 完整性及 156 个原生组件的最低系统版本检查，并在 macOS 27.2.1 上验证启动。M1 + macOS 14 的实际启动仍待真机验证。
+构建 1249 已通过签名、安装包完整性及 156 个原生组件的最低系统版本检查，并在 macOS 27.2.1 上验证自动读取缓存。Chrome 同步已在上一构建实测。macOS 14 实机启动、Safari 同步、广告切换和 OpenAI 音轨识别完整流程仍需单独验证。
 
 ```sh
 bash script/verify_caption_context_correction.sh

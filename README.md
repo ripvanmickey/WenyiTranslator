@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.0 (build 1238)
+  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.4 (build 1249)
 </p>
 
 <p align="center">
@@ -33,6 +33,10 @@ Wenyi turns Mac system audio or microphone input into live captions. Display the
 Choose **English**, **日本語**, **简体中文**, or **System** under **Settings → General → App Language** at the bottom of the page, and the interface updates immediately. The source and target languages for captions are set separately.
 
 ![Wenyi General settings in English with Index Online Translation selected](./docs/assets/wenyi-settings-en.jpg)
+
+## YouTube subtitle preloading
+
+Keep watching YouTube in Chrome or Safari while Wenyi prepares timed captions. Open **Video Subtitle Preloading** from the main window, paste the video URL, and select the languages. Matching local caches load automatically; complete caches need no download or translation, and **Fill Missing Captions** resumes only unfinished translations. Use existing YouTube captions, import SRT/VTT, or explicitly choose OpenAI audio transcription (audio upload and API usage apply). Chrome pause, seek and 2× playback synchronization were tested on macOS 27. Browser automation permission and JavaScript from Apple Events must be enabled. See the [setup and limitations](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md).
 
 ## Live captions and local translation
 
@@ -96,7 +100,7 @@ On a fresh development Mac, prepare the runtime and libraries manually before pa
 
 ## Verification and limits
 
-Build 1238 passed signature and DMG integrity checks, including minimum macOS checks for 156 native components. Startup was verified on macOS 27.2.1. Startup on an M1 Mac running macOS 14 still needs hardware testing.
+Build 1249 passed signature, archive integrity and minimum macOS checks for 156 native components. Automatic cache loading was verified on macOS 27.2.1. Chrome playback synchronization was tested with the preceding build. macOS 14 startup, Safari synchronization, ads and the full OpenAI audio workflow still need separate testing.
 
 ```sh
 bash script/verify_caption_context_correction.sh
