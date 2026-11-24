@@ -50,7 +50,9 @@ struct FloatingCaptionSettingsView: View {
                         Picker(CaptionStyleCopy.effect, selection: $session.floatingCaptionStyle.textEffect) {
                             ForEach(FloatingCaptionTextEffect.allCases) { Text($0.title).tag($0) }
                         }
-                        CaptionHexColorRow(title: AppText.floatingTextColor, hex: $session.floatingCaptionTextColorHex)
+                        LabeledContent(AppText.floatingTextColor) {
+                            Text(AppText.ui("原文白色 · 译文黄色", "White source · Yellow translation", "原文は白 · 訳文は黄色"))
+                        }
                     }
                     .padding(.top, 12)
                 }
@@ -239,14 +241,14 @@ private struct FloatingCaptionStylePreview: View {
 
     @ViewBuilder private var translatedText: some View {
         if session.floatingCaptionDisplayMode != .original {
-            sampleText(CaptionStyleCopy.sampleTranslation, primary: true)
+            sampleText(CaptionStyleCopy.sampleTranslation, primary: true, isTranslation: true)
         }
     }
 
-    private func sampleText(_ text: String, primary: Bool) -> some View {
+    private func sampleText(_ text: String, primary: Bool, isTranslation: Bool = false) -> some View {
         Text(formattedSample(text, primary: primary))
             .font(primary ? session.floatingCaptionPrimaryFont : session.floatingCaptionSecondaryFont)
-            .foregroundStyle(session.floatingCaptionTextColor.opacity(primary ? 1 : 0.82))
+            .foregroundStyle(isTranslation ? FloatingCaptionAppearance.translationTextColor : FloatingCaptionAppearance.sourceTextColor)
             .lineSpacing(session.floatingCaptionStyle.lineSpacing.points)
             .multilineTextAlignment(session.floatingCaptionTextAlignment.textAlignment)
             .frame(maxWidth: .infinity, alignment: session.floatingCaptionTextAlignment.frameAlignment(vertical: .center))

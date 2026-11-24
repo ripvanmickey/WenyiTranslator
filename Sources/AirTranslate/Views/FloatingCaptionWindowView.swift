@@ -229,14 +229,14 @@ struct FloatingCaptionWindowView: View {
             Text((previous ? AppText.ui("上一段译文 · ", "Previous translation · ", "前の訳文 · ") : AppText.ui("译文 · ", "Translation · ", "訳文 · ")) + line.localTranslationStatus)
                 .font(.caption).foregroundStyle(session.floatingCaptionTextColor.opacity(0.72))
         }
-        text(value, primary: primary)
+        text(value, primary: primary, isTranslation: true)
     }
 
-    @ViewBuilder private func text(_ value: String, primary: Bool) -> some View {
+    @ViewBuilder private func text(_ value: String, primary: Bool, isTranslation: Bool = false) -> some View {
         if !value.isEmpty {
             Text(value)
                 .font(primary ? session.floatingCaptionPrimaryFont : session.floatingCaptionSecondaryFont)
-                .foregroundStyle(session.floatingCaptionTextColor.opacity(primary ? 1 : 0.82))
+                .foregroundStyle(isTranslation ? FloatingCaptionAppearance.translationTextColor : FloatingCaptionAppearance.sourceTextColor)
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(session.floatingCaptionTextAlignment.textAlignment)

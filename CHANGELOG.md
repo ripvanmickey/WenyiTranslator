@@ -2,6 +2,10 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.4 - Unreleased
+
+- Use fixed white source captions and yellow translated captions in the main window, floating captions and settings preview, regardless of provider or preset. Keep a dark caption surface in light appearance for readable white text.
+
 ## 1.16.3 - 2026-11-24
 
 - Authorize the OpenAI key before capture and reuse it in memory. Failed authorization waits for an explicit retry, preventing repeated Keychain dialogs for caption requests.

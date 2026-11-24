@@ -467,6 +467,7 @@ private struct StageEmptyStateView: View {
 }
 
 private struct CaptionLineView: View, Equatable {
+    @Environment(\.colorScheme) private var colorScheme
     let line: CaptionLine
     let showsTranslationPane: Bool
     var showsRecognitionState = false
@@ -509,7 +510,7 @@ private struct CaptionLineView: View, Equatable {
                         confirmation: usesLocalPreview ? line.isFinal : nil,
                         font: AirTranslateDesign.Typography.captionOriginal,
                         lineSpacing: 4,
-                        color: AirTranslateDesign.Palette.textSecondary
+                        color: FloatingCaptionAppearance.sourceTextColor
                     )
 
                     TurnTranscriptText(
@@ -522,7 +523,7 @@ private struct CaptionLineView: View, Equatable {
                         status: showsTranslationStatus ? line.localTranslationStatus : nil,
                         font: AirTranslateDesign.Typography.captionTranslation,
                         lineSpacing: 6,
-                        color: AirTranslateDesign.Palette.textPrimary
+                        color: FloatingCaptionAppearance.translationTextColor
                     )
                 } else {
                     TurnTranscriptText(
@@ -534,7 +535,7 @@ private struct CaptionLineView: View, Equatable {
                         confirmation: usesLocalPreview ? line.isFinal : nil,
                         font: AirTranslateDesign.Typography.captionTranslation,
                         lineSpacing: 6,
-                        color: AirTranslateDesign.Palette.textPrimary
+                        color: FloatingCaptionAppearance.sourceTextColor
                     )
                 }
             }
@@ -542,6 +543,9 @@ private struct CaptionLineView: View, Equatable {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .airStageBlock(isLive: isLive)
+        .background(colorScheme == .light ? Color(white: 0.10) : Color.clear,
+                    in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.surface, style: .continuous))
+        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -610,6 +614,7 @@ private struct TurnTranscriptText: View {
             if text.utf8.count > 4_000 && text.count > 4_000 {
                 ScrollableTranscriptText(
                     text: visibleDisplayText,
+                    color: color,
                     weight: .medium,
                     pointSize: 22,
                     accessibilityLabel: title,
@@ -810,6 +815,7 @@ private struct TranscriptScrollFadeMask: View {
 
 private struct ScrollableTranscriptText: NSViewRepresentable {
     let text: String
+    let color: Color
     let weight: NSFont.Weight
     let pointSize: CGFloat
     let accessibilityLabel: String
@@ -836,7 +842,7 @@ private struct ScrollableTranscriptText: NSViewRepresentable {
         textView.isRichText = false
         textView.importsGraphics = false
         textView.drawsBackground = false
-        textView.textColor = .labelColor
+        textView.textColor = NSColor(color)
         textView.font = NSFont.systemFont(ofSize: pointSize, weight: weight)
         textView.textContainerInset = NSSize(width: 0, height: 0)
         textView.textContainer?.lineFragmentPadding = 0
@@ -862,6 +868,7 @@ private struct ScrollableTranscriptText: NSViewRepresentable {
         let textChanged = textView.string != text
         let widthChanged = abs(context.coordinator.lastContentWidth - contentWidth) > 0.5
         let weightChanged = context.coordinator.lastWeight != weight
+        textView.textColor = NSColor(color)
         guard textChanged || widthChanged || weightChanged else { return }
 
         let shouldStayPinnedToBottom = isPinnedToBottom(scrollView)
@@ -870,7 +877,7 @@ private struct ScrollableTranscriptText: NSViewRepresentable {
         }
 
         textView.font = NSFont.systemFont(ofSize: pointSize, weight: weight)
-        textView.textColor = .labelColor
+        textView.textColor = NSColor(color)
         scrollView.setAccessibilityLabel(accessibilityLabel)
         textView.setAccessibilityLabel(accessibilityLabel)
         textView.textContainer?.containerSize = NSSize(

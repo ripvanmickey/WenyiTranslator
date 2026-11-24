@@ -2,6 +2,9 @@ import AppKit
 import SwiftUI
 
 enum FloatingCaptionAppearance {
+    static let sourceTextColor = Color.white
+    static let translationTextColor = Color(red: 1, green: 0.84, blue: 0)
+
     static let defaultTextColorHex = "#FFFFFF"
     static let defaultBackgroundColorHex = "#05080A"
     static let defaultBackgroundOpacity = 0.86
