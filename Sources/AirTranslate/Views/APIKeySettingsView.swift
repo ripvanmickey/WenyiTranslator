@@ -47,6 +47,7 @@ struct APIKeySettingsView: View {
                             get: { expandedProvider == provider },
                             set: { expandedProvider = $0 ? provider : nil }
                         ),
+                        readKey: { try read(provider) },
                         saveKey: { try save($0, for: provider) },
                         removeKey: { try remove(provider) }
                     ) {
@@ -258,6 +259,21 @@ struct APIKeySettingsView: View {
 
     private var selectedQwenModel: QwenTranslationModel {
         session.qwenTranslationModel.isEnabled ? session.qwenTranslationModel : .liveTranslateFlashRealtime
+    }
+
+    private func read(_ provider: CredentialProvider) throws -> String? {
+        switch provider {
+        case .indexOnline: nil
+        case .openAI: try OpenAIAPIKeyStore.readAPIKey()
+        case .gemini: try GeminiAPIKeyStore.readAPIKey()
+        case .meta: try MetaAPIKeyStore.readAPIKey()
+        case .azure: try AzureSpeechAPIKeyStore.readAPIKey()
+        case .jev: try JevAPIKeyStore.readAPIKey()
+        case .openRouter: try OpenRouterAPIKeyStore.readAPIKey()
+        case .nari: try NariAPIKeyStore.readAPIKey()
+        case .qwen: try QwenAPIKeyStore.readAPIKey()
+        case .grok: try GrokAPIKeyStore.readAPIKey()
+        }
     }
 
     private func save(_ key: String, for provider: CredentialProvider) throws {

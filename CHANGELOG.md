@@ -2,6 +2,12 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.3 - Unreleased
+
+- Show and hide saved API keys on demand in API Keys settings. Saving a key now gives explicit storage and access-validation feedback.
+- Update OpenAI realtime session configuration for translation and Whisper transcription, and distinguish authentication, access, quota, rate-limit, configuration, and network failures.
+- Preserve the existing OpenAI key if replacing it in Keychain fails.
+
 ## 1.16.2 - 2026-11-17
 
 - Add optional elapsed timestamps to saved transcripts. Source and translated captions share a timestamp for the same segment.

@@ -40,7 +40,15 @@ enum OpenAIAPIKeyStore {
             throw OpenAIAPIKeyStoreError.invalidStoredKey
         }
 
-        SecItemDelete(baseQuery() as CFDictionary)
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        let update = SecItemUpdate(baseQuery() as CFDictionary, attributes as CFDictionary)
+        if update == errSecSuccess { return }
+        guard update == errSecItemNotFound else {
+            throw OpenAIAPIKeyStoreError.keychainStatus(update)
+        }
 
         var query = baseQuery()
         query[kSecValueData as String] = data

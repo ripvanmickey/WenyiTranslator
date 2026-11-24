@@ -247,7 +247,7 @@ final class OpenAIRealtimeTranscriber: @unchecked Sendable {
                 webSocketTask: webSocketTask,
                 generation: generation
             )
-            throw Self.publicConnectionError(from: error)
+            throw Self.publicConnectionError(from: error, statusCode: (webSocketTask.response as? HTTPURLResponse)?.statusCode)
         }
 
         let receiveTask = Task<Void, Never> { [weak self, webSocketTask] in
@@ -303,7 +303,7 @@ final class OpenAIRealtimeTranscriber: @unchecked Sendable {
                 self?.releaseAudioSendSlot(generation: generation)
                 guard let error, let self else { return }
                 self.publishFailureIfCurrent(
-                    Self.publicConnectionError(from: error),
+                    Self.publicConnectionError(from: error, statusCode: (webSocketTask.response as? HTTPURLResponse)?.statusCode),
                     generation: generation
                 )
             }
@@ -456,24 +456,7 @@ final class OpenAIRealtimeTranscriber: @unchecked Sendable {
         case .transcription:
             data = try Self.transcriptionSessionUpdateData(language: language, modelID: modelID)
         case .translationOnly:
-            let event = OpenAIRealtimeTranslationSessionUpdateEvent(
-                session: OpenAIRealtimeTranslationSession(
-                    audio: OpenAIRealtimeTranslationAudio(
-                        input: OpenAIRealtimeTranslationAudioInput(
-                            format: OpenAIRealtimeAudioFormat(type: "audio/pcm", rate: Self.realtimeAudioSampleRate),
-                            transcription: OpenAIRealtimeTranslationInputTranscription(
-                                model: OpenAIRealtimeTranscriptionModel.gptRealtimeWhisper.rawValue
-                            ),
-                            turnDetection: .lowLatencyServerVAD,
-                            noiseReduction: OpenAIRealtimeNoiseReduction(type: "near_field")
-                        ),
-                        output: OpenAIRealtimeTranslationAudioOutput(
-                            language: language.openAILanguageCode
-                        )
-                    )
-                )
-            )
-            data = try JSONEncoder().encode(event)
+            data = try Self.translationSessionUpdateData(language: language)
         }
         guard let text = String(data: data, encoding: .utf8) else { return }
         try await send(
@@ -481,6 +464,23 @@ final class OpenAIRealtimeTranscriber: @unchecked Sendable {
             webSocketTask: webSocketTask,
             generation: generation
         )
+    }
+
+    static func translationSessionUpdateData(language: LanguageOption) throws -> Data {
+        let event = OpenAIRealtimeTranslationSessionUpdateEvent(
+            session: OpenAIRealtimeTranslationSession(
+                audio: OpenAIRealtimeTranslationAudio(
+                    input: OpenAIRealtimeTranslationAudioInput(
+                        transcription: OpenAIRealtimeTranslationInputTranscription(
+                            model: OpenAIRealtimeTranscriptionModel.gptRealtimeWhisper.rawValue
+                        ),
+                        noiseReduction: OpenAIRealtimeNoiseReduction(type: "near_field")
+                    ),
+                    output: OpenAIRealtimeTranslationAudioOutput(language: language.openAILanguageCode)
+                )
+            )
+        )
+        return try JSONEncoder().encode(event)
     }
 
     static func transcriptionSessionUpdateData(language: LanguageOption, modelID: String) throws -> Data {
@@ -492,10 +492,11 @@ final class OpenAIRealtimeTranscriber: @unchecked Sendable {
                         format: OpenAIRealtimeAudioFormat(type: "audio/pcm", rate: Self.realtimeAudioSampleRate),
                         transcription: OpenAIRealtimeTranscriptionConfig(
                             model: modelID,
-                            languages: [language.openAILanguageCode],
-                            delay: "low"
+                            language: modelID == OpenAIRealtimeTranscriptionModel.gptRealtimeWhisper.rawValue ? language.openAILanguageCode : nil,
+                            languages: modelID == OpenAIRealtimeTranscriptionModel.gptRealtimeWhisper.rawValue ? nil : [language.openAILanguageCode],
+                            delay: modelID == OpenAIRealtimeTranscriptionModel.gptRealtimeWhisper.rawValue ? "low" : nil
                         ),
-                        turnDetection: .lowLatencyServerVAD,
+                        turnDetection: modelID == OpenAIRealtimeTranscriptionModel.gptRealtimeWhisper.rawValue ? nil : .lowLatencyServerVAD,
                         noiseReduction: OpenAIRealtimeNoiseReduction(type: "near_field")
                     )
                 )
@@ -669,7 +670,7 @@ final class OpenAIRealtimeTranscriber: @unchecked Sendable {
             publishOutputAudioIfCurrent(delta, generation: generation)
         case "error":
             publishFailureIfCurrent(
-                OpenAIRealtimeTranscriberError.connectionFailed,
+                Self.publicServerError(code: event.error?.code, type: event.error?.type),
                 generation: generation
             )
         default:
@@ -677,14 +678,43 @@ final class OpenAIRealtimeTranscriber: @unchecked Sendable {
         }
     }
 
-    nonisolated static func publicConnectionError(from error: Error) -> Error {
+    nonisolated static func publicConnectionError(from error: Error, statusCode: Int? = nil) -> Error {
         if error is CancellationError {
             return error
         }
         if error is OpenAIRealtimeTranscriberError {
             return error
         }
+        switch statusCode ?? 0 {
+        case 401: return OpenAIRealtimeTranscriberError.authenticationFailed
+        case 403: return OpenAIRealtimeTranscriberError.accessDenied
+        case 429: return OpenAIRealtimeTranscriberError.rateLimited
+        case 400, 404: return OpenAIRealtimeTranscriberError.configurationRejected
+        case 500...599: return OpenAIRealtimeTranscriberError.serviceUnavailable
+        default: break
+        }
+        let networkError = error as NSError
+        if networkError.domain == NSURLErrorDomain {
+            if networkError.code == NSURLErrorTimedOut { return OpenAIRealtimeTranscriberError.timedOut }
+            if networkError.code == NSURLErrorNotConnectedToInternet { return OpenAIRealtimeTranscriberError.offline }
+        }
         return OpenAIRealtimeTranscriberError.connectionFailed
+    }
+
+    nonisolated static func publicServerError(code: String?, type: String?) -> Error {
+        // Classify known codes without displaying provider text, URLs, or credentials.
+        switch code {
+        case "invalid_api_key", "invalid_authentication": return OpenAIRealtimeTranscriberError.authenticationFailed
+        case "insufficient_quota": return OpenAIRealtimeTranscriberError.insufficientQuota
+        case "rate_limit_exceeded": return OpenAIRealtimeTranscriberError.rateLimited
+        case "permission_denied", "access_denied": return OpenAIRealtimeTranscriberError.accessDenied
+        case "model_not_found", "invalid_model", "invalid_value", "unknown_parameter":
+            return OpenAIRealtimeTranscriberError.configurationRejected
+        default:
+            return type == "invalid_request_error"
+                ? OpenAIRealtimeTranscriberError.configurationRejected
+                : OpenAIRealtimeTranscriberError.connectionFailed
+        }
     }
 
     private func appendRealtimeTranscriptionDelta(
@@ -1608,7 +1638,7 @@ private struct OpenAIRealtimeTranscriptionAudio: Encodable {
 private struct OpenAIRealtimeTranscriptionAudioInput: Encodable {
     let format: OpenAIRealtimeAudioFormat
     let transcription: OpenAIRealtimeTranscriptionConfig
-    let turnDetection: OpenAIRealtimeTurnDetection
+    let turnDetection: OpenAIRealtimeTurnDetection?
     let noiseReduction: OpenAIRealtimeNoiseReduction
 
     private enum CodingKeys: String, CodingKey {
@@ -1616,6 +1646,14 @@ private struct OpenAIRealtimeTranscriptionAudioInput: Encodable {
         case transcription
         case turnDetection = "turn_detection"
         case noiseReduction = "noise_reduction"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(format, forKey: .format)
+        try container.encode(transcription, forKey: .transcription)
+        try container.encode(turnDetection, forKey: .turnDetection)
+        try container.encode(noiseReduction, forKey: .noiseReduction)
     }
 }
 
@@ -1634,15 +1672,11 @@ private struct OpenAIRealtimeTranslationAudio: Encodable {
 }
 
 private struct OpenAIRealtimeTranslationAudioInput: Encodable {
-    let format: OpenAIRealtimeAudioFormat
     let transcription: OpenAIRealtimeTranslationInputTranscription
-    let turnDetection: OpenAIRealtimeTurnDetection
     let noiseReduction: OpenAIRealtimeNoiseReduction
 
     private enum CodingKeys: String, CodingKey {
-        case format
         case transcription
-        case turnDetection = "turn_detection"
         case noiseReduction = "noise_reduction"
     }
 }
@@ -1657,8 +1691,9 @@ private struct OpenAIRealtimeTranslationAudioOutput: Encodable {
 
 private struct OpenAIRealtimeTranscriptionConfig: Encodable {
     let model: String
-    let languages: [String]
-    let delay: String
+    let language: String?
+    let languages: [String]?
+    let delay: String?
 }
 
 private struct OpenAIRealtimeTurnDetection: Encodable {
@@ -1739,11 +1774,21 @@ private struct OpenAIRealtimeConversationContent: Decodable {
 
 private struct OpenAIRealtimeErrorBody: Decodable {
     let message: String?
+    let code: String?
+    let type: String?
 }
 
 private enum OpenAIRealtimeTranscriberError: LocalizedError {
     case connectionFailed
     case timelineCapacityExceeded
+    case authenticationFailed
+    case accessDenied
+    case insufficientQuota
+    case rateLimited
+    case configurationRejected
+    case serviceUnavailable
+    case timedOut
+    case offline
 
     var errorDescription: String? {
         switch self {
@@ -1751,6 +1796,22 @@ private enum OpenAIRealtimeTranscriberError: LocalizedError {
             AppText.openAIRealtimeConnectionFailed
         case .timelineCapacityExceeded:
             AppText.openAIInvalidResponse
+        case .authenticationFailed:
+            AppText.ui("OpenAI 密钥验证失败（401），请在设置中查看或更换密钥。", "OpenAI authentication failed (401). Check or replace the saved key in Settings.", "OpenAI のキー認証に失敗しました（401）。設定でキーを確認または変更してください。")
+        case .accessDenied:
+            AppText.ui("OpenAI 拒绝访问（403），请检查项目、密钥权限和模型使用权限。", "OpenAI access denied (403). Check project, key, and model permissions.", "OpenAI へのアクセスが拒否されました（403）。プロジェクト、キー、モデルの権限を確認してください。")
+        case .insufficientQuota:
+            AppText.ui("OpenAI API 额度不足，请检查 API 余额和使用限额。", "OpenAI API quota exceeded. Check API credits and usage limits.", "OpenAI API の利用枠が不足しています。残高と利用上限を確認してください。")
+        case .rateLimited:
+            AppText.ui("OpenAI 请求受限（429），请检查额度或稍后重试。", "OpenAI request limited (429). Check quota or retry later.", "OpenAI のリクエストが制限されています（429）。利用枠を確認するか、後で再試行してください。")
+        case .configurationRejected:
+            AppText.ui("OpenAI 拒绝了实时会话配置，请检查模型权限或更新应用。", "OpenAI rejected the realtime session configuration. Check model access or update the app.", "OpenAI にリアルタイム設定が拒否されました。モデル権限またはアプリの更新を確認してください。")
+        case .serviceUnavailable:
+            AppText.ui("OpenAI 服务暂时不可用，请稍后重试。", "OpenAI is temporarily unavailable. Try again later.", "OpenAI サービスは一時的に利用できません。後で再試行してください。")
+        case .timedOut:
+            AppText.ui("连接 OpenAI 超时，请检查网络后重试。", "The OpenAI connection timed out. Check your network and retry.", "OpenAI への接続がタイムアウトしました。ネットワークを確認してください。")
+        case .offline:
+            AppText.ui("网络未连接，无法连接 OpenAI。", "You are offline. OpenAI cannot be reached.", "ネットワークに接続されていないため、OpenAI に接続できません。")
         }
     }
 }

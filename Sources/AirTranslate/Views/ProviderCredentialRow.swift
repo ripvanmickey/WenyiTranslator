@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 공급자마다 같은 키 편집·피드백·삭제 흐름을 사용한다. 저장된 키는 읽어 오지 않는다.
+/// Read a saved credential only after the user explicitly asks to reveal it.
 struct ProviderCredentialRow<Configuration: View>: View {
     let name: String
     let symbol: String
@@ -13,11 +13,13 @@ struct ProviderCredentialRow<Configuration: View>: View {
     let isLocked: Bool
     var requiresAPIKey = true
     @Binding var isExpanded: Bool
+    var readKey: () throws -> String? = { nil }
     let saveKey: (String) throws -> Void
     let removeKey: () throws -> Void
     @ViewBuilder let configuration: Configuration
 
     @State private var draft = ""
+    @State private var revealedKey: String?
     @State private var feedback: String?
     @State private var hasError = false
     @State private var showsRemovalConfirmation = false
@@ -112,7 +114,16 @@ struct ProviderCredentialRow<Configuration: View>: View {
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 12) {
-                    if requiresAPIKey { keyEditor }
+                    if requiresAPIKey {
+                        keyEditor
+                        if let revealedKey {
+                            Text(revealedKey)
+                                .font(.callout)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .privacySensitive()
+                        }
+                    }
 
                     configuration
 
@@ -130,13 +141,20 @@ struct ProviderCredentialRow<Configuration: View>: View {
             }
         }
         .onChange(of: isExpanded) { _, expanded in
-            if !expanded { isKeyFocused = false }
+            if !expanded {
+                isKeyFocused = false
+                revealedKey = nil
+            }
         }
         .onChange(of: isLocked) { _, locked in
-            if locked { showsRemovalConfirmation = false }
+            if locked {
+                showsRemovalConfirmation = false
+                revealedKey = nil
+            }
         }
         .onDisappear {
             draft = ""
+            revealedKey = nil
             feedback = nil
         }
     }
@@ -165,6 +183,16 @@ struct ProviderCredentialRow<Configuration: View>: View {
                     await Task.yield()
                     if isExpanded && !isLocked { isKeyFocused = true }
                 }
+            if hasKey {
+                Button(action: toggleSavedKey) {
+                    Image(systemName: revealedKey == nil ? "eye" : "eye.slash")
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.borderless)
+                .disabled(isLocked)
+                .help(savedKeyVisibilityLabel)
+                .accessibilityLabel(savedKeyVisibilityLabel)
+            }
             Button(action: save) {
                 Image(systemName: "square.and.arrow.down")
                     .frame(width: 28, height: 28)
@@ -201,15 +229,38 @@ struct ProviderCredentialRow<Configuration: View>: View {
         }
     }
 
+    private var savedKeyVisibilityLabel: String {
+        revealedKey == nil
+            ? AppText.ui("查看已保存的密钥", "Show Saved Key", "保存済みキーを表示")
+            : AppText.ui("隐藏密钥", "Hide Key", "キーを隠す")
+    }
+
+    private func toggleSavedKey() {
+        guard !isLocked else { return }
+        if revealedKey != nil {
+            revealedKey = nil
+            return
+        }
+        do {
+            revealedKey = try readKey()
+            hasError = revealedKey == nil
+            feedback = revealedKey == nil ? CredentialsCopy.keyNeeded : nil
+        } catch {
+            hasError = true
+            feedback = error.localizedDescription
+        }
+    }
+
     private func save() {
         guard !isLocked else { return }
         let key = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
         do {
             try saveKey(key)
+            revealedKey = nil
             draft = ""
             hasError = false
-            feedback = CredentialsCopy.saved
+            feedback = CredentialsCopy.saved + " · " + CredentialsCopy.savedDoesNotVerify
         } catch {
             hasError = true
             feedback = error.localizedDescription
@@ -220,6 +271,7 @@ struct ProviderCredentialRow<Configuration: View>: View {
         guard !isLocked, hasKey else { return }
         do {
             try removeKey()
+            revealedKey = nil
             draft = ""
             hasError = false
             feedback = CredentialsCopy.removed

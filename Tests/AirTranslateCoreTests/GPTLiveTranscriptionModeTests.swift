@@ -98,7 +98,32 @@ struct GPTLiveTranscriptionModeTests {
         #expect(transcription["model"] as? String == "gpt-live-transcribe")
         #expect(transcription["languages"] as? [String] == ["ko"])
         #expect(transcription["language"] == nil)
+        #expect(transcription["delay"] == nil)
+    }
+
+    @Test
+    func whisperDisablesVADAndTranslationOnlySendsSupportedConfiguration() throws {
+        let whisper = try OpenAIRealtimeTranscriber.transcriptionSessionUpdateData(
+            language: .korean, modelID: OpenAIRealtimeTranscriptionModel.gptRealtimeWhisper.rawValue)
+        let object = try #require(JSONSerialization.jsonObject(with: whisper) as? [String: Any])
+        let session = try #require(object["session"] as? [String: Any])
+        let audio = try #require(session["audio"] as? [String: Any])
+        let input = try #require(audio["input"] as? [String: Any])
+        let transcription = try #require(input["transcription"] as? [String: Any])
+        #expect(input["turn_detection"] is NSNull)
+        #expect(transcription["language"] as? String == "ko")
+        #expect(transcription["languages"] == nil)
         #expect(transcription["delay"] as? String == "low")
+
+        let translated = try OpenAIRealtimeTranscriber.translationSessionUpdateData(language: .korean)
+        let translationObject = try #require(JSONSerialization.jsonObject(with: translated) as? [String: Any])
+        let translationSession = try #require(translationObject["session"] as? [String: Any])
+        let translationAudio = try #require(translationSession["audio"] as? [String: Any])
+        let translationInput = try #require(translationAudio["input"] as? [String: Any])
+        let output = try #require(translationAudio["output"] as? [String: Any])
+        #expect(translationInput["turn_detection"] == nil)
+        #expect(translationInput["format"] == nil)
+        #expect(output["language"] as? String == "ko")
     }
 
     @Test
@@ -557,6 +582,27 @@ struct GPTLiveTranscriptionModeTests {
         #expect(publicError.localizedDescription == AppText.openAIRealtimeConnectionFailed)
         #expect(!publicError.localizedDescription.contains(secret))
         #expect(!publicError.localizedDescription.contains("Bearer"))
+    }
+
+    @Test
+    func realtimeFailuresDistinguishAuthenticationQuotaAndNetwork() {
+        let raw = NSError(domain: NSURLErrorDomain, code: NSURLErrorBadServerResponse,
+                          userInfo: [NSLocalizedDescriptionKey: "Bearer private-test-key"])
+        let denied = OpenAIRealtimeTranscriber.publicConnectionError(from: raw, statusCode: 401)
+        let forbidden = OpenAIRealtimeTranscriber.publicConnectionError(from: raw, statusCode: 403)
+        let limited = OpenAIRealtimeTranscriber.publicConnectionError(from: raw, statusCode: 429)
+        let quota = OpenAIRealtimeTranscriber.publicServerError(code: "insufficient_quota", type: nil)
+        let timeout = OpenAIRealtimeTranscriber.publicConnectionError(from: URLError(.timedOut))
+        #expect(denied.localizedDescription.contains("401"))
+        #expect(forbidden.localizedDescription.contains("403"))
+        #expect(limited.localizedDescription.contains("429"))
+        #expect(quota.localizedDescription != limited.localizedDescription)
+        #expect(timeout.localizedDescription != AppText.openAIRealtimeConnectionFailed)
+        for error in [denied, forbidden, limited, quota, timeout] {
+            #expect(!error.localizedDescription.contains("private-test-key"))
+        }
+        let unknown = OpenAIRealtimeTranscriber.publicServerError(code: "Bearer private-test-key", type: nil)
+        #expect(unknown.localizedDescription == AppText.openAIRealtimeConnectionFailed)
     }
 
     @Test
