@@ -1401,6 +1401,7 @@ final class TranslationSessionStore {
     private var appleSmallPartialFlushTask: Task<Void, Never>?
     private var realtimeTranslationSourceText = ""
     private var realtimeTranslationOnlyText = ""
+    private var realtimeTranslationParagraphs = RealtimeTranslationParagraphs()
     private var geminiLiveInputTranscriptText = ""
     private var geminiLiveOutputTranscriptText = ""
     private var metaActiveTurnID: Int32?
@@ -4621,6 +4622,7 @@ final class TranslationSessionStore {
         qwenTranslationTranscript = QwenCaptionTranscript()
         realtimeTranslationSourceText = ""
         realtimeTranslationOnlyText = ""
+        realtimeTranslationParagraphs = RealtimeTranslationParagraphs()
         geminiLiveInputTranscriptText = ""
         geminiLiveOutputTranscriptText = ""
         metaActiveTurnID = nil
@@ -5331,6 +5333,10 @@ final class TranslationSessionStore {
                     && !$0.translatedText.isEmpty && $0.translatedText != AppText.translating
                     && $0.translatedText != AppText.translationCancelled
             }.map(\.translatedText).joined(separator: "\n")
+        }
+
+        if isUsingOpenAIRealtimeTranslation {
+            stageOpenAIRealtimeTranscriptForSave()
         }
 
         if isUsingQwenTranslation {
@@ -7216,52 +7222,68 @@ final class TranslationSessionStore {
     }
 
     private func refreshOpenAIRealtimeTranslationLine() {
-        let inputText = realtimeTranslationSourceText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let translatedText = realtimeTranslationOnlyText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !inputText.isEmpty || !translatedText.isEmpty else { return }
+        let fullSource = realtimeTranslationSourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fullTranslation = realtimeTranslationOnlyText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !fullSource.isEmpty || !fullTranslation.isEmpty else { return }
 
-        lastRecognizedText = inputText.isEmpty ? translatedText : inputText
+        lastRecognizedText = fullSource.isEmpty ? fullTranslation : fullSource
         lastRecognitionAt = Date()
         transcriptCleanupTask?.cancel()
 
-        let sourceText = inputText.isEmpty ? AppText.openAIRealtimeTranslationOnlySource : inputText
-        let visibleTranslatedText = translatedText.isEmpty ? AppText.translating : translatedText
-
-        if let currentLineID,
-           let index = lines.firstIndex(where: { $0.id == currentLineID }) {
-            let existingLine = lines[index]
-            lines[index] = CaptionLine(
-                id: existingLine.id,
-                sourceText: sourceText,
-                translatedText: visibleTranslatedText,
-                translatedSourceText: sourceText,
-                createdAt: existingLine.createdAt,
-                isFinal: false,
-                revision: existingLine.revision + 1,
-                usesLongSessionDisplay: usesLongSessionMode
-            )
-        } else {
-            let line = CaptionLine(
-                sourceText: sourceText,
-                translatedText: visibleTranslatedText,
-                translatedSourceText: sourceText,
-                createdAt: Date(),
-                isFinal: false,
-                revision: 1,
-                usesLongSessionDisplay: usesLongSessionMode
-            )
-            currentLineID = line.id
-            lines.append(line)
+        if let completed = realtimeTranslationParagraphs.takeCompleted(
+            source: realtimeTranslationSourceText, translation: realtimeTranslationOnlyText
+        ) {
+            updateOpenAIRealtimeParagraph(completed, isFinal: true)
+            currentLineID = nil
+        }
+        let pending = realtimeTranslationParagraphs.pending(
+            source: realtimeTranslationSourceText, translation: realtimeTranslationOnlyText
+        )
+        if !pending.source.isEmpty || !pending.translation.isEmpty {
+            updateOpenAIRealtimeParagraph(pending, isFinal: false)
         }
 
-        if !inputText.isEmpty {
-            presentFloatingSourceText(inputText, identity: floatingIdentity(for: currentLineID))
+        stageTranscriptForSave(fullSource.isEmpty ? AppText.openAIRealtimeTranslationOnlySource : fullSource,
+            translatedText: fullTranslation)
+        if !fullTranslation.isEmpty {
+            speakTranslatedDeltaIfNeeded(fullTranslation)
         }
-        if !translatedText.isEmpty {
-            stageTranscriptForSave(sourceText, translatedText: translatedText)
-            updateFloatingTranslationPresentation(translatedText, sourceText: sourceText, identity: floatingIdentity(for: currentLineID))
-            speakTranslatedDeltaIfNeeded(translatedText)
+        if let latest = lines.last {
+            if !latest.sourceText.isEmpty {
+                presentFloatingSourceText(latest.sourceText, identity: floatingIdentity(for: latest.id))
+            }
+            if latest.hasUsableTranslation {
+                updateFloatingTranslationPresentation(latest.translatedText,
+                    sourceText: latest.sourceText, identity: floatingIdentity(for: latest.id))
+            }
         }
+    }
+
+    private func updateOpenAIRealtimeParagraph(
+        _ paragraph: RealtimeTranslationParagraphs.Paragraph, isFinal: Bool
+    ) {
+        let source = paragraph.source.isEmpty ? AppText.openAIRealtimeTranslationOnlySource : paragraph.source
+        let translation = paragraph.translation.isEmpty ? AppText.translating : paragraph.translation
+        let index = currentLineID.flatMap { id in lines.firstIndex { $0.id == id } }
+        let previous = index.map { lines[$0] }
+        let line = CaptionLine(
+            id: previous?.id ?? UUID(), sourceText: source, translatedText: translation,
+            translatedSourceText: source, createdAt: previous?.createdAt ?? Date(),
+            isFinal: isFinal, isTranslationComplete: isFinal,
+            revision: (previous?.revision ?? 0) + 1, usesLongSessionDisplay: usesLongSessionMode
+        )
+        if let index { lines[index] = line } else { lines.append(line) }
+        currentLineID = line.id
+    }
+
+    private func stageOpenAIRealtimeTranscriptForSave() {
+        let source = lines.map(\.sourceText)
+            .filter { $0 != AppText.openAIRealtimeTranslationOnlySource }
+            .joined(separator: "\n\n")
+        let translation = lines.filter(\.hasUsableTranslation).map(\.translatedText)
+            .joined(separator: "\n\n")
+        stageTranscriptForSave(source.isEmpty ? AppText.openAIRealtimeTranslationOnlySource : source,
+            translatedText: translation)
     }
 
     private func updateGeminiLiveInputTranscript(_ text: String) {
