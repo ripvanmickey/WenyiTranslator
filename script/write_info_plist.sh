@@ -66,8 +66,6 @@ PLIST
 PLIST
   else
     cat <<PLIST
-  <key>NSAppleEventsUsageDescription</key>
-  <string>文译 does not automate other apps.</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>文译 can optionally capture microphone audio after you choose Microphone input and start capture.</string>
   <key>NSSystemAudioCaptureUsageDescription</key>
@@ -76,6 +74,8 @@ PLIST
   fi
 
   cat <<PLIST
+  <key>NSAppleEventsUsageDescription</key>
+  <string>文译仅在你连接视频字幕同步时读取所选浏览器当前 YouTube 视频的播放位置。</string>
   <key>NSSpeechRecognitionUsageDescription</key>
   <string>文译 uses speech recognition to convert captured Mac audio into live captions and translations.</string>
   <key>NSPrincipalClass</key>

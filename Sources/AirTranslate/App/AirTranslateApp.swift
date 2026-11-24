@@ -6,6 +6,7 @@ import UserNotifications
 struct AirTranslateApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = TranslationSessionStore()
+    @State private var videoSubtitles = VideoSubtitlePreloadStore()
 
     init() {
         appDelegate.session = session
@@ -27,6 +28,12 @@ struct AirTranslateApp: App {
             CaptureCommands(session: session)
             CaptionCommands(session: session)
         }
+
+        WindowGroup("视频字幕预加载", id: AirTranslateWindowID.videoSubtitlePreload) {
+            VideoSubtitlePreloadView(model: videoSubtitles, session: session)
+                .tint(AirTranslateDesign.Palette.accent)
+        }
+        .defaultSize(width: 900, height: 850)
 
         WindowGroup(AppText.floatingCaptionModeChoiceTitle, id: AirTranslateWindowID.floatingCaptionModeChoice) {
             FloatingCaptionModeChoiceView(session: session)

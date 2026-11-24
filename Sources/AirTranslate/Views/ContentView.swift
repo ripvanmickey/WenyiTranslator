@@ -58,6 +58,14 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    openWindow(id: AirTranslateWindowID.videoSubtitlePreload)
+                } label: {
+                    Image(systemName: "play.rectangle.on.rectangle")
+                }
+                .help("视频字幕预加载")
+                .accessibilityLabel("视频字幕预加载")
+
                 if let update = updates.availableUpdate {
                     Button {
                         openURL(update.downloadURL)
