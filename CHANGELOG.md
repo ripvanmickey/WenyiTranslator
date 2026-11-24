@@ -2,7 +2,7 @@
 
 All notable changes to AirTranslate are documented in this file.
 
-## 1.16.3 - Unreleased
+## 1.16.3 - 2026-11-24
 
 - Authorize the OpenAI key before capture and reuse it in memory. Failed authorization waits for an explicit retry, preventing repeated Keychain dialogs for caption requests.
 - Allow OpenAI translation to use an on-device ASR engine and GPT-4.1 mini text translation, uploading caption text only. Keep the existing system picker and settings-row layout.
