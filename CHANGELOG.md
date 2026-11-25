@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1266: segment Gemini Live translation into sentence-prefix paragraphs and finalize/reset each completed turn; preserve interrupted text without marking it translated. Add Gemini 3.5 Transcribe as a media audio source with an inline Gemini credential shortcut, phrase checkpointing, provider-specific caches and existing browser sync. Validate request/response contracts and stream events without uploading user audio.
+
 - Build 1265: show the experimental Jev candidate selector only when the active Apple Speech recognition path supports it; hide the toggle and related notices/key shortcut for Nemotron, Qwen and other unsupported paths. Remove the generic automatic-language-detection status row below the language summary.
 
 - Build 1264: restore the full-width main header with status/languages at the left and engine information at the right; avoid collapsing its spacer to intrinsic width. Unify live/media floating captions and their 16:9 settings preview around one system-font, black translucent, white-source/yellow-translation presentation. Remove skin presets and complex font/effect/color choices. Move font size, spacing, height, alignment, opacity and always-on-top controls into collapsed Advanced options. Reference FluentRead's preview layout with an independent SwiftUI implementation.

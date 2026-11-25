@@ -3,7 +3,7 @@ import CoreMedia
 import Foundation
 import AirTranslateCore
 
-enum VideoAudioRecognitionEngine: Sendable { case openAI, nemotron }
+enum VideoAudioRecognitionEngine: Sendable { case openAI, gemini, nemotron }
 
 actor VideoAudioTranscription {
     private let session: URLSession = {
@@ -23,13 +23,18 @@ actor VideoAudioTranscription {
 
     /// Each completed phrase is delivered immediately; media intervals stay fixed on resume.
     func transcribe(_ file: URL, language: LanguageOption, ranges: [VideoAudioRange], from startIndex: Int,
-                    engine: VideoAudioRecognitionEngine = .openAI,
+                    engine: VideoAudioRecognitionEngine = .openAI, geminiAPIKey: String? = nil,
                     resources: URL = ManagedASRRuntime.resources, modelData: URL = ManagedASRRuntime.data,
                     progress: @MainActor @Sendable (VideoSubtitleCue?, Int, Int) async throws -> Void) async throws {
         let key: String
         if engine == .openAI {
             guard let savedKey = try OpenAIAPIKeyStore.readAPIKey(), !savedKey.isEmpty else {
                 throw VideoPreloadProblem(message: AppText.ui("请先在设置 → API 密钥中配置 OpenAI。", "Configure OpenAI in Settings → API Keys first.", "先に「設定 → API キー」で OpenAI を設定してください。"))
+            }
+            key = savedKey
+        } else if engine == .gemini {
+            guard let savedKey = try (geminiAPIKey ?? GeminiAPIKeyStore.readAPIKey()), !savedKey.isEmpty else {
+                throw VideoPreloadProblem(message: AppText.ui("请先在设置 → API 密钥中配置 Gemini。", "Configure Gemini in Settings → API Keys first.", "先に「設定 → API キー」で Gemini を設定してください。"))
             }
             key = savedKey
         } else { key = "" }
@@ -61,6 +66,9 @@ actor VideoAudioTranscription {
             try await VideoAudioExport(exporter).run()
             try Task.checkCancellation()
             guard exporter.status == .completed else { throw VideoSubtitleError.invalidAudio }
+            if engine == .gemini {
+                return try await GeminiVideoTranscription.transcribe(clip, language: language, key: key, session: self.session)
+            }
             return try await self.request(clip, language: language, key: key)
         } consume: { cue, done, total in
             try await progress(cue, done, total)

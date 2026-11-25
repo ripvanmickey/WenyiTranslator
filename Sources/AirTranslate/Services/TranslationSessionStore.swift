@@ -1405,6 +1405,7 @@ final class TranslationSessionStore {
     private var realtimeTranslationSourceText = ""
     private var realtimeTranslationOnlyText = ""
     private var realtimeTranslationParagraphs = RealtimeTranslationParagraphs()
+    private var geminiLiveParagraphs = RealtimeTranslationParagraphs()
     private var geminiLiveInputTranscriptText = ""
     private var geminiLiveOutputTranscriptText = ""
     private var metaActiveTurnID: Int32?
@@ -4653,6 +4654,7 @@ final class TranslationSessionStore {
         realtimeTranslationSourceText = ""
         realtimeTranslationOnlyText = ""
         realtimeTranslationParagraphs = RealtimeTranslationParagraphs()
+        geminiLiveParagraphs = RealtimeTranslationParagraphs()
         geminiLiveInputTranscriptText = ""
         geminiLiveOutputTranscriptText = ""
         metaActiveTurnID = nil
@@ -7685,51 +7687,64 @@ final class TranslationSessionStore {
         let inputText = geminiLiveInputTranscriptText.trimmingCharacters(in: .whitespacesAndNewlines)
         let outputText = geminiLiveOutputTranscriptText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !inputText.isEmpty || !outputText.isEmpty else { return }
-
         lastRecognizedText = inputText.isEmpty ? outputText : inputText
         lastRecognitionAt = Date()
         transcriptCleanupTask?.cancel()
 
-        let sourceText = inputText.isEmpty ? AppText.geminiLiveTranslationSource : inputText
-        let translatedText = outputText.isEmpty ? AppText.translating : outputText
+        if let completed = geminiLiveParagraphs.takeCompleted(source: geminiLiveInputTranscriptText,
+                                                              translation: geminiLiveOutputTranscriptText) {
+            updateGeminiLiveParagraph(completed, isFinal: true)
+            currentLineID = nil
+        }
+        let pending = geminiLiveParagraphs.pending(source: geminiLiveInputTranscriptText,
+                                                  translation: geminiLiveOutputTranscriptText)
+        if !pending.source.isEmpty || !pending.translation.isEmpty {
+            updateGeminiLiveParagraph(pending, isFinal: false)
+        }
+        stageGeminiLiveTranscriptForSave()
+        if let latest = lines.last {
+            if !latest.sourceText.isEmpty { presentFloatingSourceText(latest.sourceText, identity: floatingIdentity(for: latest.id)) }
+            if latest.hasUsableTranslation {
+                updateFloatingTranslationPresentation(latest.translatedText, sourceText: latest.sourceText,
+                                                      identity: floatingIdentity(for: latest.id))
+            }
+        }
+        if !outputText.isEmpty { speakTranslatedDeltaIfNeeded(outputText) }
+    }
 
-        if let currentLineID,
-           let index = lines.firstIndex(where: { $0.id == currentLineID }) {
-            let existingLine = lines[index]
-            lines[index] = CaptionLine(
-                id: existingLine.id,
-                sourceText: sourceText,
-                translatedText: translatedText,
-                translatedSourceText: sourceText,
-                createdAt: existingLine.createdAt,
-                isFinal: false,
-                revision: existingLine.revision + 1,
-                usesLongSessionDisplay: usesLongSessionMode
-            )
-            sourceLanguageByLineID[existingLine.id] = sourceLanguage
-        } else {
-            let line = CaptionLine(
-                sourceText: sourceText,
-                translatedText: translatedText,
-                translatedSourceText: sourceText,
-                createdAt: Date(),
-                isFinal: false,
-                revision: 1,
-                usesLongSessionDisplay: usesLongSessionMode
-            )
-            currentLineID = line.id
-            sourceLanguageByLineID[line.id] = sourceLanguage
-            lines.append(line)
-        }
+    private func updateGeminiLiveParagraph(_ paragraph: RealtimeTranslationParagraphs.Paragraph, isFinal: Bool, interrupted: Bool = false) {
+        let sourceText = paragraph.source.isEmpty ? AppText.geminiLiveTranslationSource : paragraph.source
+        let translatedText = paragraph.translation.isEmpty ? AppText.translating : paragraph.translation
+        let index = currentLineID.flatMap { id in lines.firstIndex { $0.id == id } }
+        let previous = index.map { lines[$0] }
+        let line = CaptionLine(id: previous?.id ?? UUID(), sourceText: sourceText, translatedText: translatedText,
+            translatedSourceText: sourceText, createdAt: previous?.createdAt ?? Date(), isFinal: isFinal,
+            isTranslationComplete: isFinal && !interrupted && !paragraph.translation.isEmpty,
+            revision: (previous?.revision ?? 0) + 1, usesLongSessionDisplay: usesLongSessionMode)
+        if let index { lines[index] = line } else { lines.append(line) }
+        sourceLanguageByLineID[line.id] = sourceLanguage
+        currentLineID = line.id
+    }
 
-        if !inputText.isEmpty {
-            stageTranscriptForSave(inputText, translatedText: outputText)
-            presentFloatingSourceText(inputText, identity: floatingIdentity(for: currentLineID))
+    private func finishGeminiLiveTurn(interrupted: Bool = false) {
+        guard isRunning, !isPaused, isUsingGeminiTranslation else { return }
+        let pending = geminiLiveParagraphs.pending(source: geminiLiveInputTranscriptText,
+                                                  translation: geminiLiveOutputTranscriptText)
+        if !pending.source.isEmpty || !pending.translation.isEmpty {
+            updateGeminiLiveParagraph(pending, isFinal: true, interrupted: interrupted)
         }
-        if !outputText.isEmpty {
-            updateFloatingTranslationPresentation(outputText, sourceText: sourceText, identity: floatingIdentity(for: currentLineID))
-            speakTranslatedDeltaIfNeeded(outputText)
-        }
+        currentLineID = nil
+        geminiLiveInputTranscriptText = ""
+        geminiLiveOutputTranscriptText = ""
+        geminiLiveParagraphs = RealtimeTranslationParagraphs()
+        stageGeminiLiveTranscriptForSave()
+    }
+
+    private func stageGeminiLiveTranscriptForSave() {
+        guard isTranscriptPersistenceEnabled else { return }
+        let source = lines.map(\.sourceText).filter { $0 != AppText.geminiLiveTranslationSource }.joined(separator: "\n\n")
+        let translation = lines.filter(\.hasUsableTranslation).map(\.translatedText).joined(separator: "\n\n")
+        stageTranscriptForSave(source.isEmpty ? AppText.geminiLiveTranslationSource : source, translatedText: translation)
     }
 
     private func requestTranslationForAppleRecognition(
@@ -9361,6 +9376,13 @@ extension TranslationSessionStore: LiveSpeechTranscriberDelegate {
 }
 
 extension TranslationSessionStore: GeminiLiveTranslationServiceDelegate {
+    nonisolated func geminiLiveTranslationServiceDidCompleteTurn(_ service: GeminiLiveTranslationService) {
+        Task { @MainActor in
+            guard activeGeneration(for: service, requiresRunning: true) != nil else { return }
+            finishGeminiLiveTurn()
+        }
+    }
+
     nonisolated func geminiLiveTranslationService(
         _ service: GeminiLiveTranslationService,
         didReceiveInputTranscript text: String,
@@ -9418,6 +9440,7 @@ extension TranslationSessionStore: GeminiLiveTranslationServiceDelegate {
             guard activeGeneration(for: service, requiresRunning: true) != nil else {
                 return
             }
+            finishGeminiLiveTurn(interrupted: true)
             openAIRealtimeAudioOutput.stop()
         }
     }

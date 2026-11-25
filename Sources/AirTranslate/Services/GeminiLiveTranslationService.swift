@@ -19,8 +19,13 @@ protocol GeminiLiveTranslationServiceDelegate: AnyObject {
         didOutputAudioPCM16Base64 audio: String,
         sampleRate: Double
     )
+    func geminiLiveTranslationServiceDidCompleteTurn(_ service: GeminiLiveTranslationService)
     func geminiLiveTranslationServiceDidInterruptOutputAudio(_ service: GeminiLiveTranslationService)
     func geminiLiveTranslationService(_ service: GeminiLiveTranslationService, didFail error: Error)
+}
+
+extension GeminiLiveTranslationServiceDelegate {
+    func geminiLiveTranslationServiceDidCompleteTurn(_ service: GeminiLiveTranslationService) {}
 }
 
 final class GeminiLiveTranslationService: @unchecked Sendable {
@@ -714,6 +719,11 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
                 )
             }
         }
+        if content.turnComplete == true && content.interrupted != true {
+            notifyDelegate(connectionGeneration: connectionGeneration) {
+                $0.geminiLiveTranslationServiceDidCompleteTurn(self)
+            }
+        }
     }
 
     var isReadyForRealtimeInput: Bool {
@@ -1112,6 +1122,7 @@ private struct GeminiLiveServerContent: Decodable {
     let outputTranscription: GeminiLiveTranscript?
     let modelTurn: GeminiLiveModelTurn?
     let interrupted: Bool?
+    let turnComplete: Bool?
 }
 
 private struct GeminiLiveTranscript: Decodable {

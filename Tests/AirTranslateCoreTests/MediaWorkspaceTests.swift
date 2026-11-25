@@ -24,6 +24,20 @@ struct MediaWorkspaceTests {
         #expect(model.showsOpenAIConfiguration)
     }
 
+    @Test func geminiMediaUsesItsOwnAudioEngineAndCheckpointKey() {
+        let model = VideoSubtitlePreloadStore()
+        model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
+        model.input = .openAI
+        let otherKey = model.cacheSelectionKey
+        model.input = .gemini
+        #expect(model.input.audioEngine == .gemini)
+        #expect(model.input.requiresAudioRecognition)
+        #expect(model.cacheSelectionKey != otherKey)
+        #expect(model.showsGeminiConfiguration)
+        #expect(!model.showsOpenAIConfiguration)
+        #expect(!model.showsImportAction)
+    }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["WENYI_NEMOTRON_VIDEO_SMOKE"] == "1"))
     func localNemotronVideoSmoke() async throws {
         let environment = ProcessInfo.processInfo.environment
@@ -241,6 +255,7 @@ struct MediaWorkspaceTests {
                 model.translator = translator
                 #expect(model.showsImportAction == (source == .imported))
                 #expect(model.showsOpenAIConfiguration == (source == .openAI || translator == .openAI))
+                #expect(model.showsGeminiConfiguration == (source == .gemini))
             }
         }
     }

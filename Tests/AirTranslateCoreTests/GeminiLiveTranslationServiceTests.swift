@@ -4,6 +4,26 @@ import Testing
 
 @Suite
 struct GeminiLiveTranslationServiceTests {
+    @Test func turnBoundaryIsDeliveredAfterBothTranscriptsIncludingEmptyFinalEvent() {
+        let service = GeminiLiveTranslationService()
+        let probe = GeminiLiveTranslationProbe()
+        service.delegate = probe
+        service.handleEventText(#"{"serverContent":{"inputTranscription":{"text":"原文"},"outputTranscription":{"text":"译文"},"turnComplete":true}}"#)
+        #expect(probe.events == ["input", "output", "complete"])
+        service.handleEventText(#"{"serverContent":{"turnComplete":true}}"#)
+        #expect(probe.events.last == "complete")
+        #expect(probe.events.filter { $0 == "complete" }.count == 2)
+    }
+
+    @Test func interruptionDoesNotReportTranslationAsComplete() {
+        let service = GeminiLiveTranslationService()
+        let probe = GeminiLiveTranslationProbe()
+        service.delegate = probe
+        service.handleEventText(#"{"serverContent":{"interrupted":true,"turnComplete":true}}"#)
+        #expect(probe.didInterrupt)
+        #expect(!probe.events.contains("complete"))
+    }
+
     @Test
     func serverEventPublishesTranscriptsAndTranslatedAudio() {
         let service = GeminiLiveTranslationService()
@@ -413,6 +433,9 @@ private final class GeminiReconnectRecommendationRecorder: @unchecked Sendable {
 }
 
 private final class GeminiLiveTranslationProbe: GeminiLiveTranslationServiceDelegate {
+    var events: [String] = []
+    func geminiLiveTranslationServiceDidCompleteTurn(_ service: GeminiLiveTranslationService) { events.append("complete") }
+
     var inputTranscript = ""
     var inputTranscriptIsFinal = false
     var outputTranscript = ""
@@ -427,6 +450,7 @@ private final class GeminiLiveTranslationProbe: GeminiLiveTranslationServiceDele
         languageCode _: String?,
         isFinal: Bool
     ) {
+        events.append("input")
         inputTranscript = text
         inputTranscriptIsFinal = isFinal
     }
@@ -436,6 +460,7 @@ private final class GeminiLiveTranslationProbe: GeminiLiveTranslationServiceDele
         didReceiveOutputTranscript text: String,
         languageCode _: String?
     ) {
+        events.append("output")
         outputTranscript = text
     }
 

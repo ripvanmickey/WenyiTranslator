@@ -85,3 +85,17 @@
 ## 检查
 
 `bash script/verify_video_subtitles.sh [可选的公开 VTT 文件路径]` 检查链接白名单、SRT/VTT 时间轴、重叠字幕、前后拖动、空档和语音片段边界。正式构建仍保持 macOS 14 最低系统；浏览器授权、真实账号额度和云端识别质量需单独实测。
+
+## Gemini 音轨预加载（1266）
+
+字幕来源新增「Gemini 音轨识别 · 云端」。选择后，右侧的「配置」按钮打开 Gemini 密钥设置；翻译模型仍选择 Index 或 OpenAI。点击开始准备后，音轨按现有语音时间段切片，发送到 `gemini-3.5-transcribe`，再把文字交给所选翻译服务，会产生相应 API 用量。没有自动切换到收费备用模型的逻辑。
+
+每段识别后先存缓存，再翻译并保存；字幕随准备随播放，暂停或失败后继续当前检查点。Gemini、OpenAI、Nemotron 的音轨识别缓存分别保存；已完成缓存不需要再次上传音频。
+
+实时 Gemini Live 翻译同时修复分段：处理服务端 `turnComplete`，收尾当前字幕；连续长回合按原文／译文完整句子前缀分段。中断时保留收到的文本，不把未完成译文标成完成。每段保留独立字幕标识，记录按已显示的全部段落保存。
+
+开发验证使用本地协议样例及连续文本回放，不使用用户密钥上传音频；真实 Gemini 识别效果、配额和延迟仍需在测试版中确认。
+
+协议依据：[Live 回合边界](https://ai.google.dev/api/live)、[Gemini 音轨转写](https://ai.google.dev/gemini-api/docs/transcribe)、[Interactions 响应结构](https://ai.google.dev/api/interactions)。
+
+本地专项验证命令：`python3 script/test_gemini_media.py --scratch-path ../macos27-preview-native-release --cache-path ../media-build-cache`（需 Xcode，模块缓存写入可写目录）。本次 45 项、4 个测试组报告通过，其中已有 Nemotron GPU 单独冒烟测试按环境跳过。脚本结束后恢复 Package.swift。

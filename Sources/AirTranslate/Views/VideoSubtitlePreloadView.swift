@@ -55,6 +55,12 @@ struct VideoSubtitlePreloadView: View {
                                 .accessibilityIdentifier("mediaImportSubtitles")
                         }
                         if model.input == .openAI { configureOpenAI }
+                        if model.showsGeminiConfiguration {
+                            Button(AppText.ui("配置", "Configure", "設定")) {
+                                session.requestAPIKeySettings(provider: .gemini)
+                                openSettings()
+                            }.fixedSize().accessibilityIdentifier("mediaConfigureGemini")
+                        }
                         if model.input == .nemotron {
                             Button(AppText.ui("模型", "Model", "モデル")) {
                                 session.requestGeneralSettings()
@@ -65,6 +71,8 @@ struct VideoSubtitlePreloadView: View {
                 }.disabled(model.isConfigurationLocked)
                 note(model.input == .nemotron
                     ? AppText.ui("音轨由本机 Nemotron 识别，不上传音频；仅将字幕文字发送给所选翻译服务。需先下载 Nemotron 模型。", "Nemotron recognizes audio on this Mac without uploading it. Only text is sent to the translation service. Download the Nemotron model first.", "Nemotron がこの Mac で音声を認識し、音声はアップロードしません。翻訳サービスにはテキストのみを送信します。先に Nemotron モデルをダウンロードしてください。")
+                    : model.input == .gemini
+                    ? AppText.ui("音轨按语音分段发送到 Gemini 3.5 Transcribe 识别，字幕文字发送到所选翻译服务。会产生相应 API 用量。", "Speech segments are sent to Gemini 3.5 Transcribe. Caption text is sent to your translation service. API usage applies.", "発話ごとの音声を Gemini 3.5 Transcribe に送信し、字幕テキストを選択した翻訳サービスに送信します。API 利用量が発生します。")
                     : model.input == .openAI
                     ? AppText.ui("音轨片段发送到 OpenAI 识别，仅将字幕文字发送到所选翻译服务。会产生相应 API 用量。", "Audio segments are sent to OpenAI for recognition. Only caption text is sent to the translation service. API usage charges apply.", "音声区間を OpenAI に送信して認識します。翻訳サービスには字幕テキストのみを送信します。API 利用料金が発生します。")
                     : AppText.ui("使用视频已有或导入的字幕，只将字幕文字发送到所选翻译服务，不上传音频。", "Use existing or imported captions. Only text is sent to the translation service; audio is not uploaded.", "既存または読み込んだ字幕を使用します。翻訳サービスにはテキストだけを送信し、音声はアップロードしません。"))
