@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarStatusView: View {
     @Bindable var session: TranslationSessionStore
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Text(session.captureControlState.statusTitle(statusMessage: session.statusMessage))
@@ -51,28 +52,9 @@ struct MenuBarStatusView: View {
         CaptionDisplayModePicker(session: session)
             .pickerStyle(.menu)
 
-        Menu(AppText.captionStyle, systemImage: "slider.horizontal.3") {
-            Text("\(AppText.size): \(Int(session.floatingCaptionPrimaryPointSize)) pt")
-            CaptionTextSizeButtons(session: session)
-            Menu(AppText.floatingTextSize) {
-                ForEach(FloatingCaptionTextSize.allCases) { size in
-                    Button(size.title) {
-                        session.selectFloatingCaptionTextSizePreset(size)
-                    }
-                }
-            }
-
-            Picker(AppText.lines, selection: $session.floatingCaptionLineCount) {
-                ForEach(FloatingCaptionLineCount.allCases) { count in
-                    Text(count.title).tag(count)
-                }
-            }
-
-            Picker(AppText.stability, selection: $session.floatingCaptionStability) {
-                ForEach(FloatingCaptionStability.allCases) { stability in
-                    Text(stability.title).tag(stability)
-                }
-            }
+        Button(AppText.ui("字幕高级选项…", "Advanced caption options…", "字幕の詳細設定…"), systemImage: "slider.horizontal.3") {
+            session.requestFloatingCaptionSettings()
+            openSettings()
         }
 
         Divider()

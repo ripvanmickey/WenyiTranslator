@@ -6,6 +6,7 @@ private let indexTranslateModelName = "Index-Translate 9B"
 struct LocalTranslationSettingsView: View {
     @Bindable var session: TranslationSessionStore
     let isOnlineIndex: Bool
+    let onManageSpeechModel: () -> Void
     @State private var showingConfiguration = false
     @State private var showingDiagnostics = false
     @State private var replayMessage = ""
@@ -15,7 +16,7 @@ struct LocalTranslationSettingsView: View {
     private var locked: Bool { session.isRunning || session.isStarting || isWorking }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            WhisperRecognitionSettingsView(session: session, isOnlineIndex: isOnlineIndex)
+            WhisperRecognitionSettingsView(session: session, isOnlineIndex: isOnlineIndex, onManageModel: onManageSpeechModel)
             if !isOnlineIndex {
                 SettingsControlRow(title: AppText.ui("本体模型 · 翻译引擎", "Local Mode · Translation Engine", "ローカルモード・翻訳エンジン"), detail: AppText.ui("先由选定的本地引擎识别语音，再选择译文的处理方式。", "The selected local engine recognizes speech. Choose how to translate it.", "選択したローカルエンジンで音声を認識します。翻訳方法を選んでください。"), systemImage: "character.bubble", controlBelowLabel: true) {
                     Picker(AppText.ui("翻译引擎", "Translation Engine", "翻訳エンジン"), selection: Binding(

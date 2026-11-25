@@ -1105,7 +1105,7 @@ final class TranslationSessionStore {
     var floatingCaptionStability = FloatingCaptionStability.balanced {
         didSet { persistSelectedSettings() }
     }
-    var floatingCaptionTextAlignment = FloatingCaptionTextAlignment.center {
+    var floatingCaptionTextAlignment = FloatingCaptionTextAlignment.leading {
         didSet { persistSelectedSettings() }
     }
     var floatingCaptionStyle = FloatingCaptionStyle.standard {
@@ -3229,29 +3229,29 @@ final class TranslationSessionStore {
     var floatingCaptionPrimaryPointSize: CGFloat {
         floatingCaptionCustomPointSize > 0
             ? floatingCaptionCustomPointSize
-            : floatingCaptionTextSize.primaryPointSize
+            : 23
     }
 
     var floatingCaptionSecondaryPointSize: CGFloat {
         floatingCaptionCustomPointSize > 0
-            ? FloatingCaptionAppearance.secondaryPointSize(for: floatingCaptionCustomPointSize)
-            : floatingCaptionTextSize.secondaryPointSize
+            ? floatingCaptionCustomPointSize * 18 / 23
+            : 18
     }
 
     var floatingCaptionPrimaryFont: Font {
-        .system(size: floatingCaptionPrimaryPointSize, weight: floatingCaptionStyle.fontWeight.primary, design: floatingCaptionStyle.fontFamily.design)
+        .system(size: floatingCaptionPrimaryPointSize, weight: .medium)
     }
 
     var floatingCaptionSecondaryFont: Font {
-        .system(size: floatingCaptionSecondaryPointSize, weight: floatingCaptionStyle.fontWeight.secondary, design: floatingCaptionStyle.fontFamily.design)
+        .system(size: floatingCaptionSecondaryPointSize, weight: .regular)
     }
 
     var floatingCaptionPrimaryLineHeight: CGFloat {
-        floatingCaptionPrimaryPointSize * floatingCaptionStyle.fontFamily.lineHeightScale
+        floatingCaptionPrimaryPointSize * 1.24
     }
 
     var floatingCaptionSecondaryLineHeight: CGFloat {
-        floatingCaptionSecondaryPointSize * max(1.28, floatingCaptionStyle.fontFamily.lineHeightScale)
+        floatingCaptionSecondaryPointSize * 1.28
     }
 
     var floatingCaptionEffectiveLineCount: Int {
@@ -3314,7 +3314,7 @@ final class TranslationSessionStore {
         floatingCaptionTextSize = .medium
         floatingCaptionLineCount = .three
         floatingCaptionStability = .balanced
-        floatingCaptionTextAlignment = .center
+        floatingCaptionTextAlignment = .leading
         floatingCaptionCustomPointSize = FloatingCaptionAppearance.defaultCustomPointSize
         floatingCaptionTextColorHex = FloatingCaptionAppearance.defaultTextColorHex
         floatingCaptionBackgroundColorHex = FloatingCaptionAppearance.defaultBackgroundColorHex

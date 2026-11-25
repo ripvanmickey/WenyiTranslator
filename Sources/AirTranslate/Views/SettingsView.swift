@@ -12,6 +12,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     private let updates = AppUpdateChecker.shared
     @SceneStorage("AirTranslate.SettingsView.selectedCategory") private var selectedCategoryID = SettingsCategory.general.rawValue
+    @State private var showsSpeechModelManagement = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var credentialScrollTarget: String?
     @State private var credentialScrollRequest = UUID()
@@ -86,6 +87,12 @@ struct SettingsView: View {
                 .background(AirTranslateDesign.Palette.canvas)
                 .overlay(alignment: .bottom) { Divider() }
             }
+        }
+        // Present model management from the stable settings root, outside the
+        // nested translation configuration/diagnostic sheet presenters.
+        .sheet(isPresented: $showsSpeechModelManagement) {
+            WhisperRecognitionSettingsView(session: session, isOnlineIndex: false,
+                managementOnly: true, onManageModel: {})
         }
         .navigationSplitViewStyle(.balanced)
         .background(SettingsWindowTitle(title: AppText.settings))
@@ -246,7 +253,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("openAIRecognitionLocationPicker")
                 }
                 if session.openAITranslationModel.usesTextTranslation {
-                    WhisperRecognitionSettingsView(session: session, isOnlineIndex: false)
+                    WhisperRecognitionSettingsView(session: session, isOnlineIndex: false, onManageModel: { showsSpeechModelManagement = true })
                     SettingsValueRow(
                         title: AppText.ui("翻译模型", "Translation Model", "翻訳モデル"),
                         detail: AppText.ui("语音在本机识别，只将字幕文字发送到 OpenAI。", "Speech is recognized on this Mac. Only caption text is sent to OpenAI.", "音声はこの Mac で認識し、字幕テキストのみを OpenAI に送信します。"),
@@ -256,7 +263,7 @@ struct SettingsView: View {
             }
 
             if mode.usesOnDeviceRecognition {
-                LocalTranslationSettingsView(session: session, isOnlineIndex: mode == .indexOnline)
+                LocalTranslationSettingsView(session: session, isOnlineIndex: mode == .indexOnline, onManageSpeechModel: { showsSpeechModelManagement = true })
                     .id(mode)
             }
 

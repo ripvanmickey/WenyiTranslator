@@ -4,6 +4,10 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1264: restore the full-width main header with status/languages at the left and engine information at the right; avoid collapsing its spacer to intrinsic width. Unify live/media floating captions and their 16:9 settings preview around one system-font, black translucent, white-source/yellow-translation presentation. Remove skin presets and complex font/effect/color choices. Move font size, spacing, height, alignment, opacity and always-on-top controls into collapsed Advanced options. Reference FluentRead's preview layout with an independent SwiftUI implementation.
+
+- Build 1263: present speech model management from the stable settings-window root instead of nesting its sheet inside local translation sheet presenters. Restore the recognition-engine gear action for local, Index and OpenAI on-device recognition; retain model import, verification and deletion controls.
+
 - Build 1262: the console pause/resume button and Command-Shift-Space control the linked Chrome/Safari video in Media mode. Follow actual browser playback state, prevent duplicate commands, and retain subtitle sync and locked configuration while paused. Surface rejected playback actions without disconnecting.
 
 - Build 1261: keep the main caption workspace and bottom console mounted when window occlusion or app activation changes. Avoid blank left columns, lost caption scroll state and layout jumps while the media inspector remains visible. Refresh visibility on window/app activation without using it to remove layout components. Retain Nemotron audio preloading.

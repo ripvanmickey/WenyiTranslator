@@ -50,6 +50,7 @@ final class VideoSubtitlePreloadStore {
     var isAd = false
     var timingOffset = 0.0
     var showsTranslation = true
+    @ObservationIgnored weak var captionSession: TranslationSessionStore?
     var overlayVisible = false
     @ObservationIgnored private var imported: [VideoSubtitleCue] = []
     @ObservationIgnored private var importedHash = ""

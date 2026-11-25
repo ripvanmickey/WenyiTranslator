@@ -46,7 +46,7 @@ struct FloatingCaptionWindowView: View {
               let latest = paragraphs.last, let retainedTranslation, latest.id != retainedTranslation.id else { return false }
         return translation(latest).isEmpty && !translation(retainedTranslation).isEmpty
     }
-    private var preferredHeight: CGFloat { min(280, max(160, session.floatingCaptionPreferredWindowHeight)) }
+    private var preferredHeight: CGFloat { max(160, session.floatingCaptionPreferredWindowHeight) }
     private var latestText: [String] {
         guard let line = paragraphs.last else { return [] }
         return [source(line), translation(line)]
@@ -64,19 +64,14 @@ struct FloatingCaptionWindowView: View {
         ZStack(alignment: .bottom) {
             Color.clear
             if hasText {
-                VStack(spacing: 0) {
-                    // A small dedicated drag strip leaves text scrolling available.
-                    FloatingCaptionDragSurface().frame(height: 12).help(AppText.ui("拖动字幕窗口；在文字区域滚动查看完整段落", "Drag this window, or scroll the text to read the full paragraph", "ウィンドウをドラッグできます。段落全体を読むにはテキストをスクロールしてください"))
+                UnifiedFloatingCaptionSurface(title: AppText.ui("实时字幕", "Live captions", "リアルタイム字幕"),
+                    style: UnifiedFloatingCaptionStyle(session: session), close: { FloatingCaptionWindowController.close() }) {
                     ScrollViewReader { reader in
                         ScrollView(.vertical) {
                             VStack(alignment: .leading, spacing: 18) {
                                 if waitingForSuccessor, let retainedTranslation, let latest = paragraphs.last {
                                     if session.floatingCaptionDisplayMode == .originalAndTranslation {
                                         text(source(latest), primary: false)
-                                    }
-                                    if session.isUsingLocalTranslation {
-                                        Text(AppText.ui("当前译文 · ", "Current translation · ", "現在の訳文 · ") + latest.localTranslationStatus)
-                                            .font(.caption).foregroundStyle(session.floatingCaptionTextColor.opacity(0.72))
                                     }
                                     translationBlock(retainedTranslation, primary: true, previous: true)
                                 } else {
@@ -87,17 +82,8 @@ struct FloatingCaptionWindowView: View {
                             }
                             .overlay(alignment: .bottom) { Color.clear.frame(height: 1).id("live-bottom") }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 18).padding(.vertical, 8)
-                            .background {
-                                LinearGradient(stops: [
-                                    .init(color: session.floatingCaptionBackgroundColor.opacity(session.floatingCaptionBackgroundOpacity * 0.65), location: 0),
-                                    .init(color: session.floatingCaptionBackgroundColor.opacity(session.floatingCaptionBackgroundOpacity * 0.45), location: 0.8),
-                                    .init(color: session.floatingCaptionBackgroundColor.opacity(session.floatingCaptionBackgroundOpacity * 0.12), location: 1)
-                                ], startPoint: .top, endPoint: .bottom)
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
-                        .frame(height: preferredHeight - 30)
+                        .frame(maxHeight: .infinity)
                         .defaultScrollAnchor(.bottom)
                         .onChange(of: latestText) { old, new in
                             // Follow appended words, not late revisions of already read sentences.
@@ -112,30 +98,12 @@ struct FloatingCaptionWindowView: View {
                         }
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(6)
             }
         }
         .frame(minWidth: FloatingCaptionWindowController.minimumWindowSize.width,
             idealWidth: FloatingCaptionWindowController.defaultWindowSize.width,
             maxWidth: .infinity, minHeight: session.floatingCaptionMinimumWindowHeight,
             idealHeight: preferredHeight, maxHeight: .infinity)
-        .overlay(alignment: .topTrailing) {
-            if session.isPreviewingFloatingCaptions {
-                Button {
-                    FloatingCaptionWindowController.close()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
-                        .padding(6)
-                        .background(.regularMaterial, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .help(CaptionStyleCopy.closePreview)
-                .accessibilityLabel(CaptionStyleCopy.closePreview)
-                .padding(8)
-            }
-        }
         .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
             session.floatingCaptionMeasuredTextWidth = max(0, size.width - 48)
             session.floatingCaptionMeasuredContentHeight = max(0, size.height - 40)
@@ -209,13 +177,8 @@ struct FloatingCaptionWindowView: View {
             case .translation:
                 translationBlock(line, primary: true)
             case .originalAndTranslation:
-                if session.floatingCaptionStyle.translationFirst {
-                    translationBlock(line, primary: true)
-                    text(source(line), primary: false)
-                } else {
-                    text(source(line), primary: false)
-                    translationBlock(line, primary: true)
-                }
+                text(source(line), primary: false)
+                translationBlock(line, primary: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: session.floatingCaptionTextAlignment.frameAlignment(vertical: .top))
@@ -224,25 +187,13 @@ struct FloatingCaptionWindowView: View {
 
     @ViewBuilder private func translationBlock(_ line: CaptionLine, primary: Bool, previous: Bool = false) -> some View {
         let value = translation(line)
-        if session.isUsingLocalTranslation, !session.isPreviewingFloatingCaptions,
-           !value.isEmpty || line.isTranslationInterrupted {
-            Text((previous ? AppText.ui("上一段译文 · ", "Previous translation · ", "前の訳文 · ") : AppText.ui("译文 · ", "Translation · ", "訳文 · ")) + line.localTranslationStatus)
-                .font(.caption).foregroundStyle(session.floatingCaptionTextColor.opacity(0.72))
-        }
         text(value, primary: primary, isTranslation: true)
     }
 
     @ViewBuilder private func text(_ value: String, primary: Bool, isTranslation: Bool = false) -> some View {
         if !value.isEmpty {
-            Text(value)
-                .font(primary ? session.floatingCaptionPrimaryFont : session.floatingCaptionSecondaryFont)
-                .foregroundStyle(isTranslation ? FloatingCaptionAppearance.translationTextColor : FloatingCaptionAppearance.sourceTextColor)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-                .multilineTextAlignment(session.floatingCaptionTextAlignment.textAlignment)
-                .lineSpacing(session.floatingCaptionStyle.lineSpacing.points)
-                .frame(maxWidth: .infinity, alignment: session.floatingCaptionTextAlignment.frameAlignment(vertical: .top))
-                .modifier(CaptionTextEffectModifier(effect: session.floatingCaptionStyle.textEffect))
+            UnifiedFloatingCaptionText(value: value, isTranslation: isTranslation,
+                style: UnifiedFloatingCaptionStyle(session: session))
         }
     }
 

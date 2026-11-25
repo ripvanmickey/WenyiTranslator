@@ -99,6 +99,7 @@ struct ContentView: View {
             TranscriptLibraryView(session: session)
         }
         .onAppear {
+            videoSubtitles.captionSession = session
             syncFloatingCaptionVisibility()
         }
         .onReceive(NotificationCenter.default.publisher(for: FloatingCaptionWindowController.visibilityDidChangeNotification)) { _ in

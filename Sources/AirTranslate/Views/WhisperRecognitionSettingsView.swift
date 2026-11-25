@@ -4,8 +4,10 @@ import UniformTypeIdentifiers
 struct WhisperRecognitionSettingsView: View {
     @Bindable var session: TranslationSessionStore
     let isOnlineIndex: Bool
+    var managementOnly = false
+    let onManageModel: () -> Void
+    @Environment(\.dismiss) private var dismiss
     @State private var manager = ASRModelManager.shared
-    @State private var showsModelManagement = false
     @State private var confirmsDeletion = false
     private var managedID: String { session.localRecognitionEngine == "multitalker" ? "multitalker" : ManagedASRRuntime.modelID(qwen: session.qwenASRModel) }
     private var selectedManagedModel: ASRManagedModel { ASRManagedModel.all.first { $0.id == managedID } ?? ASRManagedModel.all[0] }
@@ -24,6 +26,17 @@ struct WhisperRecognitionSettingsView: View {
     }
 
     var body: some View {
+        Group {
+            if managementOnly { modelManagementSheet }
+            else { settingsContent }
+        }
+        .task { manager.refresh() }
+        .onChange(of: session.whisperModel) { _, _ in message = "" }
+        .onDisappear { operation?.cancel() }
+    }
+
+    @ViewBuilder
+    private var settingsContent: some View {
         let detail = isOnlineIndex
             ? AppText.ui("选择在本机识别语音的引擎。停止聆听后可切换。", "Choose the on-device speech recognition engine. Stop listening before switching.", "端末内で音声認識を行うエンジンを選びます。切り替えるには、先に聞き取りを停止してください。")
             : AppText.ui("选择本机语音识别引擎，再使用下方配置的引擎翻译；也可选择仅转写。停止后可切换识别引擎。", "Choose an on-device engine for transcription. Stop listening before switching engines.", "端末内で文字起こしを行うエンジンを選びます。エンジンを切り替えるには、先に聞き取りを停止してください。")
@@ -35,7 +48,7 @@ struct WhisperRecognitionSettingsView: View {
                             .fixedSize(horizontal: true, vertical: false)
                         if usesManagedModel {
                             Button {
-                                showsModelManagement = true
+                                onManageModel()
                             } label: {
                                 Image(systemName: "gearshape")
                             }
@@ -77,10 +90,6 @@ struct WhisperRecognitionSettingsView: View {
                 .padding(.leading, settingsLabelIndent)
             }
         }
-        .task { manager.refresh() }
-        .sheet(isPresented: $showsModelManagement) { modelManagementSheet }
-        .onChange(of: session.whisperModel) { _, _ in message = "" }
-        .onDisappear { operation?.cancel() }
     }
 
     @ViewBuilder
@@ -183,7 +192,7 @@ struct WhisperRecognitionSettingsView: View {
                 Text(manager.message).font(.caption).textSelection(.enabled)
             }
 
-            Button(AppText.ui("关闭", "Close", "閉じる")) { showsModelManagement = false }
+            Button(AppText.ui("关闭", "Close", "閉じる")) { dismiss() }
                 .keyboardShortcut(.cancelAction)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }

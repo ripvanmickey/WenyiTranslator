@@ -2,333 +2,137 @@ import AppKit
 import SwiftUI
 
 struct FloatingCaptionSettingsView: View {
-    @Environment(\.openWindow) private var openWindow
     @Bindable var session: TranslationSessionStore
-    @State private var showsTypography = false
-    @State private var confirmsReset = false
-    @State private var isCaptionVisible = FloatingCaptionWindowController.isOpen
+    @State private var showsAdvanced = false
+    @State private var availableWidth: CGFloat = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            presetPicker
-            FloatingCaptionStylePreview(session: session)
-            GroupBox(CaptionStyleCopy.content) {
-                VStack(alignment: .leading, spacing: 14) {
-                    Picker(AppText.floatingDisplay, selection: $session.floatingCaptionDisplayMode) {
-                        ForEach(session.availableFloatingCaptionDisplayModes) { Text($0.title).tag($0) }
-                    }
-                    .disabled(session.isTranscribeOnlyMode)
-                    sizeControl
-                    Picker(AppText.ui("窗口高度参考", "Window Height", "ウィンドウの高さ"), selection: $session.floatingCaptionLineCount) {
-                        ForEach(FloatingCaptionLineCount.allCases) { Text($0.title).tag($0) }
-                    }
-                    Text(AppText.ui("新译文出现前保留上一段译文。长段落可在悬浮窗口内滚动查看。", "The previous translation stays visible until the next one arrives. Scroll in the floating window to read long paragraphs.", "次の訳文が表示されるまで前の訳文を残します。長い段落はフローティングウィンドウ内でスクロールできます。")).font(.caption).foregroundStyle(.secondary)
-                    Picker(AppText.captionAlignment, selection: $session.floatingCaptionTextAlignment) {
-                        ForEach(FloatingCaptionTextAlignment.allCases) { Text($0.title).tag($0) }
-                    }
-                    if session.floatingCaptionDisplayMode == .originalAndTranslation {
-                        Toggle(CaptionStyleCopy.translationFirst, isOn: $session.floatingCaptionStyle.translationFirst)
-                    }
-                    Text(session.isUsingLocalTranslation ? AppText.ui("本地原文和译文会先显示可用文字，再逐步更新。确认时立即显示完整结果。", "Local captions appear as soon as text is available and show the full result once confirmed.", "ローカル字幕は利用できる文字から表示し、確定時に全文を表示します。") : AppText.ui("首个可用结果先显示，确认后更新；长句每隔至少 0.5 秒追加内容。", "Show the first available result and update it when confirmed. Long sentences update at least 0.5 seconds apart.", "最初に取得できた結果を表示し、確定時に更新します。長文の追加更新は 0.5 秒以上の間隔で行われます。"))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .padding(8)
-            }
-
-            GroupBox {
-                DisclosureGroup(CaptionStyleCopy.typography, isExpanded: $showsTypography) {
-                    VStack(spacing: 14) {
-                        Picker(CaptionStyleCopy.font, selection: $session.floatingCaptionStyle.fontFamily) {
-                            ForEach(FloatingCaptionFontFamily.allCases) { Text($0.title).tag($0) }
-                        }
-                        Picker(CaptionStyleCopy.weight, selection: $session.floatingCaptionStyle.fontWeight) {
-                            ForEach(FloatingCaptionFontWeight.allCases) { Text($0.title).tag($0) }
-                        }
-                        Picker(CaptionStyleCopy.spacing, selection: $session.floatingCaptionStyle.lineSpacing) {
-                            ForEach(FloatingCaptionLineSpacing.allCases) { Text($0.title).tag($0) }
-                        }
-                        Picker(CaptionStyleCopy.effect, selection: $session.floatingCaptionStyle.textEffect) {
-                            ForEach(FloatingCaptionTextEffect.allCases) { Text($0.title).tag($0) }
-                        }
-                        LabeledContent(AppText.floatingTextColor) {
-                            Text(AppText.ui("原文白色 · 译文黄色", "White source · Yellow translation", "原文は白 · 訳文は黄色"))
-                        }
-                    }
-                    .padding(.top, 12)
-                }
-                .padding(8)
-            }
-
-            GroupBox(CaptionStyleCopy.window) {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(CaptionStyleCopy.captionOnlyHint).font(.caption).foregroundStyle(.secondary)
-                    Toggle(CaptionStyleCopy.keepOnTop, isOn: $session.keepsFloatingCaptionAboveOtherWindows)
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(CaptionStyleCopy.width)
-                            Spacer()
-                            Text("\(Int(captionWidth.wrappedValue)) pt").monospacedDigit()
-                        }
-                        Slider(value: captionWidth, in: 420...maximumCaptionWidth, step: 10)
-                            .disabled(!isCaptionVisible)
-                            .accessibilityLabel(CaptionStyleCopy.width)
-                            .accessibilityValue("\(Int(captionWidth.wrappedValue)) pt")
-                    }
-                    ViewThatFits(in: .horizontal) {
-                        HStack { windowActions }
-                        VStack(alignment: .leading) { windowActions }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-            }
-            Button(CaptionStyleCopy.resetStyle) { confirmsReset = true }
-                .confirmationDialog(CaptionStyleCopy.resetStyleHint, isPresented: $confirmsReset, titleVisibility: .visible) {
-                    Button(CaptionStyleCopy.resetStyle) { session.resetFloatingCaptionAppearance() }
-                    Button(CaptionStyleCopy.cancel, role: .cancel) {}
-                }
+        let wide = availableWidth >= 584
+        let layout = wide ? AnyLayout(HStackLayout(alignment: .top, spacing: 24))
+                          : AnyLayout(VStackLayout(alignment: .leading, spacing: 24))
+        layout {
+            preview.frame(maxWidth: wide ? .infinity : 480, alignment: .leading)
+            controls.frame(width: wide ? 260 : nil)
         }
-        .onAppear { isCaptionVisible = FloatingCaptionWindowController.isOpen }
-        .onReceive(NotificationCenter.default.publisher(for: FloatingCaptionWindowController.visibilityDidChangeNotification)) { _ in
-            isCaptionVisible = FloatingCaptionWindowController.isOpen
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+    }
+
+    private var preview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(AppText.ui("字幕预览", "Caption preview", "字幕プレビュー")).font(.headline)
+            FloatingCaptionScenePreview(session: session)
+                .accessibilityIdentifier("unifiedCaptionScenePreview")
+            Text(AppText.ui("媒体和实时字幕使用同一样式。调整后立即更新预览。", "Media and live captions share this appearance. Changes appear immediately.", "メディア字幕とリアルタイム字幕は同じ表示スタイルです。変更はプレビューにすぐ反映されます。"))
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                FloatingCaptionWindowController.open(session: session, preview: true)
+            } label: {
+                Label(AppText.ui("在悬浮窗口中预览", "Preview in floating window", "フローティングウィンドウでプレビュー"), systemImage: "rectangle.on.rectangle")
+            }
+            .disabled(session.isRunning || session.isStarting)
         }
     }
 
-    private var presetPicker: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(CaptionStyleCopy.presets).font(.headline)
-                Spacer()
-                Text(session.selectedFloatingCaptionPreset?.title ?? CaptionStyleCopy.custom)
-                    .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(AppText.ui("字幕显示", "Caption display", "字幕表示")).font(.headline)
+            Picker(AppText.floatingDisplay, selection: $session.floatingCaptionDisplayMode) {
+                ForEach(session.availableFloatingCaptionDisplayModes) { Text($0.title).tag($0) }
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 102), spacing: 8)], spacing: 8) {
-                ForEach(FloatingCaptionPreset.allCases) { preset in
-                    CaptionPresetButton(preset: preset, isSelected: session.selectedFloatingCaptionPreset == preset) {
-                        session.applyFloatingCaptionPreset(preset)
-                    }
-                }
+            .pickerStyle(.menu)
+            .disabled(session.isTranscribeOnlyMode)
+            .accessibilityIdentifier("unifiedCaptionDisplayMode")
+            Text(AppText.ui("黑色半透明背景 · 白色原文 · 黄色译文", "Translucent black · White original · Yellow translation", "半透明の黒背景・白い原文・黄色い訳文"))
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Divider()
+            DisclosureGroup(isExpanded: $showsAdvanced) {
+                advancedOptions.padding(.top, 14)
+            } label: {
+                Text(AppText.ui("高级选项", "Advanced options", "詳細設定")).font(.headline)
             }
-            Text(CaptionStyleCopy.presetHint).font(.caption).foregroundStyle(.secondary)
+            .accessibilityIdentifier("unifiedCaptionAdvancedOptions")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var sizeControl: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(CaptionStyleCopy.size)
-                Spacer()
+    private var advancedOptions: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
                 Stepper(value: pointSize, in: 18...72, step: 1) {
-                    Text("\(Int(session.floatingCaptionPrimaryPointSize)) pt").monospacedDigit()
+                    Text(AppText.ui("字号", "Font size", "文字サイズ") + " · \(Int(pointSize.wrappedValue)) pt")
                 }
-                .fixedSize()
-                .accessibilityLabel(CaptionStyleCopy.size)
-                .accessibilityValue("\(Int(session.floatingCaptionPrimaryPointSize)) pt")
+                Slider(value: pointSize, in: 18...72, step: 1)
+                    .accessibilityLabel(AppText.ui("字幕字号", "Caption font size", "字幕の文字サイズ"))
             }
-            Slider(value: pointSize, in: 18...72, step: 1)
-                .accessibilityLabel(CaptionStyleCopy.size)
-                .accessibilityValue("\(Int(session.floatingCaptionPrimaryPointSize)) pt")
+            Picker(AppText.ui("行间距", "Line spacing", "行間"), selection: $session.floatingCaptionStyle.lineSpacing) {
+                ForEach(FloatingCaptionLineSpacing.allCases) { Text($0.title).tag($0) }
+            }
+            Picker(AppText.ui("窗口高度参考", "Window height", "ウィンドウの高さ"), selection: $session.floatingCaptionLineCount) {
+                ForEach(FloatingCaptionLineCount.allCases) { Text($0.title).tag($0) }
+            }
+            Picker(AppText.captionAlignment, selection: $session.floatingCaptionTextAlignment) {
+                ForEach(FloatingCaptionTextAlignment.allCases) { Text($0.title).tag($0) }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text(AppText.ui("背景不透明度", "Background opacity", "背景の不透明度") + " · \(Int(session.floatingCaptionBackgroundOpacity * 100))%")
+                Slider(value: $session.floatingCaptionBackgroundOpacity, in: 0.2...1, step: 0.05)
+                    .accessibilityLabel(AppText.ui("背景不透明度", "Background opacity", "背景の不透明度"))
+            }
+            Toggle(CaptionStyleCopy.keepOnTop, isOn: $session.keepsFloatingCaptionAboveOtherWindows)
+            Text(AppText.ui("使用系统字体。拖动字幕顶部可跨屏移动，拖动窗口边缘可调整大小。", "Uses the system font. Drag the header across displays or resize the window at its edges.", "システムフォントを使用します。上部をドラッグすると画面間で移動でき、ウィンドウの端でサイズを変更できます。"))
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(AppText.ui("恢复默认", "Restore defaults", "既定値に戻す")) {
+                session.resetFloatingCaptionAppearance()
+            }
         }
+        .pickerStyle(.menu)
     }
 
     private var pointSize: Binding<Double> {
-        Binding(get: { Double(session.floatingCaptionPrimaryPointSize) }, set: { session.floatingCaptionCustomPointSize = CGFloat($0) })
-    }
-
-    @ViewBuilder private var windowActions: some View {
-        Button(isCaptionVisible ? CaptionStyleCopy.closeWindow : CaptionStyleCopy.openWindow) {
-            CaptionControlActions.toggleVisibility(session: session, using: openWindow)
-        }
-        Button(AppText.resetFloatingCaptionSize) { FloatingCaptionWindowController.resetSize() }
-    }
-
-    private var maximumCaptionWidth: Double {
-        Double(FloatingCaptionWindowController.maximumWindowSize(for: NSScreen.main).width)
-    }
-
-    private var captionWidth: Binding<Double> {
-        Binding(get: {
-            let measured = session.floatingCaptionMeasuredTextWidth
-            let width = measured > 0 ? measured + AirTranslateDesign.Spacing.lg * 2 : FloatingCaptionWindowController.defaultWindowSize.width
-            return min(maximumCaptionWidth, max(420, Double(width)))
-        }, set: { FloatingCaptionWindowController.setWidth(CGFloat($0)) })
+        Binding(get: { Double(UnifiedFloatingCaptionStyle(session: session).pointSize) },
+                set: { session.floatingCaptionCustomPointSize = CGFloat($0) })
     }
 }
 
-private struct CaptionPresetButton: View {
-    let preset: FloatingCaptionPreset
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Aa").font(.system(size: 23, weight: preset.style.fontWeight.primary, design: preset.style.fontFamily.design))
-                    Spacer(minLength: 0)
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.caption)
-                }
-                Text(preset.title).font(.caption.weight(.semibold)).lineLimit(2)
-            }
-            .foregroundStyle(FloatingCaptionAppearance.color(hex: preset.textColorHex, fallback: "#FFFFFF"))
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-            .background(FloatingCaptionAppearance.color(hex: preset.previewSceneHex, fallback: "#05080A"), in: RoundedRectangle(cornerRadius: 10))
-            .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: isSelected ? 3 : 1) }
-            .contentShape(RoundedRectangle(cornerRadius: 10))
-        }
-        .buttonStyle(.plain)
-        .help(preset.detail)
-        .accessibilityLabel(preset.title)
-        .accessibilityValue(isSelected ? AppText.localized(english: "Selected", korean: "선택됨", japanese: "選択中", chineseSimplified: "已选择") : "")
-        .accessibilityHint(preset.detail)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
-private struct FloatingCaptionStylePreview: View {
+/// A 16:9 scene preview inspired by FluentRead's live preview arrangement.
+/// The SwiftUI renderer below is the same one used in both floating windows.
+private struct FloatingCaptionScenePreview: View {
     let session: TranslationSessionStore
-    @State private var lightScene = false
-    @State private var textWidth: CGFloat = 500
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(CaptionStyleCopy.preview).font(.headline)
-                Spacer()
-                Picker(CaptionStyleCopy.scene, selection: $lightScene) {
-                    Text(CaptionStyleCopy.darkScene).tag(false)
-                    Text(CaptionStyleCopy.lightScene).tag(true)
-                }
-                .labelsHidden().pickerStyle(.segmented).fixedSize()
-            }
-            ScrollView {
-                VStack(spacing: FloatingCaptionAppearance.captionBlockSpacing) {
-                    if session.floatingCaptionStyle.translationFirst { translatedText }
-                    if session.floatingCaptionDisplayMode != .translation {
-                        sampleText(CaptionStyleCopy.sampleOriginal, primary: session.floatingCaptionDisplayMode == .original)
+        GeometryReader { geometry in
+            ZStack(alignment: .bottom) {
+                LinearGradient(colors: [Color(red: 0.12, green: 0.22, blue: 0.28), Color(red: 0.3, green: 0.39, blue: 0.38)],
+                               startPoint: .top, endPoint: .bottom)
+                Image(systemName: "mountain.2.fill")
+                    .resizable().scaledToFit().foregroundStyle(.white.opacity(0.08))
+                    .padding(.horizontal, 35).padding(.bottom, 20)
+                VStack(spacing: 14) {
+                    Spacer(minLength: 0)
+                    ScrollView {
+                        UnifiedFloatingCaptionBlock(
+                            source: AppText.ui("Every voice has a story.", "Every voice has a story.", "声には物語があります。"),
+                            translation: AppText.ui("每个声音都有故事。", "声には物語があります。", "每个声音都有故事。"),
+                            style: UnifiedFloatingCaptionStyle(session: session))
+                            .padding(18)
                     }
-                    if !session.floatingCaptionStyle.translationFirst { translatedText }
+                    .frame(maxHeight: max(80, geometry.size.height * 0.6))
+                    .background(Color.black.opacity(UnifiedFloatingCaptionStyle(session: session).opacity),
+                                in: RoundedRectangle(cornerRadius: UnifiedFloatingCaptionStyle.cornerRadius))
+                    HStack(spacing: 10) {
+                        Image(systemName: "play.fill")
+                        Capsule().fill(.white.opacity(0.35)).frame(height: 3)
+                        Image(systemName: "speaker.wave.2.fill")
+                    }
+                    .font(.caption).foregroundStyle(.white.opacity(0.7))
                 }
                 .padding(16)
-                .frame(maxWidth: .infinity)
-                .padding(18)
-                .onGeometryChange(for: CGFloat.self) { max(1, $0.size.width - 68) } action: { textWidth = $0 }
             }
-            .frame(height: previewHeight)
-            .background(LinearGradient(colors: lightScene ? [.white, Color(white: 0.75)] : [Color(white: 0.08), Color(white: 0.24)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 12))
-            .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(.secondary.opacity(0.25)) }
-            Text(CaptionStyleCopy.previewHint)
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Button {
-                    FloatingCaptionWindowController.open(session: session, preview: true)
-                } label: {
-                    Label(CaptionStyleCopy.previewWindow, systemImage: "rectangle.on.rectangle")
-                }
-                .disabled(session.isRunning || session.isStarting || session.isPreviewingFloatingCaptions)
-                if session.isPreviewingFloatingCaptions {
-                    Button {
-                        FloatingCaptionWindowController.close()
-                    } label: {
-                        Label(CaptionStyleCopy.closePreview, systemImage: "xmark.circle")
-                    }
-                }
-            }
+            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
-    }
-
-    @ViewBuilder private var translatedText: some View {
-        if session.floatingCaptionDisplayMode != .original {
-            sampleText(CaptionStyleCopy.sampleTranslation, primary: true, isTranslation: true)
-        }
-    }
-
-    private func sampleText(_ text: String, primary: Bool, isTranslation: Bool = false) -> some View {
-        Text(formattedSample(text, primary: primary))
-            .font(primary ? session.floatingCaptionPrimaryFont : session.floatingCaptionSecondaryFont)
-            .foregroundStyle(isTranslation ? FloatingCaptionAppearance.translationTextColor : FloatingCaptionAppearance.sourceTextColor)
-            .lineSpacing(session.floatingCaptionStyle.lineSpacing.points)
-            .multilineTextAlignment(session.floatingCaptionTextAlignment.textAlignment)
-            .frame(maxWidth: .infinity, alignment: session.floatingCaptionTextAlignment.frameAlignment(vertical: .center))
-            .fixedSize(horizontal: false, vertical: true)
-            .modifier(CaptionTextEffectModifier(effect: session.floatingCaptionStyle.textEffect))
-    }
-
-    private func formattedSample(_ text: String, primary: Bool) -> String {
-        return text
-    }
-
-    private var previewHeight: CGFloat {
-        var height: CGFloat = 68
-        if session.floatingCaptionDisplayMode != .translation {
-            let primary = session.floatingCaptionDisplayMode == .original
-            let lines = formattedSample(CaptionStyleCopy.sampleOriginal, primary: primary).components(separatedBy: "\n").count
-            height += FloatingCaptionAppearance.blockHeight(lineHeight: primary ? session.floatingCaptionPrimaryLineHeight : session.floatingCaptionSecondaryLineHeight, lineCount: lines, lineSpacing: session.floatingCaptionStyle.lineSpacing.points)
-        }
-        if session.floatingCaptionDisplayMode != .original {
-            let lines = formattedSample(CaptionStyleCopy.sampleTranslation, primary: true).components(separatedBy: "\n").count
-            height += FloatingCaptionAppearance.blockHeight(lineHeight: session.floatingCaptionPrimaryLineHeight, lineCount: lines, lineSpacing: session.floatingCaptionStyle.lineSpacing.points)
-        }
-        if session.floatingCaptionDisplayMode == .originalAndTranslation {
-            height += FloatingCaptionAppearance.captionBlockSpacing
-        }
-        return min(320, max(140, height))
-    }
-}
-
-struct CaptionTextEffectModifier: ViewModifier {
-    let effect: FloatingCaptionTextEffect
-    func body(content: Content) -> some View {
-        content
-            .shadow(color: effect == .none ? .clear : .black.opacity(0.85), radius: effect == .outline ? 1 : 8, x: 0, y: effect == .outline ? 0 : 2)
-            .shadow(color: effect == .outline ? .black : .clear, radius: 0, x: 1, y: 0)
-            .shadow(color: effect == .outline ? .black : .clear, radius: 0, x: -1, y: 0)
-            .shadow(color: effect == .outline ? .black : .clear, radius: 0, x: 0, y: 1)
-            .shadow(color: effect == .outline ? .black : .clear, radius: 0, x: 0, y: -1)
-    }
-}
-
-private struct CaptionHexColorRow: View {
-    let title: String
-    @Binding var hex: String
-    @State private var draft = ""
-
-    private var normalized: String? {
-        FloatingCaptionAppearance.nsColor(hex: draft).flatMap(FloatingCaptionAppearance.hexString)
-    }
-    private var color: Binding<Color> {
-        Binding(get: { FloatingCaptionAppearance.color(hex: hex, fallback: "#FFFFFF") }, set: {
-            if let value = FloatingCaptionAppearance.hexString(from: NSColor($0)) { hex = value }
-        })
-    }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ViewThatFits(in: .horizontal) {
-                HStack { Text(title); Spacer(); editor }
-                VStack(alignment: .leading) { Text(title); editor }
-            }
-            if normalized == nil, !draft.isEmpty {
-                Text(CaptionStyleCopy.invalidColor).font(.caption).foregroundStyle(.secondary)
-            }
-        }
-        .onAppear { draft = hex }
-        .onChange(of: hex) { _, value in draft = value }
-    }
-    private var editor: some View {
-        HStack {
-            ColorPicker(title, selection: color, supportsOpacity: false).labelsHidden().accessibilityLabel(title)
-            TextField("#RRGGBB", text: $draft)
-                .font(.system(.body, design: .monospaced)).textFieldStyle(.roundedBorder).frame(width: 96)
-                .accessibilityLabel("\(title) \(AppText.floatingColorCode)").onSubmit(apply)
-            Button(AppText.applyFloatingColor, action: apply).disabled(normalized == nil || normalized == hex)
-                .accessibilityLabel("\(title) \(AppText.applyFloatingColor)")
-        }
-    }
-    private func apply() {
-        guard let normalized else { return }
-        hex = normalized
-        draft = normalized
+        .aspectRatio(16 / 9, contentMode: .fit)
     }
 }

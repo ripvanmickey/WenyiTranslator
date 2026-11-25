@@ -7,7 +7,7 @@ enum FloatingCaptionAppearance {
 
     static let defaultTextColorHex = "#FFFFFF"
     static let defaultBackgroundColorHex = "#05080A"
-    static let defaultBackgroundOpacity = 0.86
+    static let defaultBackgroundOpacity = 0.8
     static let defaultCustomPointSize: CGFloat = 0
     static let customPointSizeRange: ClosedRange<CGFloat> = 18...72
     static let opacityRange: ClosedRange<Double> = 0...1

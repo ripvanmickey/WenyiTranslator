@@ -80,7 +80,7 @@ struct StageHeaderView: View {
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            headerControls.fixedSize(horizontal: true, vertical: false)
+            headerControls.frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .leading, spacing: 8) {
                 HStack { SessionStatusPill(session: session); Spacer(); PermissionActionButton(session: session) }
                 languageMenu

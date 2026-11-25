@@ -327,27 +327,22 @@ final class VideoSubtitleOverlayController {
 private struct VideoSubtitleOverlayView: View {
     @Bindable var model: VideoSubtitlePreloadStore
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "line.3.horizontal")
-                    Text(AppText.ui("视频字幕", "Video captions", "動画字幕"))
-                    Spacer(minLength: 0)
-                }
-                .font(.caption).foregroundStyle(.white.opacity(0.6))
-                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
-                .overlay { FloatingCaptionDragSurface().accessibilityHidden(true) }
-                .help(AppText.ui("拖动这里移动字幕", "Drag here to move captions", "ここをドラッグして字幕を移動"))
-                .accessibilityIdentifier("mediaCaptionDragHandle")
-                Button { model.toggleOverlay() } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).foregroundStyle(.white).help(AppText.ui("关闭字幕", "Close captions", "字幕を閉じる"))
-            }
+        let style = UnifiedFloatingCaptionStyle(session: model.captionSession)
+        UnifiedFloatingCaptionSurface(title: AppText.ui("视频字幕", "Video captions", "動画字幕"),
+            style: style, close: { model.toggleOverlay() }) {
             ScrollView {
-                VideoSubtitleTextView(cue: model.activeCue,
-                    placeholder: model.isConnected ? (model.isAd ? AppText.ui("广告播放中", "Ad playing", "広告再生中") : AppText.ui("等待当前时间段的字幕…", "Waiting for captions at this position…", "現在の区間の字幕を待機中…")) : AppText.ui("请在文译中连接浏览器", "Connect your browser in Wenyi.", "文訳でブラウザに接続してください。"),
-                    showsTranslation: model.showsTranslation)
+                if let cue = model.activeCue {
+                    UnifiedFloatingCaptionBlock(source: cue.source,
+                        translation: model.showsTranslation ? cue.translation : "", style: style)
+                } else {
+                    Text(model.isConnected ? (model.isAd ? AppText.ui("广告播放中", "Ad playing", "広告再生中") : AppText.ui("等待当前时间段的字幕…", "Waiting for captions at this position…", "現在の区間の字幕を待機中…")) : AppText.ui("请在文译中连接浏览器", "Connect your browser in Wenyi.", "文訳でブラウザに接続してください。"))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
             }
         }
-        .padding(18).background(Color.black.opacity(0.8), in: RoundedRectangle(cornerRadius: 18))
+        .background(FloatingWindowConfigurator(preferredContentHeight: model.captionSession?.floatingCaptionPreferredWindowHeight ?? 240,
+            minimumWindowSize: NSSize(width: 420, height: 130),
+            keepsAboveOtherWindows: model.captionSession?.keepsFloatingCaptionAboveOtherWindows ?? true,
+            hasCaptionText: model.activeCue != nil))
     }
 }
