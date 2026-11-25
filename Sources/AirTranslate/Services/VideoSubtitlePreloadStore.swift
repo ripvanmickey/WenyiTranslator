@@ -59,13 +59,16 @@ final class VideoSubtitlePreloadStore {
     @ObservationIgnored private var monitoring: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var connectionGeneration = UUID()
-    @ObservationIgnored private let cache = VideoSubtitleCache()
+    @ObservationIgnored private let cache: VideoSubtitleCache
     @ObservationIgnored private let connection: any VideoPlaybackReading
     @ObservationIgnored private let audio = VideoAudioTranscription()
     @ObservationIgnored private let openAI = OpenAITranslationService()
     @ObservationIgnored private var overlay: VideoSubtitleOverlayController?
 
-    init(connection: any VideoPlaybackReading = VideoBrowserConnection()) { self.connection = connection }
+    init(connection: any VideoPlaybackReading = VideoBrowserConnection(), cache: VideoSubtitleCache = VideoSubtitleCache()) {
+        self.connection = connection
+        self.cache = cache
+    }
 
     var translatedCount: Int { document?.cues.filter { !$0.translation.isEmpty }.count ?? 0 }
     private var inputKey: String { input == .imported ? "import:" + importedHash : input.rawValue }
@@ -129,12 +132,14 @@ final class VideoSubtitlePreloadStore {
     func performMainAction() {
         if isPreparing { cancel() }
         else if isConnected || isConnecting { disconnect() }
-        else if document != nil { connect() }
+        else if document != nil { connect(prepareCaptions: true) }
         else { prepare() }
     }
 
-    var canPrepare: Bool {
-        !isConfigurationLocked && (try? YouTubeVideoReference(videoURL)) != nil
+    var canPrepare: Bool { canStartPreparation(whileConnected: false) }
+
+    private func canStartPreparation(whileConnected: Bool) -> Bool {
+        !isPreparing && (!isConfigurationLocked || (whileConnected && isConnected && !isConnecting)) && (try? YouTubeVideoReference(videoURL)) != nil
             && (input != .imported || !imported.isEmpty)
             && !(hasMatchingDocument && document?.completed == true)
     }
@@ -172,8 +177,10 @@ final class VideoSubtitlePreloadStore {
         }
     }
 
-    func prepare() {
-        guard canPrepare, let video = try? YouTubeVideoReference(videoURL) else { return }
+    func prepare() { prepare(whileConnected: false) }
+
+    private func prepare(whileConnected: Bool) {
+        guard canStartPreparation(whileConnected: whileConnected), let video = try? YouTubeVideoReference(videoURL) else { return }
         error = nil; isPreparing = true; progress = 0; activeCue = nil; document = nil
         let source = sourceLanguage, target = targetLanguage, provider = translator, selectedInput = input
         let inputKey = selectedInput == .imported ? "import:" + importedHash : selectedInput.rawValue
@@ -346,7 +353,7 @@ final class VideoSubtitlePreloadStore {
         } catch { self.error = Self.message(for: error) }
     }
 
-    func connect() {
+    func connect(prepareCaptions: Bool = false) {
         disconnect()
         let token = UUID(); connectionGeneration = token
         let selectedBrowser = browser
@@ -354,14 +361,20 @@ final class VideoSubtitlePreloadStore {
         connectionStatusText = MediaLocalizedText("正在连接 \(selectedBrowser.title)…", "Connecting to \(selectedBrowser.title)…", "\(selectedBrowser.title) に接続中…")
         monitoring = Task {
             var initial = true
+            var needsPreparation = prepareCaptions
             while !Task.isCancelled {
                 do {
-                    let snapshot = try await connection.read(selectedBrowser, initial: initial, videoID: document?.videoID ?? connectedVideoID)
+                    let snapshot = try await connection.read(selectedBrowser, initial: initial, videoID: needsPreparation ? nil : document?.videoID ?? connectedVideoID)
                     guard connectionGeneration == token, !Task.isCancelled else { return }
+                    let shouldPrepare = needsPreparation
+                    needsPreparation = false
                     initial = false
                     isConnecting = false
                     let currentVideo = try YouTubeVideoReference(snapshot.url ?? "")
-                    if videoURL.isEmpty { videoURL = currentVideo.url.absoluteString }
+                    if shouldPrepare {
+                        videoURL = currentVideo.url.absoluteString
+                        if !hasMatchingDocument { document = nil; activeCue = nil }
+                    } else if videoURL.isEmpty { videoURL = currentVideo.url.absoluteString }
                     connectedVideoID = currentVideo.id
                     isConnected = true; playbackTime = snapshot.time ?? 0
                     isPaused = snapshot.paused ?? true; isAd = snapshot.ad ?? false
@@ -371,6 +384,7 @@ final class VideoSubtitlePreloadStore {
                         connectionStatusText = isAd ? MediaLocalizedText("广告播放中，字幕暂时隐藏", "Ad playing; captions hidden temporarily", "広告の再生中は字幕を非表示にします") : isPaused ? MediaLocalizedText("已同步 · 已暂停", "Synced · Paused", "同期済み・一時停止中") : MediaLocalizedText("已同步 · \(snapshot.rate ?? 1)×", "Synced · \(snapshot.rate ?? 1)×", "同期済み・\(snapshot.rate ?? 1) 倍速")
                         refreshCue()
                     }
+                    if shouldPrepare { prepare(whileConnected: true) }
                     try await Task.sleep(for: .milliseconds(250))
                 } catch {
                     guard connectionGeneration == token, !Task.isCancelled else { return }

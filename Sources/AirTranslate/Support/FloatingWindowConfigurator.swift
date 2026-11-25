@@ -33,18 +33,11 @@ struct FloatingWindowConfigurator: NSViewRepresentable {
                 height: max(FloatingCaptionWindowController.minimumWindowSize.height, minimumWindowSize.height)
             )
             let targetContentHeight = min(max(preferredContentHeight, safeMinimumSize.height), maximumSize.height)
-            let minimumSize = NSSize(
-                width: safeMinimumSize.width,
-                height: min(max(safeMinimumSize.height, targetContentHeight), maximumSize.height)
-            )
-            window.minSize = minimumSize
-            if window.contentLayoutRect.height + 1 < targetContentHeight {
-                window.setContentSize(
-                    NSSize(
-                        width: max(window.contentLayoutRect.width, minimumSize.width),
-                        height: targetContentHeight
-                    )
-                )
+            window.minSize = safeMinimumSize
+            if abs(window.contentLayoutRect.height - targetContentHeight) > 1 {
+                window.setFrame(FloatingCaptionAppearance.fittedWindowFrame(window.frame,
+                    currentContentHeight: window.contentLayoutRect.height,
+                    targetContentHeight: targetContentHeight), display: true)
             }
             keepWindowVisible(window)
         }

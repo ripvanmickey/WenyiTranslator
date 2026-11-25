@@ -22,6 +22,7 @@ struct FloatingCaptionWindowView: View {
     @State private var stable: [UUID: FloatingParagraphStability] = [:]
     @State private var visibility = FloatingParagraphVisibility()
     @State private var retainedTranslation: CaptionLine?
+    @State private var measuredCaptionHeight: CGFloat = 48
     private static let previewID = UUID()
 
     private var paragraphs: [CaptionLine] {
@@ -46,7 +47,7 @@ struct FloatingCaptionWindowView: View {
               let latest = paragraphs.last, let retainedTranslation, latest.id != retainedTranslation.id else { return false }
         return translation(latest).isEmpty && !translation(retainedTranslation).isEmpty
     }
-    private var preferredHeight: CGFloat { max(160, session.floatingCaptionPreferredWindowHeight) }
+    private var preferredHeight: CGFloat { FloatingCaptionAppearance.compactWindowHeight(contentHeight: measuredCaptionHeight) }
     private var latestText: [String] {
         guard let line = paragraphs.last else { return [] }
         return [source(line), translation(line)]
@@ -80,10 +81,12 @@ struct FloatingCaptionWindowView: View {
                                     }
                                 }
                             }
+                            .fixedSize(horizontal: false, vertical: true)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measuredCaptionHeight = $0 }
                             .overlay(alignment: .bottom) { Color.clear.frame(height: 1).id("live-bottom") }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxHeight: .infinity)
+                        .frame(height: preferredHeight - FloatingCaptionAppearance.compactWindowChromeHeight)
                         .defaultScrollAnchor(.bottom)
                         .onChange(of: latestText) { old, new in
                             // Follow appended words, not late revisions of already read sentences.
@@ -102,7 +105,7 @@ struct FloatingCaptionWindowView: View {
         }
         .frame(minWidth: FloatingCaptionWindowController.minimumWindowSize.width,
             idealWidth: FloatingCaptionWindowController.defaultWindowSize.width,
-            maxWidth: .infinity, minHeight: session.floatingCaptionMinimumWindowHeight,
+            maxWidth: .infinity, minHeight: FloatingCaptionWindowController.minimumWindowSize.height,
             idealHeight: preferredHeight, maxHeight: .infinity)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
             session.floatingCaptionMeasuredTextWidth = max(0, size.width - 48)

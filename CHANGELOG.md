@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.8 - Unreleased
 
+- Build 1272: size live and media floating-caption backgrounds to measured text, shrink previously enlarged windows while preserving their bottom edge, and cap long passages to a scrollable 420-point overlay. Connecting the current video now automatically prepares captions, reusing complete caches and resuming unfinished work with the selected provider.
+
 - Build 1271: remove the original and translation text editors from saved records; retain title editing, copy, Finder access, and record management.
 
 - Build 1270: align plain/action setting notices to the same full-width content column, keep action buttons trailing or beneath notice text on narrow layouts, and left-align the microphone device menu with the other audio controls. Keep floating-caption advanced options permanently expanded, with font size, spacing, opacity, alignment, and window settings directly accessible.

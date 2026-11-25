@@ -84,6 +84,34 @@ struct MediaWorkspaceTests {
         }
     }
 
+    @Test(arguments: [false, true]) func connectCurrentVideoLoadsCompletedCacheWithoutCloudRequests(afterWindowTransition: Bool) async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let cache = VideoSubtitleCache(root: folder)
+        let id = "PMGSdzyRZUw"
+        let saved = VideoSubtitleDocument(videoID: id, title: "Cached video", sourceLanguage: "ja-JP",
+            targetLanguage: "zh-CN", provider: "index", input: "youtube", cues: [
+                .init(id: 0, start: 0, end: 10, source: "Cached source", translation: "缓存译文")])
+        var completed = saved
+        completed.completed = true
+        try await cache.save(completed)
+        var steps: [ScriptedPlaybackReader.Step] = []
+        if afterWindowTransition { steps.append(.failure(.temporary("Window transition"))) }
+        steps.append(.snapshot(.init(url: "https://www.youtube.com/watch?v=\(id)",
+            time: 3, paused: true, rate: 1, ad: false, unsupported: false)))
+        let reader = ScriptedPlaybackReader(steps: steps)
+        let model = VideoSubtitlePreloadStore(connection: reader, cache: cache)
+        model.videoURL = "https://www.youtube.com/watch?v=abcdefghijk"
+        model.connect(prepareCaptions: true)
+        defer { model.disconnect(); model.cancel() }
+        try await waitForPlayback { model.document?.completed == true && !model.isPreparing }
+        #expect(model.isConnected)
+        #expect(model.activeCue?.translation == "缓存译文")
+        #expect((try? YouTubeVideoReference(model.videoURL))?.id == id)
+        #expect(model.error == nil)
+        #expect(await reader.requests.first?.videoID == nil)
+    }
+
     @Test func stoppingDuringReconnectCancelsFurtherReadsAndUnlocksSettings() async throws {
         let reader = ScriptedPlaybackReader(steps: [.failure(.temporary("Window transition"))])
         let model = VideoSubtitlePreloadStore(connection: reader)

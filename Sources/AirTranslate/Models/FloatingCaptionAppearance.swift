@@ -14,6 +14,20 @@ enum FloatingCaptionAppearance {
     static let captionLineSpacing: CGFloat = 5
     static let captionBlockSpacing: CGFloat = 8
     static let windowVerticalPadding: CGFloat = 32
+    // Header (28), gap (8), and outer padding (36), shared by both overlays.
+    static let compactWindowChromeHeight: CGFloat = 72
+
+    static func compactWindowHeight(contentHeight: CGFloat) -> CGFloat {
+        let measured = contentHeight.isFinite ? max(0, contentHeight) : 0
+        return min(420, max(90, ceil(measured) + compactWindowChromeHeight))
+    }
+
+    static func fittedWindowFrame(_ frame: NSRect, currentContentHeight: CGFloat,
+                                  targetContentHeight: CGFloat) -> NSRect {
+        var result = frame
+        result.size.height = max(90, targetContentHeight + max(0, frame.height - currentContentHeight))
+        return result // Preserve the bottom edge and horizontal placement.
+    }
 
     static func clampedCustomPointSize(_ value: CGFloat) -> CGFloat {
         guard value.isFinite, value > 0 else { return defaultCustomPointSize }
