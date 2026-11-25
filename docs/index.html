@@ -33,22 +33,16 @@
       <div>
         <p class="platform">Apple Silicon · macOS 14+ · 支持 macOS 27</p>
         <h1 id="hero-title">Mac 实时<span>双语字幕</span></h1>
-        <p class="lede">看外语视频、听播客或开会时，把系统声音或麦克风转成字幕。原文和译文可以悬浮显示，也可以保存下来回看。</p>
+        <p class="lede">看外语视频、听播客或开会时，让我把你听到的声音变成字幕。原文与译文对照，陪你轻松看懂每一段内容。</p>
         <div class="actions">
           <a class="button" href="https://github.com/ripvanmickey/WenyiTranslator/releases/latest">下载 DMG <span aria-hidden="true">↓</span></a>
           <a href="https://github.com/ripvanmickey/WenyiTranslator">查看源码</a>
         </div>
       </div>
-      <figure class="caption-demo">
-        <div class="caption-window">
-          <div class="caption-toolbar"><span class="caption-live">正在监听</span><span>日语 → 简体中文</span></div>
-          <div class="caption-text">
-            <p class="source" lang="ja">この曲ができた瞬間、<br>風が吹いたような気がしました。</p>
-            <p class="translation">这首歌完成的那一刻，<br>仿佛有一阵风吹了过来。</p>
-          </div>
-        </div>
-        <figcaption>双语字幕示例</figcaption>
-      </figure>
+      <div class="presenter">
+        <p class="greeting">你好，我是文译。<span>让语言，更靠近。</span></p>
+        <img src="./assets/wenyi-presenter.png" width="1067" height="1480" fetchpriority="high" alt="文译角色面带微笑，伸出手介绍 App；青绿色服装搭配橘色装饰，发夹与胸针融入文译双对话气泡标志。">
+      </div>
     </section>
     <section class="details" id="features" aria-labelledby="features-title">
       <h2 id="features-title">从观看到回顾</h2>
@@ -63,20 +57,20 @@
           <p>在应用里下载 Nemotron 或 Qwen3-ASR。翻译可使用同一台 Mac 上的 LM Studio，也可选择仅发送字幕文字的 Index 在线翻译。</p>
         </article>
         <article>
-          <h3>保存与编辑记录</h3>
-          <p>开启保存后，可将原文和译文保存为文本文件。之后可以在文译里回看、编辑和重命名。</p>
+          <h3>保存与管理记录</h3>
+          <p>开启保存后，可将原文和译文保存为文本文件。之后可以复制内容、重命名，或打开保存文件查看。</p>
         </article>
       </div>
     </section>
     <section class="workflow" id="setup" aria-labelledby="setup-title">
       <div>
         <h2 id="setup-title">在 Mac 上开始</h2>
-        <p>文译 1.16.4（构建 1249）适用于 M1 及以上芯片，最低系统为 macOS 14.0，并支持 macOS 27。界面支持简体中文、英语和日语。</p>
+        <p>文译 1.16.9（构建 1273）适用于 M1 及以上芯片，最低系统为 macOS 14.0，并支持 macOS 27。界面支持简体中文、英语和日语。</p>
         <p><a href="https://github.com/ripvanmickey/WenyiTranslator/blob/master/README.zh-CN.md#安装与配置">打开完整安装指南 ↗</a></p>
       </div>
       <ol>
         <li><strong>安装文译。</strong> 打开下载的 DMG，将文译拖到「应用程序」。</li>
-        <li><strong>选择输入。</strong> 使用 Mac 音频或麦克风，按提示授予权限。纯系统音频采集需要 macOS 14.2 或更新版本。</li>
+        <li><strong>选择输入。</strong> 使用 Mac 音频、麦克风，或选择媒体模式连接 YouTube，按提示授予权限。纯系统音频采集需要 macOS 14.2 或更新版本。</li>
         <li><strong>准备识别和翻译。</strong> 在本体模型下载识别模型，按需配置 LM Studio 或选择 Index 在线翻译。</li>
         <li><strong>开始监听。</strong> 选择原文和译文语言，再打开需要的字幕输出。</li>
       </ol>

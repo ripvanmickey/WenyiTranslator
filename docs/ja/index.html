@@ -33,22 +33,16 @@
       <div>
         <p class="platform">Apple Silicon · macOS 14 以降 · macOS 27 対応</p>
         <h1 id="hero-title">Mac で使える<span>リアルタイム二言語字幕</span></h1>
-        <p class="lede">外国語の動画、ポッドキャスト、会議を字幕で追えます。Mac の音声やマイク入力を文字起こしし、原文と訳文をフローティング表示したり、記録として保存したりできます。</p>
+        <p class="lede">動画、ポッドキャスト、会議で聞こえる音声を、私が字幕にします。原文と訳文を並べて、内容の理解をお手伝いします。</p>
         <div class="actions">
           <a class="button" href="https://github.com/ripvanmickey/WenyiTranslator/releases/latest">DMG をダウンロード <span aria-hidden="true">↓</span></a>
           <a href="https://github.com/ripvanmickey/WenyiTranslator">ソースコード</a>
         </div>
       </div>
-      <figure class="caption-demo">
-        <div class="caption-window">
-          <div class="caption-toolbar"><span class="caption-live">聞き取り中</span><span>簡体字中国語 → 日本語</span></div>
-          <div class="caption-text">
-            <p class="source" lang="zh-CN">这首歌完成的那一刻，<br>仿佛有一阵风吹了过来。</p>
-            <p class="translation">この曲ができた瞬間、<br>風が吹いたような気がしました。</p>
-          </div>
-        </div>
-        <figcaption>二言語字幕の表示例</figcaption>
-      </figure>
+      <div class="presenter">
+        <p class="greeting">こんにちは、文訳です。<span>言葉を、もっと近くに。</span></p>
+        <img src="../assets/wenyi-presenter.png" width="1067" height="1480" fetchpriority="high" alt="青緑とオレンジの服を着た文訳のキャラクターが、笑顔でアプリを紹介しています。髪飾りとブローチには二つの吹き出しのロゴが入っています。">
+      </div>
     </section>
     <section class="details" id="features" aria-labelledby="features-title">
       <h2 id="features-title">聞き取りから振り返りまで</h2>
@@ -63,20 +57,20 @@
           <p>アプリ内で Nemotron または Qwen3-ASR をダウンロードできます。翻訳には同じ Mac 上の LM Studio、または翻訳対象のテキストだけを送信する Index オンライン翻訳を使えます。</p>
         </article>
         <article>
-          <h3>文字起こしの保存と編集</h3>
-          <p>原文と訳文をテキストファイルに保存し、文訳で読み返したり、編集したり、名前を変更したりできます。</p>
+          <h3>文字起こしの保存と管理</h3>
+          <p>原文と訳文をテキストファイルに保存し、内容のコピー、名前の変更、保存先のファイルの表示ができます。</p>
         </article>
       </div>
     </section>
     <section class="workflow" id="setup" aria-labelledby="setup-title">
       <div>
         <h2 id="setup-title">Mac で使い始める</h2>
-        <p>文訳 1.16.4（ビルド 1249）は Apple Silicon（M1 以降）と macOS 14.0 以降に対応します。macOS 27 にも対応し、表示言語は日本語、英語、簡体字中国語から選べます。</p>
+        <p>文訳 1.16.9（ビルド 1273）は Apple Silicon（M1 以降）と macOS 14.0 以降に対応します。macOS 27 にも対応し、表示言語は日本語、英語、簡体字中国語から選べます。</p>
         <p><a href="https://github.com/ripvanmickey/WenyiTranslator/blob/master/README.ja.md#インストールと設定">詳しいインストールガイド ↗</a></p>
       </div>
       <ol>
         <li><strong>文訳をインストールします。</strong> DMG を開き、文訳を「アプリケーション」にドラッグします。</li>
-        <li><strong>音声入力を選びます。</strong> Mac の音声またはマイクを選び、必要な権限を許可します。システム音声のみの取り込みには macOS 14.2 以降が必要です。</li>
+        <li><strong>音声入力を選びます。</strong> Mac の音声、マイク、またはメディアモードで YouTube を選び、必要な権限を許可します。システム音声のみの取り込みには macOS 14.2 以降が必要です。</li>
         <li><strong>音声認識と翻訳を設定します。</strong> ローカルモードで音声認識モデルをダウンロードし、必要に応じて LM Studio または Index オンライン翻訳を設定します。</li>
         <li><strong>聞き取りを開始します。</strong> 原文と訳文の言語を選び、字幕に表示する内容を設定します。</li>
       </ol>
