@@ -267,7 +267,7 @@ struct SettingsView: View {
                     .id(mode)
             }
 
-            if mode != .indexOnline && (mode != .apple || !session.localTranslation.enabled) {
+            if session.isJevSelectionAvailable && !session.isUsingLocalTranslation {
             SettingsToggleRow(
                 title: JevCopy.title,
                 detail: session.isJevSelectionAvailable ? JevCopy.detail : JevCopy.appleOnly,
@@ -439,13 +439,6 @@ struct SettingsView: View {
                 showsSeparator: false
             )
 
-            SettingsValueRow(
-                title: AppText.autoDetectInput,
-                detail: autoDetectionDetail,
-                systemImage: "sparkles",
-                value: autoDetectionStatus,
-                showsSeparator: false
-            )
         }
     }
 
@@ -984,25 +977,6 @@ struct SettingsView: View {
         case (true, true):
             return nil
         }
-    }
-
-    private var autoDetectionDetail: String {
-        if session.isUsingQwenTranslation { return QwenCopy.detail(for: session.qwenTranslationModel) }
-        if session.isUsingGrokSTT { return GrokCopy.autoDetectDetail }
-        if session.isUsingNariSTT { return NariCopy.autoDetectDetail }
-        if session.isUsingMetaScribe { return SettingsCopy.metaAutoDetectDetail }
-        if session.isUsingGeminiTranscriptionMode { return SettingsCopy.geminiAutoDetectDetail }
-        return SettingsCopy.autoDetectDetail
-    }
-
-    private var autoDetectionStatus: String {
-        if session.isUsingQwenTranslation { return SettingsCopy.enabled }
-        if session.isUsingGrokSTT { return session.isGrokSourceAutoDetectionEnabled ? SettingsCopy.enabled : SettingsCopy.disabled }
-        if session.isUsingNariSTT {
-            return session.isNariSourceAutoDetectionEnabled ? SettingsCopy.enabled : SettingsCopy.disabled
-        }
-        return session.isUsingGeminiTranscriptionMode || session.isUsingMetaScribe
-            ? SettingsCopy.enabled : SettingsCopy.comingSoon
     }
 
     private var locksForMediaSession: Bool {

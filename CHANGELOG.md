@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1265: show the experimental Jev candidate selector only when the active Apple Speech recognition path supports it; hide the toggle and related notices/key shortcut for Nemotron, Qwen and other unsupported paths. Remove the generic automatic-language-detection status row below the language summary.
+
 - Build 1264: restore the full-width main header with status/languages at the left and engine information at the right; avoid collapsing its spacer to intrinsic width. Unify live/media floating captions and their 16:9 settings preview around one system-font, black translucent, white-source/yellow-translation presentation. Remove skin presets and complex font/effect/color choices. Move font size, spacing, height, alignment, opacity and always-on-top controls into collapsed Advanced options. Reference FluentRead's preview layout with an independent SwiftUI implementation.
 
 - Build 1263: present speech model management from the stable settings-window root instead of nesting its sheet inside local translation sheet presenters. Restore the recognition-engine gear action for local, Index and OpenAI on-device recognition; retain model import, verification and deletion controls.
