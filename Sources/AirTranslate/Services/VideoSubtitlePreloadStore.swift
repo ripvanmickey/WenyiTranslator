@@ -42,6 +42,7 @@ final class VideoSubtitlePreloadStore {
     var isPaused = true
     var isAd = false
     var timingOffset = 0.0
+    var showsTranslation = true
     var overlayVisible = false
     @ObservationIgnored private var imported: [VideoSubtitleCue] = []
     @ObservationIgnored private var importedHash = ""
@@ -82,6 +83,23 @@ final class VideoSubtitlePreloadStore {
         }
         return "\(translatedCount) / \(document.cues.count) 段已准备"
     }
+    var showsImportAction: Bool { input == .imported }
+    var showsOpenAIConfiguration: Bool { input == .openAI || translator == .openAI }
+
+    var mainActionTitle: String {
+        if isPreparing { return "停止准备" }
+        if isConnected { return "停止同步" }
+        if document != nil { return "连接视频" }
+        return "开始预加载"
+    }
+    var canPerformMainAction: Bool { isPreparing || isConnected || document != nil || canPrepare }
+    func performMainAction() {
+        if isPreparing { cancel() }
+        else if isConnected { disconnect() }
+        else if document != nil { connect() }
+        else { prepare() }
+    }
+
     var canPrepare: Bool {
         !isPreparing && (try? YouTubeVideoReference(videoURL)) != nil
             && (input != .imported || !imported.isEmpty)

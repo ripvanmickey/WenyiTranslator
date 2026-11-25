@@ -7,6 +7,7 @@ struct AirTranslateApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = TranslationSessionStore()
     @State private var videoSubtitles = VideoSubtitlePreloadStore()
+    @State private var isMediaInputSelected = false
 
     init() {
         appDelegate.session = session
@@ -14,7 +15,7 @@ struct AirTranslateApp: App {
 
     var body: some Scene {
         WindowGroup("文译", id: AirTranslateWindowID.main) {
-            ContentView(session: session)
+            ContentView(session: session, videoSubtitles: videoSubtitles, isMediaInputSelected: $isMediaInputSelected)
                 .environment(\.locale, AppText.interfaceLocale)
                 .frame(
                     minWidth: AirTranslateDesign.mainWindowMinimumWidth,
@@ -25,15 +26,9 @@ struct AirTranslateApp: App {
         .windowToolbarStyle(.unifiedCompact(showsTitle: true))
         .commands {
             CommandGroup(replacing: .newItem) {}
-            CaptureCommands(session: session)
+            CaptureCommands(session: session, videoSubtitles: videoSubtitles, isMediaInputSelected: $isMediaInputSelected)
             CaptionCommands(session: session)
         }
-
-        WindowGroup("视频字幕预加载", id: AirTranslateWindowID.videoSubtitlePreload) {
-            VideoSubtitlePreloadView(model: videoSubtitles, session: session)
-                .tint(AirTranslateDesign.Palette.accent)
-        }
-        .defaultSize(width: 900, height: 850)
 
         WindowGroup(AppText.floatingCaptionModeChoiceTitle, id: AirTranslateWindowID.floatingCaptionModeChoice) {
             FloatingCaptionModeChoiceView(session: session)
@@ -61,24 +56,28 @@ struct AirTranslateApp: App {
 @MainActor
 private struct CaptureCommands: Commands {
     @Bindable var session: TranslationSessionStore
+    @Bindable var videoSubtitles: VideoSubtitlePreloadStore
+    @Binding var isMediaInputSelected: Bool
 
     var body: some Commands {
         CommandMenu(AppText.capture) {
-            Button(session.captureControlState.phase.actionTitle) {
-                if session.isRunning || session.isStarting {
+            Button(isMediaInputSelected ? videoSubtitles.mainActionTitle : session.captureControlState.phase.actionTitle) {
+                if isMediaInputSelected {
+                    videoSubtitles.performMainAction()
+                } else if session.isRunning || session.isStarting {
                     session.stop()
                 } else {
                     session.start()
                 }
             }
             .keyboardShortcut(.return, modifiers: [.command])
-            .disabled(!session.captureControlState.canToggleCapture)
+            .disabled(isMediaInputSelected ? !videoSubtitles.canPerformMainAction : !session.captureControlState.canToggleCapture)
 
             Button(session.isPaused ? AppText.resume : AppText.pause) {
                 session.isPaused ? session.resume() : session.pause()
             }
             .keyboardShortcut(.space, modifiers: [.command, .shift])
-            .disabled(!session.captureControlState.canTogglePause)
+            .disabled(isMediaInputSelected || !session.captureControlState.canTogglePause)
         }
     }
 }

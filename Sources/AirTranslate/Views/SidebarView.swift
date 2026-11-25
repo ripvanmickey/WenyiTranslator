@@ -238,10 +238,30 @@ struct StageHeaderView: View {
     }
 }
 
+enum MainInputSelection: String, CaseIterable, Identifiable {
+    case systemAudio, microphone, media
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .systemAudio: AudioInputSource.systemAudio.title
+        case .microphone: AudioInputSource.microphone.title
+        case .media: AppText.ui("媒体", "Media", "メディア")
+        }
+    }
+}
+
 struct ConsoleBarView: View {
     @Bindable var session: TranslationSessionStore
+    @Binding var isMediaInputSelected: Bool
+    var media: VideoSubtitlePreloadStore? = nil
     @Environment(\.openSettings) private var openSettings
     @FocusState private var isCaptureFocused: Bool
+
+    init(session: TranslationSessionStore, isMediaInputSelected: Binding<Bool> = .constant(false), media: VideoSubtitlePreloadStore? = nil) {
+        self.session = session
+        self._isMediaInputSelected = isMediaInputSelected
+        self.media = media
+    }
 
     var body: some View {
         consoleSurface
@@ -279,12 +299,22 @@ struct ConsoleBarView: View {
             }
             audioSourceControl
 
-            if session.audioInputSource == .microphone {
+            if !isMediaInputSelected && session.audioInputSource == .microphone {
                 microphoneControl
             }
 
             Spacer(minLength: 0)
-            ProcessingModePicker(session: session)
+            if isMediaInputSelected, let media {
+                Picker(AppText.outputMode, selection: Binding(
+                    get: { media.showsTranslation }, set: { media.showsTranslation = $0 }
+                )) {
+                    Text(AppText.ui("仅原文", "Original Only", "原文のみ")).tag(false)
+                    Text(AppText.ui("原文 + 译文", "Original + Translation", "原文 + 訳文")).tag(true)
+                }
+                .pickerStyle(.segmented).controlSize(.large).labelsHidden().frame(width: 180)
+            } else {
+                ProcessingModePicker(session: session)
+            }
         }
         .padding(.horizontal, AirTranslateDesign.Spacing.sm)
         .padding(.vertical, AirTranslateDesign.Spacing.xs)
@@ -293,24 +323,26 @@ struct ConsoleBarView: View {
 
     private var captureButton: some View {
         Button {
-            if session.isRunning || session.isStarting {
+            if isMediaInputSelected {
+                media?.performMainAction()
+            } else if session.isRunning || session.isStarting {
                 session.stop()
             } else {
                 session.start()
             }
         } label: {
             HStack(spacing: AirTranslateDesign.Spacing.xs) {
-                if session.captureControlState.phase.showsProgress {
+                if isMediaInputSelected ? media?.isPreparing == true : session.captureControlState.phase.showsProgress {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Image(systemName: session.captureControlState.phase.actionSystemImage)
+                    Image(systemName: isMediaInputSelected ? (media?.isConnected == true ? "stop.fill" : "play.fill") : session.captureControlState.phase.actionSystemImage)
                 }
 
                 Text(captureTitle)
                     .lineLimit(1)
 
-                if session.captureControlState.phase == .running {
+                if !isMediaInputSelected && session.captureControlState.phase == .running {
                     AudioLevelWaveform(
                         level: session.latestAudioLevel,
                         date: Date(),
@@ -325,7 +357,7 @@ struct ConsoleBarView: View {
             }
         }
         .buttonStyle(AirPillButtonStyle(kind: captureButtonKind))
-        .disabled(!session.captureControlState.canToggleCapture)
+        .disabled(isMediaInputSelected ? media?.canPerformMainAction != true : !session.captureControlState.canToggleCapture)
         .airFocusRing(cornerRadius: 22, focus: $isCaptureFocused)
         .defaultFocus($isCaptureFocused, true)
         .help(captureTitle)
@@ -341,7 +373,7 @@ struct ConsoleBarView: View {
         }
         .buttonStyle(AirIconButton())
         .airFocusRing(cornerRadius: 18)
-        .disabled(!session.captureControlState.canTogglePause)
+        .disabled(isMediaInputSelected || !session.captureControlState.canTogglePause)
         .help(session.isPaused ? AppText.resume : AppText.pause)
         .accessibilityLabel(session.isPaused ? AppText.resume : AppText.pause)
     }
@@ -355,15 +387,15 @@ struct ConsoleBarView: View {
                 systemImage: session.audioInputSource == .microphone ? "mic.fill" : "speaker.wave.2.fill"
             )
         } else {
-            Picker(AppText.audioInputSource, selection: audioInputSourceBinding) {
-                ForEach(AudioInputSource.allCases) { source in
+            Picker(AppText.audioInputSource, selection: mainInputSelection) {
+                ForEach(MainInputSelection.allCases) { source in
                     Text(source.title).tag(source)
                 }
             }
             .pickerStyle(.segmented)
             .controlSize(.large)
             .labelsHidden()
-            .frame(width: 168)
+            .frame(width: 246)
             .allowsHitTesting(isConfigurationAvailable)
             .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
             .accessibilityLabel(AppText.audioInputSource)
@@ -416,7 +448,7 @@ struct ConsoleBarView: View {
     }
 
     private var isConfigurationAvailable: Bool {
-        !SidebarSessionConfigurationAccess.isLocked(
+        media?.isPreparing != true && !SidebarSessionConfigurationAccess.isLocked(
             isRunning: session.isRunning,
             isStarting: session.isStarting
         )
@@ -430,27 +462,32 @@ struct ConsoleBarView: View {
     }
 
     private var captureTitle: String {
-        session.captureControlState.phase.actionTitle
+        if isMediaInputSelected { return media?.mainActionTitle ?? AppText.startListening }
+        return session.captureControlState.phase.actionTitle
     }
 
     private var captureStateDescription: String {
-        session.captureControlState.statusTitle(statusMessage: session.statusMessage)
+        if isMediaInputSelected { return media?.connectionStatus ?? captureTitle }
+        return session.captureControlState.statusTitle(statusMessage: session.statusMessage)
     }
 
     private var captureButtonKind: AirPillButtonKind {
+        if isMediaInputSelected { return media?.isConnected == true || media?.isPreparing == true ? .stop : .start }
         if session.captureControlState.phase == .paused { return .paused }
         if session.isRunning || session.isStarting { return .stop }
         return .start
     }
 
-    private var audioInputSourceBinding: Binding<AudioInputSource> {
-        Binding(
-            get: { session.audioInputSource },
-            set: { source in
-                guard isConfigurationAvailable else { return }
-                session.audioInputSource = source
+    private var mainInputSelection: Binding<MainInputSelection> {
+        Binding {
+            isMediaInputSelected ? .media : session.audioInputSource == .microphone ? .microphone : .systemAudio
+        } set: { selection in
+            guard isConfigurationAvailable else { return }
+            isMediaInputSelected = selection == .media
+            if selection != .media {
+                session.audioInputSource = selection == .microphone ? .microphone : .systemAudio
             }
-        )
+        }
     }
 
     private var selectedMicrophoneName: String {

@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var session: TranslationSessionStore
+    @Bindable var videoSubtitles: VideoSubtitlePreloadStore
+    @Binding var isMediaInputSelected: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
@@ -12,19 +14,23 @@ struct ContentView: View {
     @State private var isMainCaptionVisible = false
     @State private var captionViewport = CaptionFeedViewportState()
 
-    var body: some View {
+    private var captionWorkspace: some View {
         ZStack(alignment: .top) {
             AirTranslateDesign.Palette.canvas
                 .ignoresSafeArea()
 
             if isMainCaptionVisible {
-                VStack(spacing: 0) {
-                    StageHeaderView(session: session)
-                    CaptionBoardView(session: session, viewportState: $captionViewport)
+                if isMediaInputSelected {
+                    MediaCaptionBoardView(model: videoSubtitles)
+                } else {
+                    VStack(spacing: 0) {
+                        StageHeaderView(session: session)
+                        CaptionBoardView(session: session, viewportState: $captionViewport)
+                    }
                 }
 
                 VStack(spacing: AirTranslateDesign.Spacing.xs) {
-                    if let failureMessage = session.captureStartFailureMessage {
+                    if !isMediaInputSelected, let failureMessage = session.captureStartFailureMessage {
                         CaptureStartFailureView(
                             message: failureMessage,
                             recoveryAction: session.captureStartRecoveryAction,
@@ -34,7 +40,7 @@ struct ContentView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
-                    if let toastMessage = session.toastMessage {
+                    if !isMediaInputSelected, let toastMessage = session.toastMessage {
                         ToastMessageView(message: toastMessage)
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
@@ -43,12 +49,33 @@ struct ContentView: View {
                 .padding(.horizontal, AirTranslateDesign.Spacing.lg)
             }
         }
+
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            captionWorkspace
+                .frame(minWidth: isMediaInputSelected ? 450 : AirTranslateDesign.mainWindowMinimumWidth)
+            if isMediaInputSelected {
+                Divider()
+                VideoSubtitlePreloadView(model: videoSubtitles, session: session)
+                    .frame(width: 380)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if isMainCaptionVisible {
-                ConsoleBarView(session: session)
+                ConsoleBarView(session: session, isMediaInputSelected: $isMediaInputSelected, media: videoSubtitles)
                     .padding(.horizontal, AirTranslateDesign.Spacing.lg)
                     .padding(.top, AirTranslateDesign.Spacing.xs)
                     .padding(.bottom, AirTranslateDesign.Spacing.md)
+            }
+        }
+        .animation(reduceMotion ? nil : AirTranslateDesign.Motion.enter, value: isMediaInputSelected)
+        .onChange(of: isMediaInputSelected) { _, selected in
+            if !selected {
+                videoSubtitles.disconnect()
+                if videoSubtitles.overlayVisible { videoSubtitles.toggleOverlay() }
             }
         }
         .background {
@@ -58,14 +85,6 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    openWindow(id: AirTranslateWindowID.videoSubtitlePreload)
-                } label: {
-                    Image(systemName: "play.rectangle.on.rectangle")
-                }
-                .help("视频字幕预加载")
-                .accessibilityLabel("视频字幕预加载")
-
                 if let update = updates.availableUpdate {
                     Button {
                         openURL(update.downloadURL)
@@ -88,16 +107,16 @@ struct ContentView: View {
                 Button {
                     toggleFloatingCaptions()
                 } label: {
-                    Image(systemName: isFloatingCaptionVisible ? "captions.bubble.fill" : "captions.bubble")
+                    Image(systemName: floatingCaptionsVisible ? "captions.bubble.fill" : "captions.bubble")
                 }
                 .help(AppText.floatingCaptions)
                 .accessibilityLabel(AppText.floatingCaptions)
                 .accessibilityValue(
-                    isFloatingCaptionVisible
+                    floatingCaptionsVisible
                         ? AppText.floatingCaptionPowerOn
                         : AppText.floatingCaptionPowerOff
                 )
-                .accessibilityAddTraits(isFloatingCaptionVisible ? .isSelected : [])
+                .accessibilityAddTraits(floatingCaptionsVisible ? .isSelected : [])
             }
 
             ToolbarItem(placement: .primaryAction) {
@@ -166,7 +185,15 @@ struct ContentView: View {
         }
     }
 
+    private var floatingCaptionsVisible: Bool {
+        isMediaInputSelected ? videoSubtitles.overlayVisible : isFloatingCaptionVisible
+    }
+
     private func toggleFloatingCaptions() {
+        if isMediaInputSelected {
+            videoSubtitles.toggleOverlay()
+            return
+        }
         CaptionControlActions.toggleVisibility(session: session, using: openWindow)
         syncFloatingCaptionVisibility()
     }

@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1251: add Media beside Mac Audio and Microphone. Move video preloading and browser sync controls into a right-hand main-window sidebar, and display prepared captions in the shared left workspace. Import and OpenAI configuration actions appear inline only for applicable selections. Media actions and keyboard shortcuts do not start live audio capture.
+
 - Make OpenAI video-audio preloading progressive: recognize a phrase, persist its source text and audio checkpoint, translate it, and expose the whole caption before recognizing later phrases. Playback no longer waits for full-track recognition. The initial audio download is still required.
 - Persist the original audio segmentation and completed-range cursor so interrupted jobs reuse recognized phrases, including ranges without speech. Retry a failed translation from saved text without uploading that audio again. Older complete-source caches remain compatible.
 - Show how far translated captions are ready for playback and distinguish continuing audio preparation from filling missing translations.
