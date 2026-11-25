@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1257: keep the native Mac Audio / Microphone / Media tabs visible but prevent mode changes during capture, startup, media preparation, or browser sync (including pause). Clicking the locked tabs asks the user to end the current recording first. Guard the selection binding and media-sidebar close action as well.
+
 - Retain the main media caption and its neighbouring reading context during silent gaps and playback pauses. Re-anchor on seek; keep floating overlays restricted to each cue's actual timing.
 
 - Lock session-affecting settings and media source/model selectors while media preparation or browser sync is active, including paused sync. Unlock on stop and retain display controls and disconnect actions.

@@ -17,7 +17,7 @@ struct VideoSubtitlePreloadView: View {
                     Spacer()
                     Button(action: onClose) { Image(systemName: "xmark").font(.system(size: 13)) }
                         .buttonStyle(.plain).foregroundStyle(.secondary)
-                        .disabled(model.isPreparing).help(AppText.ui("关闭媒体设置", "Close Media Settings", "メディア設定を閉じる"))
+                        .disabled(model.isConfigurationLocked).help(AppText.ui("关闭媒体设置", "Close Media Settings", "メディア設定を閉じる"))
                         .accessibilityIdentifier("closeMediaSidebar")
                 }
                 note("继续在 Chrome／Safari 播放 YouTube，字幕跟随视频时间显示。")

@@ -10,8 +10,8 @@ struct SidebarView: View {
 }
 
 enum SidebarSessionConfigurationAccess {
-    static func isLocked(isRunning: Bool, isStarting: Bool) -> Bool {
-        isRunning || isStarting
+    static func isLocked(isRunning: Bool, isStarting: Bool, isMediaActive: Bool = false) -> Bool {
+        isRunning || isStarting || isMediaActive
     }
 
     static func segmentedControlPresentation(
@@ -255,6 +255,7 @@ struct ConsoleBarView: View {
     @Binding var isMediaInputSelected: Bool
     var media: VideoSubtitlePreloadStore? = nil
     @Environment(\.openSettings) private var openSettings
+    @State private var showsInputLockedAlert = false
     @FocusState private var isCaptureFocused: Bool
 
     init(session: TranslationSessionStore, isMediaInputSelected: Binding<Bool> = .constant(false), media: VideoSubtitlePreloadStore? = nil) {
@@ -265,6 +266,9 @@ struct ConsoleBarView: View {
 
     var body: some View {
         consoleSurface
+        .alert(AppText.ui("请先结束当前录制", "Please end the current recording first", "現在の収録を終了してください"), isPresented: $showsInputLockedAlert) {
+            Button(AppText.ui("好", "OK", "OK"), role: .cancel) {}
+        }
         .onAppear {
             Task { @MainActor in
                 await Task.yield()
@@ -383,27 +387,28 @@ struct ConsoleBarView: View {
         .accessibilityLabel(session.isPaused ? AppText.resume : AppText.pause)
     }
 
-    @ViewBuilder
     private var audioSourceControl: some View {
-        if segmentedControlPresentation == .lockedSummary {
-            LockedConsoleSummary(
-                title: AppText.audioInputSource,
-                value: session.audioInputSource.title,
-                systemImage: session.audioInputSource == .microphone ? "mic.fill" : "speaker.wave.2.fill"
-            )
-        } else {
-            Picker(AppText.audioInputSource, selection: mainInputSelection) {
-                ForEach(MainInputSelection.allCases) { source in
-                    Text(source.title).tag(source)
-                }
+        Picker(AppText.audioInputSource, selection: mainInputSelection) {
+            ForEach(MainInputSelection.allCases) { source in
+                Text(source.title).tag(source)
             }
-            .pickerStyle(.segmented)
-            .controlSize(.large)
-            .labelsHidden()
-            .frame(width: 246)
-            .allowsHitTesting(isConfigurationAvailable)
-            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
-            .accessibilityLabel(AppText.audioInputSource)
+        }
+        .pickerStyle(.segmented)
+        .controlSize(.large)
+        .labelsHidden()
+        .frame(width: 246)
+        .disabled(!isConfigurationAvailable)
+        .accessibilityLabel(AppText.audioInputSource)
+        .overlay {
+            if !isConfigurationAvailable {
+                // Keep the system tabs visible; intercept attempts without changing selection.
+                Button { showsInputLockedAlert = true } label: {
+                    Color.clear.contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppText.ui("请先结束当前录制", "Please end the current recording first", "現在の収録を終了してください"))
+                .accessibilityIdentifier("lockedMainInputSelection")
+            }
         }
     }
 
@@ -453,15 +458,16 @@ struct ConsoleBarView: View {
     }
 
     private var isConfigurationAvailable: Bool {
-        media?.isPreparing != true && !SidebarSessionConfigurationAccess.isLocked(
+        !SidebarSessionConfigurationAccess.isLocked(
             isRunning: session.isRunning,
-            isStarting: session.isStarting
+            isStarting: session.isStarting,
+            isMediaActive: media?.isConfigurationLocked == true
         )
     }
 
     private var segmentedControlPresentation: SidebarSegmentedControlPresentation {
         SidebarSessionConfigurationAccess.segmentedControlPresentation(
-            isRunning: session.isRunning,
+            isRunning: session.isRunning || media?.isConfigurationLocked == true,
             isStarting: session.isStarting
         )
     }
@@ -490,7 +496,10 @@ struct ConsoleBarView: View {
         Binding {
             isMediaInputSelected ? .media : session.audioInputSource == .microphone ? .microphone : .systemAudio
         } set: { selection in
-            guard isConfigurationAvailable else { return }
+            guard isConfigurationAvailable else {
+                showsInputLockedAlert = true
+                return
+            }
             isMediaInputSelected = selection == .media
             if selection != .media {
                 session.audioInputSource = selection == .microphone ? .microphone : .systemAudio
