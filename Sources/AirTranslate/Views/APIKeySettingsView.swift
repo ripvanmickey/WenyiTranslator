@@ -6,13 +6,9 @@ struct APIKeySettingsView: View {
     @State private var expandedProvider: CredentialProvider?
     @State private var showsStorageInfo = false
 
-    private var visibleProviders: [CredentialProvider] { CredentialProvider.allCases.filter { $0 != .openRouter } }
+    private var visibleProviders: [CredentialProvider] { CredentialProvider.selectableCases }
     private var keyedProviders: [CredentialProvider] { visibleProviders.filter { $0 != .indexOnline } }
     private var isLocked: Bool { session.isRunning || session.isStarting }
-    private var validAzureConfiguration: Bool {
-        session.hasAzureConfiguration
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -39,7 +35,7 @@ struct APIKeySettingsView: View {
                         detail: detail(for: provider),
                         consoleURL: provider.consoleURL,
                         hasKey: hasKey(provider),
-                        needsConfiguration: (provider == .azure && !validAzureConfiguration) || (provider == .qwen && !session.hasQwenConfiguration),
+                        needsConfiguration: provider == .qwen && !session.hasQwenConfiguration,
                         isCurrent: activeProvider == provider,
                         isLocked: isLocked,
                         requiresAPIKey: provider != .indexOnline,
@@ -52,7 +48,6 @@ struct APIKeySettingsView: View {
                         removeKey: { try remove(provider) }
                     ) {
                         if provider == .indexOnline { indexAPIConfiguration }
-                        if provider == .azure { azureConfiguration }
                         if provider == .qwen { qwenConfiguration }
                     }
                     .id(provider.rawValue)
@@ -151,50 +146,6 @@ struct APIKeySettingsView: View {
             .help(QwenCopy.workspaceHint)
             Text(QwenCopy.workspaceHint).font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var azureConfiguration: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Picker(AzureMAICopy.modelLabel, selection: Binding(
-                get: { session.azureTranscriptionModel },
-                set: { if !isLocked { session.azureTranscriptionModel = $0 } }
-            )) {
-                ForEach(AzureTranscriptionModel.allCases) { model in Text(model.title).tag(model) }
-            }
-            .disabled(isLocked)
-            .accessibilityIdentifier("azureCredentialModelPicker")
-            Text(CredentialsCopy.endpoint).font(.caption.weight(.medium))
-            TextField(session.azureTranscriptionModel.isStreaming ? "https://….services.ai.azure.com" : "https://….cognitiveservices.azure.com", text: Binding(
-                get: { session.azureSelectedEndpoint },
-                set: {
-                    guard !isLocked else { return }
-                    if session.azureTranscriptionModel.isStreaming { session.maiStreamingEndpoint = $0 }
-                    else { session.azureSpeechEndpoint = $0 }
-                }
-            ))
-            .textFieldStyle(.roundedBorder)
-            .disabled(isLocked)
-            .accessibilityLabel(session.azureTranscriptionModel.isStreaming ? AzureMAICopy.streamingEndpointLabel : AzureMAICopy.endpointLabel)
-            .help(AzureMAICopy.configurationRequired)
-            if session.azureTranscriptionModel.isStreaming {
-                TextField(AzureMAICopy.deploymentLabel, text: Binding(
-                    get: { session.maiStreamingDeployment },
-                    set: { if !isLocked { session.maiStreamingDeployment = $0.trimmingCharacters(in: .whitespacesAndNewlines) } }
-                ))
-                .textFieldStyle(.roundedBorder)
-                .disabled(isLocked)
-                .accessibilityLabel(AzureMAICopy.deploymentLabel)
-                .accessibilityIdentifier("maiStreamingDeployment")
-                Text(AzureMAICopy.streamingConfigurationDetail).font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if !session.hasValidAzureEndpoint {
-                Label(session.azureTranscriptionModel.isStreaming ? AzureMAICopy.streamingEndpointRequired : CredentialsCopy.endpointRequired, systemImage: "exclamationmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 
@@ -313,6 +264,9 @@ struct APIKeySettingsView: View {
 
 enum CredentialProvider: String, CaseIterable, Identifiable {
     case openAI, gemini, meta, azure, nari, grok, qwen, openRouter, jev, indexOnline
+    // Retain legacy identifiers for compatibility, without configuration entries.
+    static let selectableCases: [Self] = [.openAI, .gemini, .meta, .grok, .qwen, .indexOnline]
+    var isAvailable: Bool { Self.selectableCases.contains(self) }
     var id: String { rawValue }
     var title: String {
         switch self {

@@ -37,7 +37,7 @@ extension ProcessingEngine {
 
     @MainActor
     func canSelect(in session: TranslationSessionStore) -> Bool {
-        hasRequiredKey(in: session)
+        isAvailable && hasRequiredKey(in: session)
             && !SidebarSessionConfigurationAccess.isLocked(isRunning: session.isRunning, isStarting: session.isStarting)
     }
 

@@ -1,3 +1,5 @@
+**Build 1267:** Azure/MAI, Nari and Jev integrations are paused and their configuration entries removed. Older setup descriptions do not apply to this build. [Details](docs/paused-integrations.md).
+
 <p align="center">
   <a href="#installation-and-setup"><img src="./docs/readme-banner-en.svg" alt="Wenyi — Live Captions &amp; Translation for Mac" width="100%"></a>
 </p>

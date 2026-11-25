@@ -38,6 +38,9 @@ enum ProcessingEngine: String, CaseIterable, Identifiable {
     case grok
     case qwen
 
+    // Paused integrations remain decodable, but cannot be selected.
+    static let selectableCases: [Self] = [.apple, .indexOnline, .openAI, .gemini, .meta, .grok, .qwen]
+    var isAvailable: Bool { Self.selectableCases.contains(self) }
     var id: String { rawValue }
 
     var title: String {

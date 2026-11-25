@@ -1,3 +1,5 @@
+**Build 1267：** Azure／MAI、Nari、Jev の連携を一時停止し、設定項目を削除しました。旧バージョンの設定手順は現在のビルドには適用されません。[詳細](docs/paused-integrations.md)。
+
 <p align="center">
   <a href="#インストールと設定"><img src="./docs/readme-banner-ja.svg" alt="文訳 Wenyi｜リアルタイム文字起こし、二言語字幕、ローカル翻訳" width="100%"></a>
 </p>

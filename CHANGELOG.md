@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1267: remove Azure/MAI, Nari and Jev configuration entries and disable legacy selection/restore paths. Older Azure/Nari selections fall back to local recognition; Jev stays off. Preserve stored credentials without querying retired providers at launch. Restore MAI voice preferences to Apple; initialize unused realtime playback nodes only when audio is played, so settings restoration does not require an audio component.
+
 - Build 1266: segment Gemini Live translation into sentence-prefix paragraphs and finalize/reset each completed turn; preserve interrupted text without marking it translated. Add Gemini 3.5 Transcribe as a media audio source with an inline Gemini credential shortcut, phrase checkpointing, provider-specific caches and existing browser sync. Validate request/response contracts and stream events without uploading user audio.
 
 - Build 1265: show the experimental Jev candidate selector only when the active Apple Speech recognition path supports it; hide the toggle and related notices/key shortcut for Nemotron, Qwen and other unsupported paths. Remove the generic automatic-language-detection status row below the language summary.

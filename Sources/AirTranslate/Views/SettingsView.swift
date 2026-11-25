@@ -214,7 +214,7 @@ struct SettingsView: View {
                 controlBelowLabel: true
             ) {
                 Picker(SettingsCopy.processingEngine, selection: processingModeSelection) {
-                    ForEach(ProcessingEngine.allCases) { mode in
+                    ForEach(ProcessingEngine.selectableCases) { mode in
                         Text(mode.settingsMenuTitle(in: session)).tag(mode)
                     }
                 }
@@ -265,33 +265,6 @@ struct SettingsView: View {
             if mode.usesOnDeviceRecognition {
                 LocalTranslationSettingsView(session: session, isOnlineIndex: mode == .indexOnline, onManageSpeechModel: { showsSpeechModelManagement = true })
                     .id(mode)
-            }
-
-            if session.isJevSelectionAvailable && !session.isUsingLocalTranslation {
-            SettingsToggleRow(
-                title: JevCopy.title,
-                detail: session.isJevSelectionAvailable ? JevCopy.detail : JevCopy.appleOnly,
-                systemImage: "text.badge.checkmark",
-                detailLineLimit: nil,
-                isOn: lockedSessionConfigurationBinding($session.isJevSelectionEnabled)
-            )
-            .disabled(isSessionConfigurationLocked || !session.isJevSelectionAvailable || session.isUsingLocalTranslation)
-            .accessibilityIdentifier("jevSelectionToggle")
-
-            if session.isUsingJevSelection {
-                SettingsNoticeRow(
-                    text: session.hasJevAPIKey ? session.jevSelectionStatus : JevCopy.keyRequired,
-                    systemImage: session.hasJevAPIKey ? "info.circle" : "key"
-                )
-            }
-
-            if session.isUsingJevSelection && !session.hasJevAPIKey {
-                Button(JevCopy.keySettings) { session.requestAPIKeySettings(provider: .jev) }
-                    .disabled(isSessionConfigurationLocked)
-                    .accessibilityIdentifier("jevAPIKeySettings")
-                    .padding(.leading, settingsLabelIndent)
-            }
-
             }
 
             if processingModeSelection.wrappedValue == .gemini {
@@ -348,38 +321,6 @@ struct SettingsView: View {
                 }
             }
 
-            if processingModeSelection.wrappedValue == .azure {
-                SettingsControlRow(
-                    title: AzureMAICopy.modelLabel,
-                    detail: "",
-                    systemImage: "waveform",
-                    controlBelowLabel: true
-                ) {
-                    Picker(AzureMAICopy.modelLabel, selection: lockedSessionConfigurationBinding($session.azureTranscriptionModel)) {
-                        ForEach(AzureTranscriptionModel.allCases) { model in
-                            Text(model.title).tag(model)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .fixedSize(horizontal: true, vertical: false)
-                    .disabled(isSessionConfigurationLocked)
-                    .accessibilityIdentifier("settingsAzureModelPicker")
-                }
-                SettingsNoticeRow(text: AzureMAICopy.detail(for: session.azureTranscriptionModel), systemImage: "waveform")
-                if let azureConfigurationIssue {
-                    SettingsNoticeActionRow(
-                        text: azureConfigurationIssue,
-                        systemImage: "key",
-                        actionTitle: SettingsCopy.configureAPIKey
-                    ) {
-                        selectedCategory.wrappedValue = .apiKeys
-                    }
-                }
-            }
-            if processingModeSelection.wrappedValue == .nari {
-                nariGeneralSettings
-            }
             if processingModeSelection.wrappedValue == .qwen {
                 qwenGeneralSettings
             }
@@ -870,52 +811,6 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private var nariGeneralSettings: some View {
-        SettingsControlRow(
-            title: NariCopy.modelLabel,
-            detail: NariCopy.modelDetail + "\n" + session.nariTranscriptionModel.billingSummary,
-            systemImage: "waveform.badge.mic",
-            controlBelowLabel: true
-        ) {
-            Picker(NariCopy.modelLabel, selection: lockedSessionConfigurationBinding($session.nariTranscriptionModel)) {
-                ForEach(NariTranscriptionModel.selectableCases) { model in
-                    Text(model.title).tag(model)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .fixedSize(horizontal: true, vertical: false)
-            .disabled(isSessionConfigurationLocked)
-            .accessibilityLabel(NariCopy.modelLabel)
-            .accessibilityValue(session.nariTranscriptionModel.title)
-        }
-
-        SettingsControlRow(
-            title: AppText.autoDetectInput,
-            detail: NariCopy.autoDetectDetail,
-            systemImage: "globe",
-            controlBelowLabel: true
-        ) {
-            Toggle("", isOn: lockedSessionConfigurationBinding($session.isNariSourceAutoDetectionEnabled))
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .disabled(isSessionConfigurationLocked)
-                .accessibilityLabel(AppText.autoDetectInput)
-        }
-
-        SettingsNoticeRow(text: NariCopy.detail, systemImage: "waveform")
-        if !session.hasNariAPIKey {
-            SettingsNoticeActionRow(
-                text: NariCopy.configurationRequired,
-                systemImage: "key",
-                actionTitle: SettingsCopy.configureAPIKey
-            ) {
-                selectedCategory.wrappedValue = .apiKeys
-            }
-        }
-    }
-
-    @ViewBuilder
     private var grokGeneralSettings: some View {
         SettingsControlRow(
             title: GrokCopy.modelLabel,
@@ -965,20 +860,6 @@ struct SettingsView: View {
         ProcessingEngine.current(for: session)
     }
 
-    private var azureConfigurationIssue: String? {
-        let hasValidEndpoint = session.hasAzureConfiguration
-        switch (hasValidEndpoint, session.hasAzureSpeechAPIKey) {
-        case (false, false):
-            return AzureMAICopy.configurationRequired
-        case (false, true):
-            return session.azureTranscriptionModel.isStreaming ? AzureMAICopy.configurationRequired : AzureMAICopy.endpointRequired
-        case (true, false):
-            return AzureMAICopy.keyRequired
-        case (true, true):
-            return nil
-        }
-    }
-
     private var locksForMediaSession: Bool {
         switch selectedCategory.wrappedValue {
         case .general, .apiKeys, .audio, .output, .transcript, .assets: true
@@ -1020,7 +901,7 @@ struct SettingsView: View {
         Binding {
             selectedProcessingMode
         } set: { mode in
-            guard !isSessionConfigurationLocked, mode != selectedProcessingMode else { return }
+            guard !isSessionConfigurationLocked, mode.isAvailable, mode != selectedProcessingMode else { return }
             switch mode {
             case .apple:
                 session.useAppleDefaultMode()

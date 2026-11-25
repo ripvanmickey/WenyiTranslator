@@ -1,3 +1,5 @@
+**Build 1267：** 暂停 Azure／MAI、Nari 和 Jev，移除其配置入口。下方历史版本介绍中的相关配置不适用于当前构建。[变更说明](docs/paused-integrations.md)。
+
 <p align="center">
   <a href="#安装与配置"><img src="./docs/readme-banner.svg" alt="文译 Wenyi｜实时语音转写、双语字幕与本地翻译" width="100%"></a>
 </p>

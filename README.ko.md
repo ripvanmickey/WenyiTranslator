@@ -1,3 +1,5 @@
+**Build 1267:** Azure/MAI, Nari 및 Jev 연동을 일시 중단하고 설정 항목을 제거했습니다. 이전 버전의 관련 설정 안내는 현재 빌드에 적용되지 않습니다. [자세히](docs/paused-integrations.md).
+
 <p align="center">
   <img src="docs/assets/airtranslate-readme-hero.png" alt="AirTranslate" width="720">
 </p>

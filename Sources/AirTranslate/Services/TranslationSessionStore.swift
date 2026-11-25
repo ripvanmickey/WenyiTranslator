@@ -617,14 +617,14 @@ final class TranslationSessionStore {
     }
     var hasOpenAIAPIKey = OpenAIAPIKeyStore.hasAPIKey()
     var hasGeminiAPIKey = GeminiAPIKeyStore.hasAPIKey()
-    var hasAzureSpeechAPIKey = AzureSpeechAPIKeyStore.hasAPIKey()
+    var hasAzureSpeechAPIKey = false // Integration paused; do not query its credentials on launch.
     var hasOpenRouterAPIKey = OpenRouterAPIKeyStore.hasAPIKey()
-    var hasJevAPIKey = JevAPIKeyStore.hasAPIKey()
+    var hasJevAPIKey = false // Integration paused; do not query its credentials on launch.
     var jevSelectionStatus = JevCopy.ready
     @ObservationIgnored private let jevSelector = JevTranscriptSelector()
     // 이미 큐에 있던 확정 요청의 판단만 다음 번역까지 보관한다. 다른 세션이나 입력에 재사용하지 않는다.
     @ObservationIgnored private var bufferedJevSelections: [UUID: JevTranscriptSelection] = [:]
-    var hasNariAPIKey = NariAPIKeyStore.hasAPIKey()
+    var hasNariAPIKey = false // Integration paused; do not query its credentials on launch.
     var nariTranscriptionModel = NariTranscriptionModel.off {
         didSet {
             if nariTranscriptionModel.isEnabled {
@@ -781,7 +781,7 @@ final class TranslationSessionStore {
     private(set) var maiVoiceCatalogMessage: String?
 
     func refreshMAIVoices() async {
-        guard speechSynthesisModel.isMAIVoice else { return }
+        guard CredentialProvider.openRouter.isAvailable, speechSynthesisModel.isMAIVoice else { return }
         let model = speechSynthesisModel
         let languageID = targetLanguage.id
         maiVoiceCatalogMessage = MAIVoiceCopy.loadingVoices
@@ -1031,7 +1031,7 @@ final class TranslationSessionStore {
         }
     }
     var isJevSelectionAvailable: Bool {
-        !whisperRecognitionEnabled && !isTranscribeOnlyMode && usesAppleSpeechTranscriber(for: currentStartConfiguration())
+        false // Jev is paused; legacy preferences must never activate requests.
     }
     var processingEngineTitle: String {
         let quality = isUsingAppleTextTranslation && appleTranslationOptions.effectiveQuality == .highQuality
@@ -2110,7 +2110,7 @@ final class TranslationSessionStore {
             maiStreamingDeployment: maiStreamingDeployment,
             usesMetaSpeakerLabels: isMetaSpeakerLabelsEnabled,
             usesAppleSourceAutoDetection: isUsingAppleSourceAutoDetection,
-            usesJevSelection: isUsingLocalTranslation ? false : isJevSelectionEnabled,
+            usesJevSelection: isUsingJevSelection,
             appleTranslationOptions: appleTranslationOptions,
             localTranslation: localTranslation
         )
@@ -2577,6 +2577,7 @@ final class TranslationSessionStore {
     }
 
     func requestAPIKeySettings(provider: CredentialProvider? = nil) {
+        guard provider?.isAvailable != false else { return }
         requestedAPIKeyProvider = provider
         requestedSettingsCategoryID = "apiKeys"
     }
@@ -2710,7 +2711,7 @@ final class TranslationSessionStore {
     }
 
     func useAzureMAIMode() {
-        guard !isRunning, !isStarting else { return }
+        guard ProcessingEngine.azure.isAvailable, !isRunning, !isStarting else { return }
         clearTranscribeOnlyNotice(resetActivation: true)
         isUsingAzureMAI = true
         applyAppleVoiceOutputDefault()
@@ -2718,7 +2719,7 @@ final class TranslationSessionStore {
     }
 
     func useNariSTTMode() {
-        guard !isRunning, !isStarting else { return }
+        guard ProcessingEngine.nari.isAvailable, !isRunning, !isStarting else { return }
         selectedModel = .appleSpeechOnly
         if !isUsingNariSTT {
             nariTranscriptionModel = .qwen3ASRFast
@@ -4860,7 +4861,7 @@ final class TranslationSessionStore {
         }
         if let modelID = defaults.string(forKey: SettingsKey.speechSynthesisModelID),
            let model = SpeechSynthesisModel(rawValue: modelID) {
-            speechSynthesisModel = model
+            speechSynthesisModel = model.isMAIVoice ? .appleSystem : model
         }
         if defaults.object(forKey: SettingsKey.translatedVoiceVolume) != nil {
             translatedVoiceVolume = Self.clampedVolume(defaults.double(forKey: SettingsKey.translatedVoiceVolume))
@@ -4868,7 +4869,7 @@ final class TranslationSessionStore {
         appleTranslationQuality = defaults.string(forKey: SettingsKey.appleTranslationQuality)
             .flatMap(AppleTranslationQuality.init(rawValue:)) ?? .realtime
         appleProtectedTermsText = String((defaults.string(forKey: SettingsKey.appleProtectedTermsText) ?? "").prefix(8_000))
-        isJevSelectionEnabled = defaults.bool(forKey: SettingsKey.isJevSelectionEnabled)
+        isJevSelectionEnabled = false
         if defaults.object(forKey: SettingsKey.isTranscriptLintEnabled) != nil {
             isTranscriptLintEnabled = defaults.bool(forKey: SettingsKey.isTranscriptLintEnabled)
         }
@@ -4977,13 +4978,13 @@ final class TranslationSessionStore {
         maiStreamingEndpoint = defaults.string(forKey: "maiStreamingEndpoint") ?? ""
         maiStreamingDeployment = defaults.string(forKey: "maiStreamingDeployment") ?? ""
         maiVoiceName = defaults.string(forKey: "maiVoiceName") ?? ""
-        let restoredAzureMode = defaults.bool(forKey: "azureMAIEnabled")
+        let retiredAzureWasSelected = defaults.bool(forKey: "azureMAIEnabled")
         let restoredGPTTranscriptionMode =
             defaults.string(forKey: SettingsKey.openAITranscriptionModelID)
             == OpenAIRealtimeTranscriptionModel.gptLiveTranscribe.rawValue
         let restoredGeminiTranscriptionMode = geminiTranslationModel.isTranscription
         let restoredMetaTranscriptionMode = metaTranscriptionModel.isEnabled
-        let restoredNariModel = defaults.string(forKey: SettingsKey.nariTranscriptionModelID)
+        let retiredNariModel = defaults.string(forKey: SettingsKey.nariTranscriptionModelID)
             .flatMap(NariTranscriptionModel.init(rawValue:)) ?? .off
         isNariSourceAutoDetectionEnabled = defaults.bool(forKey: SettingsKey.nariSourceAutoDetectionEnabled)
         let restoredGrokModel = defaults.string(forKey: SettingsKey.grokTranscriptionModelID)
@@ -5005,11 +5006,6 @@ final class TranslationSessionStore {
         } else if restoredGrokModel.isEnabled {
             grokTranscriptionModel = restoredGrokModel
             if selectedModel == .appleSpeechOnly { prepareTranscribeOnlyPresentation() }
-        } else if restoredNariModel.isEnabled {
-            nariTranscriptionModel = restoredNariModel
-            if selectedModel == .appleSpeechOnly { prepareTranscribeOnlyPresentation() }
-        } else if restoredAzureMode {
-            isUsingAzureMAI = true
         } else if restoredGPTTranscriptionMode {
             if floatingCaptionDisplayModeBeforeTranscribeOnly == nil {
                 floatingCaptionDisplayModeBeforeTranscribeOnly = floatingCaptionDisplayMode
@@ -5041,6 +5037,15 @@ final class TranslationSessionStore {
         } else if openAITranscriptionModel == .gptRealtimeWhisper {
             openAITranscriptionModel = .off
         }
+        // Do not resurrect retired providers from older installations. Keep any
+        // supported provider and local recognition/language preferences intact.
+        if (retiredAzureWasSelected || retiredNariModel.isEnabled),
+           !qwenTranslationModel.isEnabled, !grokTranscriptionModel.isEnabled,
+           !openAITranscriptionModel.isEnabled, !openAITranslationModel.isEnabled,
+           !geminiTranslationModel.isEnabled, !metaTranscriptionModel.isEnabled {
+            selectedModel = .appleSystem
+            restoreFloatingCaptionDisplayModeAfterTranscribeOnly()
+        }
         if isUsingOpenAIRealtime {
             preferredOpenAIOutputMode = liveOutputMode
         } else {
@@ -5050,7 +5055,7 @@ final class TranslationSessionStore {
         }
         if isUsingQwenTranslation {
             applyVoiceOutputDefault(qwenVoiceOutputEnabled)
-        } else if ((restoredNariModel.isEnabled || restoredGrokModel.isEnabled) && isTranscribeOnlyMode) || restoredGPTTranscriptionMode || restoredGeminiTranscriptionMode {
+        } else if (restoredGrokModel.isEnabled && isTranscribeOnlyMode) || restoredGPTTranscriptionMode || restoredGeminiTranscriptionMode {
             applyVoiceOutputDefault(false)
         } else {
             applyRestoredVoiceOutputPreference()

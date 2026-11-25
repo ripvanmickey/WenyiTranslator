@@ -3,8 +3,8 @@ import Foundation
 
 final class OpenAIRealtimeAudioOutput: @unchecked Sendable {
     private let queue = DispatchQueue(label: "AirTranslate.OpenAIRealtimeAudioOutput")
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
+    private lazy var engine = AVAudioEngine()
+    private lazy var player = AVAudioPlayerNode()
     private let translatedSampleGain: Float = 1.6
     private let maximumBacklogSeconds: Double = 3
     private var outputVolume: Float = 1
@@ -16,7 +16,7 @@ final class OpenAIRealtimeAudioOutput: @unchecked Sendable {
         queue.async { [weak self] in
             guard let self else { return }
             outputVolume = Float(min(max(volume, 0), 1))
-            player.volume = outputVolume
+            if isConfigured { player.volume = outputVolume }
         }
     }
 
@@ -29,7 +29,7 @@ final class OpenAIRealtimeAudioOutput: @unchecked Sendable {
 
     func stop() {
         queue.async { [weak self] in
-            guard let self else { return }
+            guard let self, isConfigured else { return }
             player.stop()
             engine.stop()
             scheduledFrames = 0
