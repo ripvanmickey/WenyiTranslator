@@ -5,6 +5,22 @@ import Testing
 
 @Suite(.serialized)
 struct CloudflareTranslationTests {
+    @Test @MainActor func cloudflareRecoveryOpensItsOwnConfigurationAndHasCorrectLabel() throws {
+        for error in [CloudflareTranslationError.consent, .configuration, .missingKey, .http(401), .http(403)] {
+            #expect(CaptureStartRecoveryAction.forFailure(error, audioInputSource: .microphone) == .cloudflareSettings)
+        }
+        #expect(CaptureStartRecoveryAction.forFailure(CloudflareTranslationError.timeout, audioInputSource: .microphone) == .retry)
+        #expect(CaptureStartRecoveryAction.cloudflareSettings.title == CloudflareCopy.configure)
+        #expect(!CaptureStartRecoveryAction.generalSettings.title.contains("Nari"))
+        let name = "CloudflareRecovery.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] }, settingsDefaults: defaults,
+            transcriptsDirectoryURL: FileManager.default.temporaryDirectory.appendingPathComponent(name))
+        CaptureStartRecoveryAction.cloudflareSettings.requestSettings(in: session)
+        #expect(session.requestedAPIKeyProvider == .cloudflare)
+        #expect(session.requestedSettingsCategoryID == "apiKeys")
+    }
     private var valid: CloudflareConfiguration {
         .init(accountID: String(repeating: "a", count: 32), allowsTextSharing: true)
     }

@@ -140,11 +140,8 @@ struct ContentView: View {
 
     private func recoverFromCaptureStartFailure(_ action: CaptureStartRecoveryAction) {
         switch action {
-        case .apiKeys:
-            session.requestAPIKeySettings()
-            openSettings()
-        case .generalSettings:
-            session.requestGeneralSettings()
+        case .apiKeys, .generalSettings, .cloudflareSettings:
+            action.requestSettings(in: session)
             openSettings()
         case .privacy(let pane):
             session.openPrivacySettings(pane)
@@ -261,7 +258,7 @@ private struct CaptureStartFailureView: View {
                 .layoutPriority(1)
 
             if let recoveryAction {
-                Button(actionTitle(for: recoveryAction)) {
+                Button(recoveryAction.title) {
                     recover(recoveryAction)
                 }
                 .buttonStyle(.borderedProminent)
@@ -297,14 +294,7 @@ private struct CaptureStartFailureView: View {
         }
     }
 
-    private func actionTitle(for action: CaptureStartRecoveryAction) -> String {
-        switch action {
-        case .apiKeys: AppText.openAPIKeySettings
-        case .generalSettings: NariCopy.chooseGAModel
-        case .privacy: AppText.openPrivacySettings
-        case .retry: AppText.retry
-        }
-    }
+
 }
 
 private struct ToastMessageView: View {

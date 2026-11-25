@@ -27,10 +27,35 @@ enum PrivacySettingsPane: Equatable {
 enum CaptureStartRecoveryAction: Equatable {
     case apiKeys
     case generalSettings
+    case cloudflareSettings
     case privacy(PrivacySettingsPane)
     case retry
 
+    var title: String {
+        switch self {
+        case .apiKeys: AppText.openAPIKeySettings
+        case .generalSettings: AppText.ui("打开设置", "Open Settings", "設定を開く")
+        case .cloudflareSettings: CloudflareCopy.configure
+        case .privacy: AppText.openPrivacySettings
+        case .retry: AppText.retry
+        }
+    }
+    @MainActor
+    func requestSettings(in session: TranslationSessionStore) {
+        switch self {
+        case .cloudflareSettings: session.requestAPIKeySettings(provider: .cloudflare)
+        case .apiKeys: session.requestAPIKeySettings()
+        case .generalSettings: session.requestGeneralSettings()
+        default: break
+        }
+    }
     static func forFailure(_ error: Error, audioInputSource _: AudioInputSource) -> Self {
+        if let cloudflare = error as? CloudflareTranslationError {
+            switch cloudflare {
+            case .configuration, .consent, .missingKey, .http(401), .http(403): return .cloudflareSettings
+            default: return .retry
+            }
+        }
         if let grokError = error as? GrokTranscriptionError, grokError == .missingKey { return .apiKeys }
         if let nariError = error as? NariTranscriptionError {
             switch nariError {
@@ -1706,7 +1731,8 @@ final class TranslationSessionStore {
                 _ = try localTranslation.validatedBaseURL()
                 try localTranslation.validateModel()
             } catch {
-                presentCaptureStartFailure(error.localizedDescription, recoveryAction: .generalSettings)
+                presentCaptureStartFailure(error.localizedDescription,
+                    recoveryAction: localTranslation.usesCloudflare ? .cloudflareSettings : .generalSettings)
                 return
             }
         }
