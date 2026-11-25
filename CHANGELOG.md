@@ -2,7 +2,7 @@
 
 All notable changes to AirTranslate are documented in this file.
 
-## 1.16.6 - Unreleased
+## 1.16.6 - 2026-11-25
 
 - Build 1268: add Cloudflare Workers AI text translation after on-device recognition and for media captions; separate Account ID/model/Token configuration, explicit text-sharing opt-in, fixed-host requests and provider/account/model-specific caches. Bundle provider logos with source/license notices; mark Meta as not live-tested.
 

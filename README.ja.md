@@ -1,4 +1,4 @@
-**1.16.6 / build 1268（テスト）：** 端末内認識・メディア字幕の翻訳に Cloudflare Workers AI を追加しました。Account ID、Token、モデルを個別に設定し、サービスのロゴを同梱します。[設定と検証範囲](docs/cloudflare-workers-ai.md)。
+**1.16.6 / build 1268：** 端末内認識・メディア字幕の翻訳に Cloudflare Workers AI を追加しました。Account ID、Token、モデルを個別に設定し、サービスのロゴを同梱します。[設定と検証範囲](docs/cloudflare-workers-ai.md)。
 
 **Build 1267：** Azure／MAI、Nari、Jev の連携を一時停止し、設定項目を削除しました。旧バージョンの設定手順は現在のビルドには適用されません。[詳細](docs/paused-integrations.md)。
 

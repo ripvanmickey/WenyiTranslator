@@ -1,4 +1,4 @@
-**1.16.6 / build 1268 (test):** Cloudflare Workers AI translates on-device recognition and media captions, with separate Account ID, Token and model settings. Provider logos are bundled offline. [Setup and test limits](docs/cloudflare-workers-ai.md).
+**1.16.6 / build 1268:** Cloudflare Workers AI translates on-device recognition and media captions, with separate Account ID, Token and model settings. Provider logos are bundled offline. [Setup and test limits](docs/cloudflare-workers-ai.md).
 
 **Build 1267:** Azure/MAI, Nari and Jev integrations are paused and their configuration entries removed. Older setup descriptions do not apply to this build. [Details](docs/paused-integrations.md).
 
