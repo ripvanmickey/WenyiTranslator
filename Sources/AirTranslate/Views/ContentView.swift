@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
@@ -53,22 +54,26 @@ struct ContentView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            captionWorkspace
-                .frame(minWidth: isMediaInputSelected ? 450 : AirTranslateDesign.mainWindowMinimumWidth)
-            if isMediaInputSelected {
-                Divider()
-                VideoSubtitlePreloadView(model: videoSubtitles, session: session)
-                    .frame(width: 380)
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                captionWorkspace
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if isMainCaptionVisible {
+                            ConsoleBarView(session: session, isMediaInputSelected: $isMediaInputSelected, media: videoSubtitles)
+                                .padding(.horizontal, 24)
+                                .padding(.top, isMediaInputSelected ? 18 : 8)
+                                .padding(.bottom, isMediaInputSelected ? 24 : 16)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if isMediaInputSelected {
+                    Divider()
+                    VideoSubtitlePreloadView(model: videoSubtitles, session: session) {
+                        isMediaInputSelected = false
+                    }
+                    .frame(width: MediaWorkspaceLayout.sidebarWidth(for: geometry.size.width))
                     .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if isMainCaptionVisible {
-                ConsoleBarView(session: session, isMediaInputSelected: $isMediaInputSelected, media: videoSubtitles)
-                    .padding(.horizontal, AirTranslateDesign.Spacing.lg)
-                    .padding(.top, AirTranslateDesign.Spacing.xs)
-                    .padding(.bottom, AirTranslateDesign.Spacing.md)
+                }
             }
         }
         .animation(reduceMotion ? nil : AirTranslateDesign.Motion.enter, value: isMediaInputSelected)
@@ -79,6 +84,8 @@ struct ContentView: View {
             }
         }
         .background {
+            MediaWorkspaceWindowSizer(expanded: isMediaInputSelected, reduceMotion: reduceMotion)
+                .allowsHitTesting(false).accessibilityHidden(true)
             MainCaptionWindowObserver(isCaptionVisible: $isMainCaptionVisible)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -290,5 +297,42 @@ private struct ToastMessageView: View {
             .padding(.vertical, AirTranslateDesign.Spacing.xs)
             .airConsoleSurface()
             .accessibilityAddTraits(.updatesFrequently)
+    }
+}
+
+/// Expand the window to add the inspector while preserving the caption column's width.
+/// Narrow displays keep their usable screen width and use the compact console layout.
+private struct MediaWorkspaceWindowSizer: NSViewRepresentable {
+    let expanded: Bool
+    let reduceMotion: Bool
+    func makeNSView(context: Context) -> MediaSizingView { MediaSizingView() }
+    func updateNSView(_ view: MediaSizingView, context: Context) {
+        view.expanded = expanded
+        view.reduceMotion = reduceMotion
+        DispatchQueue.main.async { [weak view] in view?.applySize() }
+    }
+    final class MediaSizingView: NSView {
+        var expanded = false
+        var reduceMotion = false
+        private var applied = false
+        private var collapsedWidth: CGFloat?
+        override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); applySize() }
+        func applySize() {
+            guard let window, applied != expanded else { return }
+            guard !window.styleMask.contains(.fullScreen), let visible = window.screen?.visibleFrame else {
+                applied = expanded
+                return
+            }
+            var frame = window.frame
+            if expanded {
+                collapsedWidth = frame.width
+                frame.size.width = MediaWorkspaceLayout.expandedWindowWidth(from: frame.width, within: visible.width)
+            } else if let collapsedWidth {
+                frame.size.width = max(AirTranslateDesign.mainWindowMinimumWidth, min(collapsedWidth, visible.width))
+            }
+            frame.origin.x = max(visible.minX, min(frame.origin.x, visible.maxX - frame.width))
+            applied = expanded
+            window.setFrame(frame, display: true, animate: !reduceMotion)
+        }
     }
 }

@@ -86,6 +86,14 @@ final class VideoSubtitlePreloadStore {
     var showsImportAction: Bool { input == .imported }
     var showsOpenAIConfiguration: Bool { input == .openAI || translator == .openAI }
 
+    /// Show stable neighbouring phrases around the browser's active cue, as in the media design.
+    var visibleCaptionContext: [VideoSubtitleCue] {
+        guard let activeCue else { return [] }
+        guard let cues = document?.cues,
+              let index = cues.firstIndex(where: { $0.id == activeCue.id }) else { return [activeCue] }
+        return Array(cues[max(0, index - 1)..<min(cues.count, index + 2)])
+    }
+
     var mainActionTitle: String {
         if isPreparing { return "停止准备" }
         if isConnected { return "停止同步" }

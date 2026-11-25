@@ -15,6 +15,7 @@ enum AirTranslateDesign {
         static let dangerSoft = dynamicColor(light: 0xF9E7E5, dark: 0x40211F)
         static let dangerFill = danger.opacity(0.14)
         static let warning = dynamicColor(light: 0xB97600, dark: 0xF2B53D)
+        static let captionMediaCanvas = Color(red: 18 / 255, green: 20 / 255, blue: 22 / 255)
         static let canvas = dynamicColor(light: 0xF4F5F7, dark: 0x121417)
         static let raised = dynamicColor(light: 0xFFFFFF, dark: 0x1B1E23)
         static let raisedHover = dynamicColor(light: 0xF8FAFB, dark: 0x22262C)
@@ -418,5 +419,16 @@ struct AirIconButton: ButtonStyle {
             .overlay { Circle().strokeBorder(AirTranslateDesign.Palette.hairline) }
             .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.94 : 1))
             .animation(reduceMotion ? nil : AirTranslateDesign.Motion.quick, value: configuration.isPressed)
+    }
+}
+
+/// Figma media workspace: 1160 pt caption column and 480 pt inspector at 1640 pt.
+/// Clamp only the inspector so native controls remain usable in narrower windows.
+enum MediaWorkspaceLayout {
+    static func expandedWindowWidth(from width: CGFloat, within screenWidth: CGFloat) -> CGFloat {
+        min(screenWidth, width * 1640 / 1160)
+    }
+    static func sidebarWidth(for availableWidth: CGFloat) -> CGFloat {
+        min(480, max(300, availableWidth * 480 / 1640))
     }
 }

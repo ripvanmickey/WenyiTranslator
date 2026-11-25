@@ -279,12 +279,53 @@ struct ConsoleBarView: View {
         }
     }
 
-    @ViewBuilder
     private var consoleSurface: some View {
+        ViewThatFits(in: .horizontal) {
+            consoleMaterial(consoleControls, compact: false)
+            consoleMaterial(compactConsoleControls, compact: true)
+        }
+    }
+
+    @ViewBuilder
+    private func consoleMaterial<Content: View>(_ content: Content, compact: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: compact ? 24 : 40, style: .continuous)
         if #available(macOS 26.0, *) {
-            consoleControls.glassEffect(.regular, in: Capsule())
+            content.glassEffect(.regular, in: shape)
         } else {
-            consoleControls.background(.regularMaterial, in: Capsule())
+            content.background(.regularMaterial, in: shape)
+        }
+    }
+
+    private var compactConsoleControls: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                captureButton
+                pauseButton
+                Spacer(minLength: 0)
+                outputControl
+            }
+            HStack(spacing: 12) {
+                audioSourceControl
+                if !isMediaInputSelected && session.audioInputSource == .microphone { microphoneControl }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: 1120)
+    }
+
+    @ViewBuilder
+    private var outputControl: some View {
+        if isMediaInputSelected, let media {
+            Picker(AppText.outputMode, selection: Binding(
+                get: { media.showsTranslation }, set: { media.showsTranslation = $0 }
+            )) {
+                Text(AppText.ui("仅原文", "Original Only", "原文のみ")).tag(false)
+                Text(AppText.ui("原文 + 译文", "Original + Translation", "原文 + 訳文")).tag(true)
+            }
+            .pickerStyle(.segmented).controlSize(.large).labelsHidden().frame(width: 180)
+        } else {
+            ProcessingModePicker(session: session)
         }
     }
 
@@ -304,21 +345,11 @@ struct ConsoleBarView: View {
             }
 
             Spacer(minLength: 0)
-            if isMediaInputSelected, let media {
-                Picker(AppText.outputMode, selection: Binding(
-                    get: { media.showsTranslation }, set: { media.showsTranslation = $0 }
-                )) {
-                    Text(AppText.ui("仅原文", "Original Only", "原文のみ")).tag(false)
-                    Text(AppText.ui("原文 + 译文", "Original + Translation", "原文 + 訳文")).tag(true)
-                }
-                .pickerStyle(.segmented).controlSize(.large).labelsHidden().frame(width: 180)
-            } else {
-                ProcessingModePicker(session: session)
-            }
+            outputControl
         }
         .padding(.horizontal, AirTranslateDesign.Spacing.sm)
         .padding(.vertical, AirTranslateDesign.Spacing.xs)
-        .frame(maxWidth: 1120)
+        .frame(minWidth: 740, maxWidth: 1120)
     }
 
     private var captureButton: some View {
@@ -462,7 +493,10 @@ struct ConsoleBarView: View {
     }
 
     private var captureTitle: String {
-        if isMediaInputSelected { return media?.mainActionTitle ?? AppText.startListening }
+        if isMediaInputSelected {
+            return media?.isPreparing == true || media?.isConnected == true
+                ? AppText.ui("停止", "Stop", "停止") : AppText.ui("开始", "Start", "開始")
+        }
         return session.captureControlState.phase.actionTitle
     }
 

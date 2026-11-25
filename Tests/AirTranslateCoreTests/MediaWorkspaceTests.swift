@@ -49,4 +49,29 @@ struct MediaWorkspaceTests {
         #expect(model.activeCue?.translation == "你好")
         #expect(MainInputSelection.allCases == [.systemAudio, .microphone, .media])
     }
+    @Test func mediaContextTracksNeighbouringCuesAndTimelineEdges() {
+        let model = VideoSubtitlePreloadStore()
+        let cues = (0..<5).map { VideoSubtitleCue(id: $0, start: Double($0 * 3), end: Double($0 * 3 + 3), source: "Source \($0)", translation: "Translation \($0)") }
+        model.document = .init(videoID: "fixture", title: "Fixture", sourceLanguage: "ja-JP", targetLanguage: "zh-CN", provider: "index", input: "youtube", cues: cues)
+        #expect(model.visibleCaptionContext.isEmpty)
+        model.activeCue = cues[2]
+        #expect(model.visibleCaptionContext.map(\.id) == [1, 2, 3])
+        model.activeCue = cues[0]
+        #expect(model.visibleCaptionContext.map(\.id) == [0, 1])
+        model.activeCue = cues[4]
+        #expect(model.visibleCaptionContext.map(\.id) == [3, 4])
+        model.activeCue = nil
+        #expect(model.visibleCaptionContext.isEmpty)
+    }
+
+    @Test func inspectorMatchesFigmaProportionWithoutTakingOverNarrowWindows() {
+        #expect(MediaWorkspaceLayout.sidebarWidth(for: 1640) == 480)
+        #expect(MediaWorkspaceLayout.sidebarWidth(for: 900) == 300)
+        #expect(900 - MediaWorkspaceLayout.sidebarWidth(for: 900) >= 600)
+        #expect(MediaWorkspaceLayout.sidebarWidth(for: 2400) == 480)
+        #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 900, within: 1600) > 1200)
+        #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 900, within: 900) == 900)
+        #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 1400, within: 1600) == 1600)
+    }
+
 }
