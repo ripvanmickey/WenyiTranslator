@@ -65,6 +65,12 @@ public struct VideoSubtitleDocument: Codable, Sendable {
 public enum VideoSubtitleTimeline {
     /// Display is driven by media time. Seeking backwards or forwards requires no state reset.
     public static func activeCue(in cues: [VideoSubtitleCue], at time: Double) -> VideoSubtitleCue? {
+        guard let cue = mostRecentCue(in: cues, at: time) else { return nil }
+        return time < cue.end ? cue : nil
+    }
+
+    /// Main-window reading context remains visible in gaps; overlays use activeCue.
+    public static func mostRecentCue(in cues: [VideoSubtitleCue], at time: Double) -> VideoSubtitleCue? {
         guard time.isFinite, time >= 0, !cues.isEmpty else { return nil }
         var low = 0, high = cues.count
         while low < high {
@@ -72,8 +78,7 @@ public enum VideoSubtitleTimeline {
             if cues[middle].start <= time { low = middle + 1 } else { high = middle }
         }
         guard low > 0 else { return nil }
-        let cue = cues[low - 1]
-        return time < cue.end ? cue : nil
+        return cues[low - 1]
     }
 
     public static func parse(_ data: Data) throws -> [VideoSubtitleCue] {

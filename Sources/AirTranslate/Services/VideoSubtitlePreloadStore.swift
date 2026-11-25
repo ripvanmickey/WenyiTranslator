@@ -83,12 +83,20 @@ final class VideoSubtitlePreloadStore {
         }
         return "\(translatedCount) / \(document.cues.count) 段已准备"
     }
+    var isConfigurationLocked: Bool { isPreparing || isConnected }
     var showsImportAction: Bool { input == .imported }
     var showsOpenAIConfiguration: Bool { input == .openAI || translator == .openAI }
 
-    /// Show stable neighbouring phrases around the browser's active cue, as in the media design.
+    /// Keep reading context on the main window during pauses and gaps between cues.
+    /// Floating subtitles still use activeCue so expired text is not overlaid on video.
+    var mainCaptionCue: VideoSubtitleCue? {
+        if let activeCue { return activeCue }
+        guard isConnected, !isAd, let document, connectedVideoID == document.videoID else { return nil }
+        return VideoSubtitleTimeline.mostRecentCue(in: document.cues, at: playbackTime - timingOffset)
+    }
+
     var visibleCaptionContext: [VideoSubtitleCue] {
-        guard let activeCue else { return [] }
+        guard let activeCue = mainCaptionCue else { return [] }
         guard let cues = document?.cues,
               let index = cues.firstIndex(where: { $0.id == activeCue.id }) else { return [activeCue] }
         return Array(cues[max(0, index - 1)..<min(cues.count, index + 2)])
@@ -109,7 +117,7 @@ final class VideoSubtitlePreloadStore {
     }
 
     var canPrepare: Bool {
-        !isPreparing && (try? YouTubeVideoReference(videoURL)) != nil
+        !isConfigurationLocked && (try? YouTubeVideoReference(videoURL)) != nil
             && (input != .imported || !imported.isEmpty)
             && !(hasMatchingDocument && document?.completed == true)
     }

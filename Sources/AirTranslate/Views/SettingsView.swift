@@ -6,6 +6,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var session: TranslationSessionStore
+    @Bindable var videoSubtitles: VideoSubtitlePreloadStore
     @Bindable private var localization = InterfaceLocalization.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
@@ -47,7 +48,11 @@ struct SettingsView: View {
                             .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
 
+                        if videoSubtitles.isConfigurationLocked && locksForMediaSession {
+                            SettingsNoticeRow(text: configurationLockedReason, systemImage: "info.circle")
+                        }
                         selectedContent
+                            .disabled(videoSubtitles.isConfigurationLocked && locksForMediaSession)
                     }
                     .frame(maxWidth: AirTranslateDesign.settingsDetailMaximum, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -190,8 +195,8 @@ struct SettingsView: View {
     private var generalSettings: some View {
         let mode = selectedProcessingMode
         return SettingsGroup(title: SettingsCopy.modeSettings) {
-            if isSessionConfigurationLocked {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
+            if isSessionConfigurationLocked && !videoSubtitles.isConfigurationLocked {
+                SettingsNoticeRow(text: configurationLockedReason, systemImage: "info.circle")
             }
 
             SettingsControlRow(
@@ -217,7 +222,7 @@ struct SettingsView: View {
                 .accessibilityValue(mode.settingsMenuTitle(in: session))
                 .accessibilityHint(
                     isSessionConfigurationLocked
-                        ? SettingsCopy.captureRunningDisabledReason
+                        ? configurationLockedReason
                         : mode.recognitionDetail(in: session)
                 )
             }
@@ -306,7 +311,7 @@ struct SettingsView: View {
                     .accessibilityValue(geminiModelSelection.wrappedValue.title)
                     .accessibilityHint(
                         isSessionConfigurationLocked
-                            ? SettingsCopy.captureRunningDisabledReason
+                            ? configurationLockedReason
                             : SettingsCopy.geminiLiveModeDetail
                     )
                 }
@@ -446,8 +451,8 @@ struct SettingsView: View {
 
     private var audioSettings: some View {
         SettingsGroup(title: AppText.audioInputSource) {
-            if isSessionConfigurationLocked {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
+            if isSessionConfigurationLocked && !videoSubtitles.isConfigurationLocked {
+                SettingsNoticeRow(text: configurationLockedReason, systemImage: "info.circle")
             }
 
             SettingsControlRow(
@@ -471,7 +476,7 @@ struct SettingsView: View {
                 .accessibilityLabel(AppText.audioInputSource)
                 .accessibilityHint(
                     isSessionConfigurationLocked
-                        ? SettingsCopy.captureRunningDisabledReason
+                        ? configurationLockedReason
                         : SettingsCopy.audioInputDetail
                 )
             }
@@ -512,8 +517,8 @@ struct SettingsView: View {
 
     private var outputSettings: some View {
         SettingsGroup(title: AppText.output) {
-            if isSessionConfigurationLocked {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
+            if isSessionConfigurationLocked && !videoSubtitles.isConfigurationLocked {
+                SettingsNoticeRow(text: configurationLockedReason, systemImage: "info.circle")
             }
 
             if session.isUsingOpenAIRealtime {
@@ -559,7 +564,7 @@ struct SettingsView: View {
                     .accessibilityLabel(AppText.outputMode)
                     .accessibilityHint(
                         isSessionConfigurationLocked
-                            ? SettingsCopy.captureRunningDisabledReason
+                            ? configurationLockedReason
                             : session.isUsingProviderRealtimeTranslation
                                 ? SettingsCopy.realtimeTranslationOutputOnly
                                 : SettingsCopy.outputModeDetail
@@ -601,8 +606,8 @@ struct SettingsView: View {
 
     private var transcriptSettings: some View {
         SettingsGroup(title: AppText.transcript) {
-            if isSessionConfigurationLocked {
-                SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "info.circle")
+            if isSessionConfigurationLocked && !videoSubtitles.isConfigurationLocked {
+                SettingsNoticeRow(text: configurationLockedReason, systemImage: "info.circle")
             }
 
             if session.isUsingOpenAIRealtime {
@@ -630,7 +635,7 @@ struct SettingsView: View {
                 .accessibilityLabel(AppText.sessionLength)
                 .accessibilityHint(
                     isSessionConfigurationLocked
-                        ? SettingsCopy.captureRunningDisabledReason
+                        ? configurationLockedReason
                         : session.sessionDurationMode.detail
                 )
             }
@@ -993,15 +998,28 @@ struct SettingsView: View {
             ? SettingsCopy.enabled : SettingsCopy.comingSoon
     }
 
+    private var locksForMediaSession: Bool {
+        switch selectedCategory.wrappedValue {
+        case .general, .apiKeys, .audio, .output, .transcript, .assets: true
+        case .floatingCaptions, .permissions, .info: false
+        }
+    }
+
+    private var configurationLockedReason: String {
+        videoSubtitles.isConfigurationLocked
+            ? AppText.ui("请先停止媒体同步或字幕准备，再修改此设置。", "Stop media sync or subtitle preparation before changing this setting.", "メディア同期または字幕の準備を停止してから変更してください。")
+            : SettingsCopy.captureRunningDisabledReason
+    }
+
     private var isSessionConfigurationLocked: Bool {
-        session.isRunning || session.isStarting
+        session.isRunning || session.isStarting || videoSubtitles.isConfigurationLocked
     }
 
     /// Keeps AppKit's segmented control enabled state stable while capture starts.
     /// The guarded bindings below remain the accessibility and programmatic write barrier.
     private func segmentedControlAllowsHitTesting(isOtherwiseAvailable: Bool = true) -> Bool {
         SettingsSegmentedControlAccess.allowsHitTesting(
-            isRunning: session.isRunning,
+            isRunning: session.isRunning || videoSubtitles.isConfigurationLocked,
             isStarting: session.isStarting,
             isOtherwiseAvailable: isOtherwiseAvailable
         )

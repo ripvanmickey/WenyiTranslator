@@ -47,7 +47,7 @@ struct AirTranslateApp: App {
         .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView(session: session)
+            SettingsView(session: session, videoSubtitles: videoSubtitles)
                 .environment(\.locale, AppText.interfaceLocale)
                 .tint(AirTranslateDesign.Palette.accent)
         }

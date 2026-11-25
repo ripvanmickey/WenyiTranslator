@@ -8,6 +8,38 @@ import AirTranslateCore
 @Suite(.serialized)
 @MainActor
 struct MediaWorkspaceTests {
+    @Test func mediaConfigurationStaysLockedUntilPreparationAndSyncStop() {
+        let model = VideoSubtitlePreloadStore()
+        model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
+        #expect(!model.isConfigurationLocked)
+        #expect(model.canPrepare)
+        model.isPreparing = true
+        #expect(model.isConfigurationLocked)
+        #expect(!model.canPrepare)
+        model.isPreparing = false
+        model.isConnected = true
+        model.isPaused = false
+        #expect(model.isConfigurationLocked)
+        #expect(!model.canPrepare)
+        model.isPaused = true
+        #expect(model.isConfigurationLocked)
+        model.disconnect()
+        #expect(!model.isConfigurationLocked)
+        #expect(model.canPrepare)
+    }
+
+    @Test func mainCaptionContextSurvivesSilentGapsWithoutExtendingOverlayTiming() {
+        let cues = [VideoSubtitleCue(id: 0, start: 2, end: 4, source: "First", translation: "第一句"),
+                    VideoSubtitleCue(id: 1, start: 8, end: 10, source: "Next", translation: "下一句")]
+        #expect(VideoSubtitleTimeline.mostRecentCue(in: cues, at: 1) == nil)
+        #expect(VideoSubtitleTimeline.mostRecentCue(in: cues, at: 6)?.id == 0)
+        #expect(VideoSubtitleTimeline.activeCue(in: cues, at: 6) == nil)
+        #expect(VideoSubtitleTimeline.mostRecentCue(in: cues, at: 8)?.id == 1)
+        #expect(VideoSubtitleTimeline.mostRecentCue(in: cues, at: 12)?.id == 1)
+        #expect(VideoSubtitleTimeline.mostRecentCue(in: cues, at: 3)?.id == 0)
+        #expect(VideoSubtitleTimeline.mostRecentCue(in: cues, at: .nan) == nil)
+    }
+
     @Test func captionColorsFollowSystemAppearance() throws {
         for (name, expectedSource, expectedBackground, expectedTranslation) in [
             (NSAppearance.Name.aqua, "#000000", "#F4F5F7", "#9A6700"),

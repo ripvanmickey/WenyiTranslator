@@ -4,6 +4,12 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Retain the main media caption and its neighbouring reading context during silent gaps and playback pauses. Re-anchor on seek; keep floating overlays restricted to each cue's actual timing.
+
+- Lock session-affecting settings and media source/model selectors while media preparation or browser sync is active, including paused sync. Unlock on stop and retain display controls and disconnect actions.
+
+- Build 1256: use native AppKit window dragging for floating-caption handles instead of clamping every drag update to the current display. Both live and media captions can move between monitors.
+
 - Build 1255: left-align the media subtitle-source and translation-model pickers with their section headings while retaining flexible widths and conditional trailing actions.
 
 - Fix main-window resize clipping: propagate the active media minimum to the scene and use native content-minimum window resizing, so the window cannot shrink below the single-row console and inspector. Let inspector model menus shrink within their column.

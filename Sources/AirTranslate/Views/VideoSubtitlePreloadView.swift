@@ -26,7 +26,7 @@ struct VideoSubtitlePreloadView: View {
                     Text("视频链接").font(.system(size: 13, weight: .semibold))
                     TextField("https://www.youtube.com/watch?v=…", text: $model.videoURL)
                         .textFieldStyle(.roundedBorder).accessibilityLabel("YouTube 视频链接")
-                }.disabled(model.isPreparing)
+                }.disabled(model.isConfigurationLocked)
 
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 6) {
@@ -40,7 +40,7 @@ struct VideoSubtitlePreloadView: View {
                         HStack { Text("原文"); languagePicker(source: true) }
                         HStack { Text("译文"); languagePicker(source: false) }
                     }
-                }.font(.system(size: 12)).disabled(model.isPreparing)
+                }.font(.system(size: 12)).disabled(model.isConfigurationLocked)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("字幕来源").font(.system(size: 13, weight: .semibold))
@@ -56,7 +56,7 @@ struct VideoSubtitlePreloadView: View {
                         }
                         if model.input == .openAI { configureOpenAI }
                     }
-                }.disabled(model.isPreparing)
+                }.disabled(model.isConfigurationLocked)
                 note(model.input == .openAI
                     ? "音轨片段发送到 OpenAI 识别，仅将字幕文字发送到所选翻译服务。会产生相应 API 用量。"
                     : "使用视频已有或导入的字幕，只将字幕文字发送到所选翻译服务，不上传音频。")
@@ -71,7 +71,7 @@ struct VideoSubtitlePreloadView: View {
                         Spacer(minLength: 0)
                         if model.translator == .openAI { configureOpenAI }
                     }
-                }.disabled(model.isPreparing)
+                }.disabled(model.isConfigurationLocked)
 
                 Divider()
                 HStack(spacing: 10) {
@@ -175,7 +175,7 @@ struct MediaCaptionBoardView: View {
                         .foregroundStyle(AirTranslateDesign.Palette.accent)
                 }
                 .menuStyle(.borderlessButton).fixedSize()
-                .disabled(model.isPreparing)
+                .disabled(model.isConfigurationLocked)
                 Spacer(minLength: 12)
                 Label("媒体字幕", systemImage: "play.rectangle").foregroundStyle(.secondary)
             }
@@ -202,7 +202,7 @@ struct MediaCaptionBoardView: View {
                                 .padding(.vertical, 18)
                         } else {
                             ForEach(model.visibleCaptionContext) { cue in
-                                MediaCaptionCueView(cue: cue, isCurrent: cue.id == model.activeCue?.id,
+                                MediaCaptionCueView(cue: cue, isCurrent: cue.id == model.mainCaptionCue?.id,
                                                     showsTranslation: model.showsTranslation)
                                     .id(cue.id)
                             }
@@ -211,7 +211,7 @@ struct MediaCaptionBoardView: View {
                     .padding(.horizontal, 40).padding(.top, 26).padding(.bottom, 24)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .onChange(of: model.activeCue?.id) { _, id in
+                .onChange(of: model.mainCaptionCue?.id) { _, id in
                     if let id {
                         withAnimation(reduceMotion ? nil : AirTranslateDesign.Motion.quick) { proxy.scrollTo(id, anchor: .center) }
                     }
