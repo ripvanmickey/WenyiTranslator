@@ -35,7 +35,7 @@ enum AppText {
         }
     }
 
-    static let appName = "文译"
+    static var appName: String { ui("文译", "Wenyi", "文訳") }
     static var appTagline: String {
         localized(
             english: "Live transcript translator",

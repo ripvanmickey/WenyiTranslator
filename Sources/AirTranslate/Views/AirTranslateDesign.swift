@@ -426,7 +426,7 @@ struct AirIconButton: ButtonStyle {
 
 /// Preserve enough width for every console control to remain on one line.
 enum MediaWorkspaceLayout {
-    static let captionMinimumWidth = AirTranslateDesign.mainWindowMinimumWidth
+    static var captionMinimumWidth: CGFloat { ConsoleLayoutMetrics.current.captionMinimumWidth }
     static let sidebarMinimumWidth: CGFloat = 300
     static let dividerWidth: CGFloat = 1
     static var minimumExpandedWidth: CGFloat { captionMinimumWidth + sidebarMinimumWidth + dividerWidth }

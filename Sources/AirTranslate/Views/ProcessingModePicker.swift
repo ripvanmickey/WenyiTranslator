@@ -20,13 +20,13 @@ struct ProcessingModePicker: View {
     }
     var body: some View {
         Picker(QuickOutputCopy.title, selection: outputSelection) {
-            Text(QuickOutputCopy.originalOnly).tag(LiveOutputMode.transcription)
-            Text(LiveOutputMode.translation.title).tag(LiveOutputMode.translation)
+            Text(ConsoleLayoutMetrics.originalOnly).tag(LiveOutputMode.transcription)
+            Text(ConsoleLayoutMetrics.bilingual).tag(LiveOutputMode.translation)
         }
         .pickerStyle(.segmented)
         .controlSize(.large)
         .labelsHidden()
-        .frame(width: 180)
+        .frame(width: ConsoleLayoutMetrics.current.outputWidth)
         .allowsHitTesting(canChangeOutput)
         .accessibilityRespondsToUserInteraction(canChangeOutput)
         .opacity(canChangeOutput ? 1 : 0.6)

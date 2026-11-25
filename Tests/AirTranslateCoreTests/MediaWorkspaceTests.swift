@@ -8,11 +8,38 @@ import AirTranslateCore
 @Suite(.serialized)
 @MainActor
 struct MediaWorkspaceTests {
+    @Test func localizedMediaTextAndControlsFitEnglishAndJapanese() {
+        let original = InterfaceLocalization.shared.preference
+        defer { InterfaceLocalization.shared.preference = original }
+        let model = VideoSubtitlePreloadStore()
+        for language in [AppInterfaceLanguage.english, .japanese, .chineseSimplified] {
+            InterfaceLocalization.shared.preference = language
+            let metrics = ConsoleLayoutMetrics.current
+            let font = NSFont.systemFont(ofSize: 14, weight: .medium)
+            let inputWidth = MainInputSelection.allCases.reduce(CGFloat(0)) { $0 + ($1.title as NSString).size(withAttributes: [.font: font]).width + 24 }
+            let outputWidth = [ConsoleLayoutMetrics.originalOnly, ConsoleLayoutMetrics.bilingual].reduce(CGFloat(0)) { $0 + ($1 as NSString).size(withAttributes: [.font: font]).width + 24 }
+            #expect(inputWidth <= metrics.inputWidth)
+            #expect(outputWidth <= metrics.outputWidth)
+            #expect(model.status == AppText.ui("输入 YouTube 链接，先准备字幕，再连接浏览器播放。", "Enter a YouTube link, prepare captions, then connect your browser.", "YouTube リンクを入力し、字幕を準備してからブラウザに接続してください。"))
+            #expect(model.connectionStatus == AppText.ui("未连接浏览器", "Browser not connected", "ブラウザ未接続"))
+            if language == .english {
+                #expect(VideoSubtitleInput.allCases.allSatisfy { item in !item.title.unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) } })
+                #expect(VideoSubtitleTranslator.index.title == "Index translation")
+            }
+            for browser in VideoPlaybackBrowser.allCases {
+                let steps = BrowserSyncSetup.steps(for: browser)
+                #expect(steps.count == 4)
+                #expect(steps[1].detail.value.contains(browser.title))
+                #expect(steps.allSatisfy { !$0.title.value.isEmpty && !$0.detail.value.isEmpty })
+            }
+        }
+    }
+
     @Test func stoppingDuringReconnectCancelsFurtherReadsAndUnlocksSettings() async throws {
         let reader = ScriptedPlaybackReader(steps: [.failure(.temporary("Window transition"))])
         let model = VideoSubtitlePreloadStore(connection: reader)
         model.connect()
-        try await waitForPlayback { model.connectionStatus.contains("正在恢复") }
+        try await waitForPlayback { model.connectionStatus.contains(AppText.ui("正在恢复", "Restoring", "復旧")) }
         #expect(model.isConnecting)
         #expect(model.isConfigurationLocked)
         model.performMainAction()
@@ -20,7 +47,7 @@ struct MediaWorkspaceTests {
         let stoppedCount = await reader.requests.count
         try await Task.sleep(for: .milliseconds(650))
         #expect(await reader.requests.count == stoppedCount)
-        #expect(model.connectionStatus == "未连接浏览器")
+        #expect(model.connectionStatus == AppText.ui("未连接浏览器", "Browser not connected", "ブラウザ未接続"))
     }
 
     @Test func fullscreenTransitionRecoversWithoutClearingCaptionsAndDisconnectCancelsRetry() async throws {
@@ -35,7 +62,7 @@ struct MediaWorkspaceTests {
             .init(id: 0, start: 0, end: 5, source: "First", translation: "第一句"),
             .init(id: 1, start: 8, end: 12, source: "Next", translation: "下一句")])
         model.connect()
-        try await waitForPlayback { model.connectionStatus.contains("正在恢复") }
+        try await waitForPlayback { model.connectionStatus.contains(AppText.ui("正在恢复", "Restoring", "復旧")) }
         #expect(model.isConnected)
         #expect(model.isConfigurationLocked)
         #expect(model.activeCue?.id == 0)
@@ -144,7 +171,7 @@ struct MediaWorkspaceTests {
         #expect(!model.canPerformMainAction)
         model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
         #expect(model.canPerformMainAction)
-        #expect(model.mainActionTitle == "开始预加载")
+        #expect(model.mainActionTitle == AppText.ui("开始预加载", "Prepare captions", "字幕を準備"))
         model.input = .imported
         #expect(!model.canPerformMainAction)
         model.isPreparing = true
@@ -152,7 +179,7 @@ struct MediaWorkspaceTests {
         #expect(model.mainActionTitle == "停止准备")
         model.isPreparing = false
         model.isConnected = true
-        #expect(model.mainActionTitle == "停止同步")
+        #expect(model.mainActionTitle == AppText.ui("停止同步", "Stop sync", "同期を停止"))
         model.performMainAction()
         #expect(!model.isConnected)
         #expect(model.activeCue == nil)
@@ -162,7 +189,7 @@ struct MediaWorkspaceTests {
         let model = VideoSubtitlePreloadStore()
         model.document = .init(videoID: "PMGSdzyRZUw", title: "Fixture", sourceLanguage: "ja-JP", targetLanguage: "zh-CN", provider: "index", input: "youtube", cues: [.init(id: 0, start: 0, end: 3, source: "こんにちは", translation: "你好")], completed: true)
         model.activeCue = model.document?.cues.first
-        #expect(model.mainActionTitle == "连接视频")
+        #expect(model.mainActionTitle == AppText.ui("连接视频", "Connect video", "動画に接続"))
         model.showsTranslation = false
         #expect(model.document?.cues.first?.translation == "你好")
         #expect(model.activeCue?.source == "こんにちは")
@@ -192,11 +219,11 @@ struct MediaWorkspaceTests {
         #expect(MediaWorkspaceLayout.sidebarWidth(for: 2400) == 480)
         #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 900, within: 1600) > 1200)
         #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 900, within: 900) == MediaWorkspaceLayout.minimumExpandedWidth)
-        #expect(MediaWorkspaceLayout.minimumWindowWidth(media: false) == 900)
-        #expect(MediaWorkspaceLayout.minimumWindowWidth(media: true) == 1201)
-        for width in stride(from: 1201.0, through: 2400.0, by: 37) {
+        #expect(MediaWorkspaceLayout.minimumWindowWidth(media: false) == MediaWorkspaceLayout.captionMinimumWidth)
+        #expect(MediaWorkspaceLayout.minimumWindowWidth(media: true) == MediaWorkspaceLayout.minimumExpandedWidth)
+        for width in stride(from: Double(MediaWorkspaceLayout.minimumExpandedWidth), through: 2400.0, by: 37) {
             let captionWidth = width - MediaWorkspaceLayout.sidebarWidth(for: width) - 1
-            #expect(captionWidth >= 900)
+            #expect(captionWidth >= MediaWorkspaceLayout.captionMinimumWidth)
         }
         #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 1400, within: 1600) == 1600)
     }

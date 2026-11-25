@@ -103,28 +103,28 @@ actor VideoBrowserConnection: VideoPlaybackReading {
 
     func read(_ browser: VideoPlaybackBrowser, initial: Bool = false, videoID: String? = nil) async throws -> VideoPlaybackSnapshot {
         guard !NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).isEmpty else {
-            throw VideoPlaybackReadError.configuration("请先在 \(browser.title) 打开 YouTube 视频。")
+            throw VideoPlaybackReadError.configuration(AppText.ui("请先在 \(browser.title) 打开 YouTube 视频。", "Open a YouTube video in \(browser.title) first.", "先に \(browser.title) で YouTube 動画を開いてください。"))
         }
         if initial { chromeTabID = nil }
         guard let script = NSAppleScript(source: Self.scriptSource(browser, initial: initial, videoID: videoID, chromeTabID: chromeTabID)) else {
-            throw VideoPlaybackReadError.configuration("无法创建浏览器同步连接。")
+            throw VideoPlaybackReadError.configuration(AppText.ui("无法创建浏览器同步连接。", "Cannot create the browser sync connection.", "ブラウザ同期接続を作成できません。"))
         }
         var details: NSDictionary?
         let descriptor = script.executeAndReturnError(&details)
         if let details {
             let code = details[NSAppleScript.errorNumber] as? Int ?? 0
             if code == -1743 || code == -10004 {
-                throw VideoPlaybackReadError.configuration("请在系统设置 → 隐私与安全性 → 自动化中，允许文译访问 \(browser.title)。")
+                throw VideoPlaybackReadError.configuration(AppText.ui("请在系统设置 → 隐私与安全性 → 自动化中，允许文译访问 \(browser.title)。", "Allow Wenyi to access \(browser.title) in System Settings → Privacy & Security → Automation.", "「システム設定 → プライバシーとセキュリティ → オートメーション」で、文訳から \(browser.title) へのアクセスを許可してください。"))
             }
-            let explanation = details[NSAppleScript.errorMessage] as? String ?? "浏览器未返回播放位置"
+            let explanation = details[NSAppleScript.errorMessage] as? String ?? AppText.ui("浏览器未返回播放位置", "The browser did not return a playback position.", "ブラウザから再生位置を取得できませんでした。")
             let javascriptSettingsDisabled = explanation.localizedCaseInsensitiveContains("JavaScript")
                 && ["turned off", "disabled", "not allowed", "allow javascript from apple events", "允许来自", "不允许", "未启用", "無効", "許可"].contains {
                     explanation.localizedCaseInsensitiveContains($0)
                 }
             if javascriptSettingsDisabled {
-                throw VideoPlaybackReadError.configuration("连接 \(browser.title) 失败（\(code)）：\(explanation)")
+                throw VideoPlaybackReadError.configuration(AppText.ui("连接 \(browser.title) 失败（\(code)）：\(explanation)", "Cannot connect to \(browser.title) (\(code)): \(explanation)", "\(browser.title) に接続できません（\(code)）：\(explanation)"))
             }
-            throw VideoPlaybackReadError.temporary("连接 \(browser.title) 暂时不可用（\(code)）：\(explanation)")
+            throw VideoPlaybackReadError.temporary(AppText.ui("连接 \(browser.title) 暂时不可用（\(code)）：\(explanation)", "\(browser.title) connection temporarily unavailable (\(code)): \(explanation)", "\(browser.title) に一時的に接続できません（\(code)）：\(explanation)"))
         }
         guard let raw = descriptor.atIndex(1)?.stringValue?.data(using: .utf8), raw.count < 16_384,
               let snapshot = try? JSONDecoder().decode(VideoPlaybackSnapshot.self, from: raw),
@@ -132,7 +132,7 @@ actor VideoBrowserConnection: VideoPlaybackReading {
               let video = try? YouTubeVideoReference(url), let time = snapshot.time,
               time.isFinite, time >= 0, let rate = snapshot.rate, rate.isFinite, rate > 0,
               videoID == nil || video.id == videoID else {
-            throw VideoPlaybackReadError.temporary("暂时无法读取关联视频，请保持原 YouTube 视频标签页打开。")
+            throw VideoPlaybackReadError.temporary(AppText.ui("暂时无法读取关联视频，请保持原 YouTube 视频标签页打开。", "The linked video is temporarily unavailable. Keep its YouTube tab open.", "関連付けた動画を一時的に読み取れません。元の YouTube タブを開いたままにしてください。"))
         }
         if browser == .chrome { chromeTabID = descriptor.atIndex(2)?.int32Value }
         return snapshot

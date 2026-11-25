@@ -79,6 +79,23 @@ struct StageHeaderView: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            headerControls.fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack { SessionStatusPill(session: session); Spacer(); PermissionActionButton(session: session) }
+                languageMenu
+                engineControl
+                if session.isUsingMetaScribe && session.isMetaSpeakerLabelsEnabled {
+                    AirChip(text: AppText.speakerLabelsOn, systemImage: "person.2.fill", tint: AirTranslateDesign.Palette.textSecondary)
+                }
+            }
+        }
+        .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+        .frame(minHeight: 44)
+        .background(AirTranslateDesign.Palette.canvas)
+    }
+
+    private var headerControls: some View {
         HStack(spacing: AirTranslateDesign.Spacing.sm) {
             SessionStatusPill(session: session)
 
@@ -86,6 +103,21 @@ struct StageHeaderView: View {
 
             Spacer(minLength: AirTranslateDesign.Spacing.sm)
 
+            engineControl
+
+            if session.isUsingMetaScribe && session.isMetaSpeakerLabelsEnabled {
+                AirChip(
+                    text: AppText.speakerLabelsOn,
+                    systemImage: "person.2.fill",
+                    tint: AirTranslateDesign.Palette.textSecondary
+                )
+            }
+
+            PermissionActionButton(session: session)
+        }
+    }
+
+    private var engineControl: some View {
             Button {
                 if needsAPIKey {
                     session.requestAPIKeySettings()
@@ -112,19 +144,6 @@ struct StageHeaderView: View {
                     : session.processingEngineTitle
             )
 
-            if session.isUsingMetaScribe && session.isMetaSpeakerLabelsEnabled {
-                AirChip(
-                    text: AppText.speakerLabelsOn,
-                    systemImage: "person.2.fill",
-                    tint: AirTranslateDesign.Palette.textSecondary
-                )
-            }
-
-            PermissionActionButton(session: session)
-        }
-        .padding(.horizontal, AirTranslateDesign.Spacing.lg)
-        .frame(minHeight: 44)
-        .background(AirTranslateDesign.Palette.canvas)
     }
 
     private var canChangeLanguage: Bool {
@@ -298,10 +317,10 @@ struct ConsoleBarView: View {
             Picker(AppText.outputMode, selection: Binding(
                 get: { media.showsTranslation }, set: { media.showsTranslation = $0 }
             )) {
-                Text(AppText.ui("仅原文", "Original Only", "原文のみ")).tag(false)
-                Text(AppText.ui("原文 + 译文", "Original + Translation", "原文 + 訳文")).tag(true)
+                Text(ConsoleLayoutMetrics.originalOnly).tag(false)
+                Text(ConsoleLayoutMetrics.bilingual).tag(true)
             }
-            .pickerStyle(.segmented).controlSize(.large).labelsHidden().frame(width: 180)
+            .pickerStyle(.segmented).controlSize(.large).labelsHidden().frame(width: ConsoleLayoutMetrics.current.outputWidth)
         } else {
             ProcessingModePicker(session: session)
         }
@@ -396,7 +415,7 @@ struct ConsoleBarView: View {
         .pickerStyle(.segmented)
         .controlSize(.large)
         .labelsHidden()
-        .frame(width: 246)
+        .frame(width: ConsoleLayoutMetrics.current.inputWidth)
         .disabled(!isConfigurationAvailable)
         .accessibilityLabel(AppText.audioInputSource)
         .overlay {

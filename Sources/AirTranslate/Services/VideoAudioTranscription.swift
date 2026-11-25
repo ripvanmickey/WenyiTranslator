@@ -15,7 +15,7 @@ actor VideoAudioTranscription {
         let asset = AVURLAsset(url: file)
         let duration = try await validatedDuration(asset)
         let ranges = try await speechRanges(asset, duration: duration)
-        guard !ranges.isEmpty else { throw VideoPreloadProblem(message: "音轨中未检测到可用语音。") }
+        guard !ranges.isEmpty else { throw VideoPreloadProblem(message: AppText.ui("音轨中未检测到可用语音。", "No usable speech was detected in the audio.", "音声に認識できる発話がありません。")) }
         return ranges.map { .init(start: $0.lowerBound, end: $0.upperBound) }
     }
 
@@ -23,7 +23,7 @@ actor VideoAudioTranscription {
     func transcribe(_ file: URL, language: LanguageOption, ranges: [VideoAudioRange], from startIndex: Int,
                     progress: @MainActor @Sendable (VideoSubtitleCue?, Int, Int) async throws -> Void) async throws {
         guard let key = try OpenAIAPIKeyStore.readAPIKey(), !key.isEmpty else {
-            throw VideoPreloadProblem(message: "请先在设置 → API 密钥中配置 OpenAI。")
+            throw VideoPreloadProblem(message: AppText.ui("请先在设置 → API 密钥中配置 OpenAI。", "Configure OpenAI in Settings → API Keys first.", "先に「設定 → API キー」で OpenAI を設定してください。"))
         }
         let asset = AVURLAsset(url: file)
         let duration = try await validatedDuration(asset)
@@ -53,14 +53,14 @@ actor VideoAudioTranscription {
     private func validatedDuration(_ asset: AVAsset) async throws -> Double {
         let duration = try await asset.load(.duration).seconds
         guard duration.isFinite, duration > 0, duration <= 10_800 else {
-            throw VideoPreloadProblem(message: "音轨需在 3 小时以内。")
+            throw VideoPreloadProblem(message: AppText.ui("音轨需在 3 小时以内。", "The audio must be no longer than 3 hours.", "音声の長さは 3 時間以内にしてください。"))
         }
         return duration
     }
 
     private func request(_ file: URL, language: LanguageOption, key: String) async throws -> String {
         let audio = try Data(contentsOf: file)
-        guard audio.count < 24_000_000 else { throw VideoPreloadProblem(message: "音轨片段超过上传上限。") }
+        guard audio.count < 24_000_000 else { throw VideoPreloadProblem(message: AppText.ui("音轨片段超过上传上限。", "The audio segment exceeds the upload limit.", "音声区間がアップロード上限を超えています。")) }
         let boundary = "Wenyi-" + UUID().uuidString
         var body = Data()
         func field(_ name: String, _ value: String) {
@@ -77,7 +77,7 @@ actor VideoAudioTranscription {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw VideoSubtitleError.invalidAudio }
         guard (200..<300).contains(http.statusCode) else {
-            throw VideoPreloadProblem(message: "OpenAI 音轨识别失败（\(http.statusCode)）。请检查 API 密钥、额度和网络。")
+            throw VideoPreloadProblem(message: AppText.ui("OpenAI 音轨识别失败（\(http.statusCode)）。请检查 API 密钥、额度和网络。", "OpenAI audio recognition failed (\(http.statusCode)). Check your API key, quota, and network.", "OpenAI 音声認識に失敗しました（\(http.statusCode)）。API キー、利用枠、ネットワークを確認してください。"))
         }
         struct Response: Decodable { let text: String }
         return try JSONDecoder().decode(Response.self, from: data).text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -2137,12 +2137,15 @@ private struct SettingsNoticeActionRow: View {
     let action: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            noticeLabel
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            actionButton
-                .fixedSize()
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                noticeLabel.fixedSize(horizontal: true, vertical: false)
+                actionButton.fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                noticeLabel
+                actionButton
+            }
         }
         .padding(AirTranslateDesign.Spacing.sm)
         .background(

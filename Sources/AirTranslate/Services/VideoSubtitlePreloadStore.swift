@@ -9,16 +9,16 @@ enum VideoSubtitleInput: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .youtube: "YouTube 已有字幕"
-        case .openAI: "OpenAI 音轨识别 · 云端"
-        case .imported: "导入 SRT／VTT"
+        case .youtube: AppText.ui("YouTube 已有字幕", "YouTube captions", "YouTube 字幕")
+        case .openAI: AppText.ui("OpenAI 音轨识别 · 云端", "OpenAI audio recognition · Cloud", "OpenAI 音声認識・クラウド")
+        case .imported: AppText.ui("导入 SRT／VTT", "Import SRT / VTT", "SRT／VTT を読み込む")
         }
     }
 }
 enum VideoSubtitleTranslator: String, CaseIterable, Identifiable {
     case index, openAI
     var id: String { rawValue }
-    var title: String { self == .index ? "Index 在线翻译" : "OpenAI · GPT-4.1 mini" }
+    var title: String { self == .index ? AppText.ui("Index 在线翻译", "Index translation", "Index オンライン翻訳") : "OpenAI · GPT-4.1 mini" }
 }
 
 @Observable @MainActor
@@ -29,14 +29,16 @@ final class VideoSubtitlePreloadStore {
     var input = VideoSubtitleInput.youtube
     var translator = VideoSubtitleTranslator.index
     var browser = VideoPlaybackBrowser.chrome
-    var status = "输入 YouTube 链接，先准备字幕，再连接浏览器播放。"
+    private var statusText = MediaLocalizedText("输入 YouTube 链接，先准备字幕，再连接浏览器播放。", "Enter a YouTube link, prepare captions, then connect your browser.", "YouTube リンクを入力し、字幕を準備してからブラウザに接続してください。")
+    var status: String { statusText.value }
+    var connectionStatus: String { connectionStatusText.value }
     var error: String?
     var isPreparing = false
     var progress = 0.0
     var document: VideoSubtitleDocument?
     var isConnected = false
     var isConnecting = false
-    var connectionStatus = "未连接浏览器"
+    private var connectionStatusText = MediaLocalizedText("未连接浏览器", "Browser not connected", "ブラウザ未接続")
     var activeCue: VideoSubtitleCue?
     var playbackTime = 0.0
     private var connectedVideoID: String?
@@ -72,9 +74,9 @@ final class VideoSubtitlePreloadStore {
             && document.input == inputKey
     }
     var prepareTitle: String {
-        guard hasMatchingDocument else { return "开始预加载" }
-        if document?.completed == true { return "已从本机载入" }
-        return document?.audioProgress?.isRecognitionComplete == false ? "继续准备字幕" : "补齐缺失字幕"
+        guard hasMatchingDocument else { return AppText.ui("开始预加载", "Prepare captions", "字幕を準備") }
+        if document?.completed == true { return AppText.ui("已从本机载入", "Loaded from cache", "キャッシュ読込済み") }
+        return document?.audioProgress?.isRecognitionComplete == false ? AppText.ui("继续准备字幕", "Continue preparation", "準備を再開") : AppText.ui("补齐缺失字幕", "Complete captions", "未完了の字幕を補完")
     }
     var readyThroughTime: Double {
         document?.cues.prefix(while: { !$0.translation.isEmpty }).last?.end ?? 0
@@ -82,9 +84,9 @@ final class VideoSubtitlePreloadStore {
     var preparationSummary: String {
         guard let document else { return "" }
         if let audio = document.audioProgress, !audio.isRecognitionComplete {
-            return "\(translatedCount) 段已准备 · 识别 \(audio.nextRange) / \(audio.ranges.count)"
+            return AppText.ui("\(translatedCount) 段已准备 · 识别 \(audio.nextRange) / \(audio.ranges.count)", "\(translatedCount) captions ready · Recognition \(audio.nextRange) / \(audio.ranges.count)", "\(translatedCount) 件準備済み・認識 \(audio.nextRange) / \(audio.ranges.count)")
         }
-        return "\(translatedCount) / \(document.cues.count) 段已准备"
+        return AppText.ui("\(translatedCount) / \(document.cues.count) 段已准备", "\(translatedCount) / \(document.cues.count) captions ready", "\(translatedCount) / \(document.cues.count) 件準備済み")
     }
     var isConfigurationLocked: Bool { isPreparing || isConnected || isConnecting }
     var showsImportAction: Bool { input == .imported }
@@ -106,11 +108,11 @@ final class VideoSubtitlePreloadStore {
     }
 
     var mainActionTitle: String {
-        if isPreparing { return "停止准备" }
-        if isConnected { return "停止同步" }
-        if isConnecting { return "停止连接" }
-        if document != nil { return "连接视频" }
-        return "开始预加载"
+        if isPreparing { return AppText.ui("停止准备", "Stop preparation", "準備を停止") }
+        if isConnected { return AppText.ui("停止同步", "Stop sync", "同期を停止") }
+        if isConnecting { return AppText.ui("停止连接", "Cancel connection", "接続を中止") }
+        if document != nil { return AppText.ui("连接视频", "Connect video", "動画に接続") }
+        return AppText.ui("开始预加载", "Prepare captions", "字幕を準備")
     }
     var canPerformMainAction: Bool { isPreparing || isConnected || isConnecting || document != nil || canPrepare }
     func performMainAction() {
@@ -133,7 +135,7 @@ final class VideoSubtitlePreloadStore {
         if hasMatchingDocument { return }
         document = nil; activeCue = nil; error = nil; progress = 0
         guard let video = try? YouTubeVideoReference(videoURL), input != .imported || !imported.isEmpty else {
-            status = "输入 YouTube 链接，先准备字幕，再连接浏览器播放。"; return
+            statusText = MediaLocalizedText("输入 YouTube 链接，先准备字幕，再连接浏览器播放。", "Enter a YouTube link, prepare captions, then connect your browser.", "YouTube リンクを入力し、字幕を準備してからブラウザに接続してください。"); return
         }
         let source = sourceLanguage.id, target = targetLanguage.id, provider = translator.rawValue, selectedInput = inputKey
         do {
@@ -141,21 +143,21 @@ final class VideoSubtitlePreloadStore {
                                              provider: provider, input: selectedInput)
             guard !Task.isCancelled, !isPreparing, cacheSelectionKey == selection else { return }
             guard let saved else {
-                status = "未找到匹配的本机缓存，可开始预加载。"; return
+                statusText = MediaLocalizedText("未找到匹配的本机缓存，可开始预加载。", "No matching cache found. You can prepare captions.", "一致するキャッシュがありません。字幕を準備できます。"); return
             }
             document = saved
             progress = Double(translatedCount) / Double(max(1, saved.cues.count))
             if saved.completed {
-                status = "已自动载入本机缓存，无需重新下载或翻译。可直接连接浏览器显示字幕。"
+                statusText = MediaLocalizedText("已自动载入本机缓存，无需重新下载或翻译。可直接连接浏览器显示字幕。", "Cached captions loaded. Connect your browser to use them without downloading or translating again.", "キャッシュを読み込みました。再ダウンロードや再翻訳せず、ブラウザに接続して字幕を表示できます。")
             } else if saved.audioProgress?.isRecognitionComplete == false {
-                status = "已自动载入本机缓存，可直接播放已准备的字幕；点击“继续准备字幕”从未完成片段继续。"
+                statusText = MediaLocalizedText("已自动载入本机缓存，可直接播放已准备的字幕；点击“继续准备字幕”从未完成片段继续。", "Cache loaded. Ready captions are available; choose Continue preparation to resume unfinished audio segments.", "キャッシュを読み込みました。準備済みの字幕を再生できます。「準備を再開」で未完了の音声区間から続行します。")
             } else {
-                status = "已自动载入本机缓存，已准备的字幕可直接播放；点击“补齐缺失字幕”只处理未完成部分。"
+                statusText = MediaLocalizedText("已自动载入本机缓存，已准备的字幕可直接播放；点击“补齐缺失字幕”只处理未完成部分。", "Cache loaded. Ready captions are available; choose Complete captions to process only unfinished translations.", "キャッシュを読み込みました。準備済みの字幕を再生できます。「未完了の字幕を補完」で残りの翻訳だけを処理します。")
             }
             refreshCue()
         } catch {
             guard !Task.isCancelled, !isPreparing, cacheSelectionKey == selection else { return }
-            status = "本机缓存无法读取，可重新预加载。"
+            statusText = MediaLocalizedText("本机缓存无法读取，可重新预加载。", "The local cache could not be read. Prepare captions again.", "キャッシュを読み込めませんでした。字幕を再度準備してください。")
         }
     }
 
@@ -177,20 +179,20 @@ final class VideoSubtitlePreloadStore {
                 if let saved = try await cache.load(videoID: video.id, source: source.id, target: target.id,
                                                     provider: provider.rawValue, input: inputKey) {
                     document = saved
-                    if saved.completed { progress = 1; status = "已读取本机缓存，可连接浏览器显示字幕。"; refreshCue(); return }
+                    if saved.completed { progress = 1; statusText = MediaLocalizedText("已读取本机缓存，可连接浏览器显示字幕。", "Cache loaded. Connect your browser to show captions.", "キャッシュを読み込みました。ブラウザに接続して字幕を表示できます。"); refreshCue(); return }
                 }
                 if selectedInput == .openAI || provider == .openAI {
                     let key = try await Task.detached { try OpenAIAPIKeyStore.readAPIKey(retryAfterFailure: true) }.value
-                    guard key?.isEmpty == false else { throw VideoPreloadProblem(message: "请先在设置 → API 密钥中配置 OpenAI。") }
+                    guard key?.isEmpty == false else { throw VideoPreloadProblem(message: AppText.ui("请先在设置 → API 密钥中配置 OpenAI。", "Configure OpenAI in Settings → API Keys first.", "先に「設定 → API キー」で OpenAI を設定してください。")) }
                 }
                 try Task.checkCancellation()
                 if selectedInput == .openAI && (document == nil || document?.audioProgress?.isRecognitionComplete == false) {
                     // Finish a cached phrase whose recognition succeeded but translation was interrupted.
                     try await translatePending(source: source, target: target, provider: provider, token: token)
-                    status = "正在获取视频音轨…已有字幕可先播放。"
+                    statusText = MediaLocalizedText("正在获取视频音轨…已有字幕可先播放。", "Fetching video audio… Ready captions can already be played.", "動画の音声を取得中…準備済みの字幕は再生できます。")
                     let result = try await VideoMediaTools.shared.audio(for: video, directory: folder)
                     if document == nil {
-                        status = "正在划分音轨片段，随后边识别边翻译…"
+                        statusText = MediaLocalizedText("正在划分音轨片段，随后边识别边翻译…", "Segmenting audio, then recognizing and translating each phrase…", "音声を区切り、区間ごとに認識と翻訳を進めます…")
                         let ranges = try await audio.prepareRanges(result.url)
                         document = .init(videoID: video.id, title: result.title, sourceLanguage: source.id,
                             targetLanguage: target.id, provider: provider.rawValue, input: inputKey, cues: [],
@@ -207,27 +209,27 @@ final class VideoSubtitlePreloadStore {
                         self.document?.updatedAt = Date()
                         // Persist recognition before translating: a failed translation must not resend audio.
                         if let document = self.document { try await self.cache.save(document) }
-                        self.status = "识别音轨 \(done) / \(total)，正在准备本段译文…"
+                        self.statusText = MediaLocalizedText("识别音轨 \(done) / \(total)，正在准备本段译文…", "Audio recognition \(done) / \(total). Translating this phrase…", "音声認識 \(done) / \(total)。この区間を翻訳中…")
                         if cue != nil, let index = self.document?.cues.indices.last {
                             try await self.translateCue(at: index, source: source, target: target, provider: provider, token: token)
                         }
                         self.progress = Double(done) / Double(max(1, total))
-                        self.status = "已准备至 \(Self.timestamp(self.readyThroughTime))，可先播放；后续字幕继续处理中（\(done) / \(total)）。"
+                        self.statusText = MediaLocalizedText("已准备至 \(Self.timestamp(self.readyThroughTime))，可先播放；后续字幕继续处理中（\(done) / \(total)）。", "Ready through \(Self.timestamp(self.readyThroughTime)). Playback is available; preparing remaining captions (\(done) / \(total)).", "\(Self.timestamp(self.readyThroughTime)) まで準備済み。再生しながら残りの字幕を準備できます（\(done) / \(total)）。")
                         self.refreshCue()
                     }
                     guard self.document?.cues.isEmpty == false else {
-                        throw VideoPreloadProblem(message: "音轨中未识别到可用语音。")
+                        throw VideoPreloadProblem(message: AppText.ui("音轨中未识别到可用语音。", "No usable speech was recognized in the audio.", "音声から認識できる発話が見つかりませんでした。"))
                     }
                     document?.completed = true
                     if let document { try await cache.save(document) }
-                    status = "字幕已准备完成，重播时可直接使用本机缓存。"; progress = 1
+                    statusText = MediaLocalizedText("字幕已准备完成，重播时可直接使用本机缓存。", "Captions are ready. Replay using the local cache.", "字幕の準備が完了しました。次回はキャッシュを利用できます。"); progress = 1
                     return
                 }
                 if document == nil {
                     let title: String, cues: [VideoSubtitleCue]
                     switch selectedInput {
                     case .youtube:
-                        status = "正在准备视频组件并获取原文字幕…首次需要下载组件。"
+                        statusText = MediaLocalizedText("正在准备视频组件并获取原文字幕…首次需要下载组件。", "Preparing video tools and fetching source captions… Tools must be downloaded on first use.", "動画ツールを準備し、原文字幕を取得中…初回はツールのダウンロードが必要です。")
                         let result = try await VideoMediaTools.shared.subtitles(for: video, language: String(source.id.prefix(2)), directory: folder)
                         title = result.title; cues = result.cues
                     case .imported:
@@ -236,7 +238,7 @@ final class VideoSubtitlePreloadStore {
                         throw VideoSubtitleError.invalidAudio
                     }
                     guard !cues.isEmpty, cues.count <= 30_000, (cues.last?.end ?? 0) <= 43_200 else {
-                        throw VideoPreloadProblem(message: "字幕为空或视频过长，暂无法预加载。")
+                        throw VideoPreloadProblem(message: AppText.ui("字幕为空或视频过长，暂无法预加载。", "Captions are empty or the video is too long to preload.", "字幕が空か、動画が長すぎるため準備できません。"))
                     }
                     document = .init(videoID: video.id, title: title, sourceLanguage: source.id,
                         targetLanguage: target.id, provider: provider.rawValue, input: inputKey, cues: Self.group(cues))
@@ -246,14 +248,14 @@ final class VideoSubtitlePreloadStore {
                 try await translatePending(source: source, target: target, provider: provider, token: token)
                 document?.completed = true
                 if let document { try await cache.save(document) }
-                status = "字幕已准备完成，重播时可直接使用本机缓存。"; progress = 1
+                statusText = MediaLocalizedText("字幕已准备完成，重播时可直接使用本机缓存。", "Captions are ready. Replay using the local cache.", "字幕の準備が完了しました。次回はキャッシュを利用できます。"); progress = 1
             } catch {
                 if let document { try? await cache.save(document) }
                 guard generation == token else { return }
-                if Task.isCancelled || error is CancellationError { status = "已停止准备，已完成的字幕保留在本机。" }
+                if Task.isCancelled || error is CancellationError { statusText = MediaLocalizedText("已停止准备，已完成的字幕保留在本机。", "Preparation stopped. Completed captions remain cached.", "準備を停止しました。完了した字幕はキャッシュに保存されています。") }
                 else {
                     self.error = Self.message(for: error)
-                    status = "准备未完成；可重试，已完成的译文会复用。"
+                    statusText = MediaLocalizedText("准备未完成；可重试，已完成的译文会复用。", "Preparation is incomplete. Retry to reuse completed translations.", "準備は未完了です。再試行時には完了済みの翻訳を再利用します。")
                 }
             }
         }
@@ -263,7 +265,7 @@ final class VideoSubtitlePreloadStore {
                                   provider: VideoSubtitleTranslator, token: UUID) async throws {
         let total = document?.cues.count ?? 0
         for index in 0..<total {
-            status = "正在准备译文 \(index + 1) / \(total)，已完成的字幕可先播放。"
+            statusText = MediaLocalizedText("正在准备译文 \(index + 1) / \(total)，已完成的字幕可先播放。", "Translating \(index + 1) / \(total). Ready captions can already be played.", "翻訳中 \(index + 1) / \(total)。完了した字幕は再生できます。")
             try await translateCue(at: index, source: source, target: target, provider: provider, token: token)
             if let audio = document?.audioProgress, !audio.isRecognitionComplete {
                 progress = Double(audio.nextRange) / Double(max(1, audio.ranges.count))
@@ -313,7 +315,7 @@ final class VideoSubtitlePreloadStore {
             let data = try Data(contentsOf: file)
             imported = try VideoSubtitleTimeline.parse(data)
             importedHash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-            input = .imported; error = nil; status = "已导入 \(file.lastPathComponent)，共 \(imported.count) 段。"
+            input = .imported; error = nil; statusText = MediaLocalizedText("已导入 \(file.lastPathComponent)，共 \(imported.count) 段。", "Imported \(file.lastPathComponent): \(imported.count) captions.", "\(file.lastPathComponent) を読み込みました（\(imported.count) 件）。")
         } catch { self.error = Self.message(for: error) }
     }
 
@@ -322,7 +324,7 @@ final class VideoSubtitlePreloadStore {
         let token = UUID(); connectionGeneration = token
         let selectedBrowser = browser
         isConnecting = true
-        connectionStatus = "正在连接 \(selectedBrowser.title)…"
+        connectionStatusText = MediaLocalizedText("正在连接 \(selectedBrowser.title)…", "Connecting to \(selectedBrowser.title)…", "\(selectedBrowser.title) に接続中…")
         monitoring = Task {
             var initial = true
             while !Task.isCancelled {
@@ -337,9 +339,9 @@ final class VideoSubtitlePreloadStore {
                     isConnected = true; playbackTime = snapshot.time ?? 0
                     isPaused = snapshot.paused ?? true; isAd = snapshot.ad ?? false
                     if let document, currentVideo.id != document.videoID {
-                        activeCue = nil; connectionStatus = "当前视频与已准备的字幕不同，请切回原视频。"
+                        activeCue = nil; connectionStatusText = MediaLocalizedText("当前视频与已准备的字幕不同，请切回原视频。", "This video does not match the prepared captions. Return to the original video.", "準備した字幕と動画が一致しません。元の動画に戻ってください。")
                     } else {
-                        connectionStatus = isAd ? "广告播放中，字幕暂时隐藏" : isPaused ? "已同步 · 已暂停" : "已同步 · \(snapshot.rate ?? 1)×"
+                        connectionStatusText = isAd ? MediaLocalizedText("广告播放中，字幕暂时隐藏", "Ad playing; captions hidden temporarily", "広告の再生中は字幕を非表示にします") : isPaused ? MediaLocalizedText("已同步 · 已暂停", "Synced · Paused", "同期済み・一時停止中") : MediaLocalizedText("已同步 · \(snapshot.rate ?? 1)×", "Synced · \(snapshot.rate ?? 1)×", "同期済み・\(snapshot.rate ?? 1) 倍速")
                         refreshCue()
                     }
                     try await Task.sleep(for: .milliseconds(250))
@@ -347,12 +349,12 @@ final class VideoSubtitlePreloadStore {
                     guard connectionGeneration == token, !Task.isCancelled else { return }
                     if let readError = error as? VideoPlaybackReadError, readError.canRetry {
                         initial = false
-                        connectionStatus = "视频窗口切换中，正在恢复原视频同步…"
+                        connectionStatusText = MediaLocalizedText("视频窗口切换中，正在恢复原视频同步…", "Restoring video sync after a window change…", "動画ウィンドウの切り替え後、元の動画との同期を復旧中…")
                         do { try await Task.sleep(for: .milliseconds(500)) }
                         catch { return }
                         continue
                     }
-                    connectionStatus = Self.message(for: error)
+                    connectionStatusText = MediaLocalizedText(verbatim: Self.message(for: error))
                     isConnecting = false; isConnected = false; activeCue = nil; return
                 }
             }
@@ -360,7 +362,7 @@ final class VideoSubtitlePreloadStore {
     }
     func disconnect() {
         connectionGeneration = UUID(); monitoring?.cancel(); monitoring = nil
-        isConnecting = false; isConnected = false; connectedVideoID = nil; activeCue = nil; connectionStatus = "未连接浏览器"
+        isConnecting = false; isConnected = false; connectedVideoID = nil; activeCue = nil; connectionStatusText = MediaLocalizedText("未连接浏览器", "Browser not connected", "ブラウザ未接続")
     }
     func refreshCue() {
         guard isConnected, !isAd, let document, connectedVideoID == document.videoID else { activeCue = nil; return }
@@ -378,7 +380,7 @@ final class VideoSubtitlePreloadStore {
         let panel = NSSavePanel(); panel.nameFieldStringValue = "Wenyi-\(document.videoID)-\(document.targetLanguage).srt"
         guard panel.runModal() == .OK, let file = panel.url else { return }
         do { try VideoSubtitleTimeline.srt(document.cues).write(to: file, atomically: true, encoding: .utf8) }
-        catch { self.error = "字幕导出失败，请检查保存位置。" }
+        catch { self.error = AppText.ui("字幕导出失败，请检查保存位置。", "Caption export failed. Check the save location.", "字幕を書き出せませんでした。保存先を確認してください。") }
     }
     private static func group(_ values: [VideoSubtitleCue]) -> [VideoSubtitleCue] {
         var result: [VideoSubtitleCue] = []
@@ -392,7 +394,7 @@ final class VideoSubtitlePreloadStore {
         return result
     }
     private static func message(for error: Error) -> String {
-        if error is VideoSubtitleError { return "无法读取视频或字幕，请检查 YouTube 链接及 SRT／VTT 文件。" }
+        if error is VideoSubtitleError { return AppText.ui("无法读取视频或字幕，请检查 YouTube 链接及 SRT／VTT 文件。", "Cannot read the video or captions. Check the YouTube link and SRT / VTT file.", "動画または字幕を読み込めません。YouTube リンクと SRT／VTT ファイルを確認してください。") }
         return error.localizedDescription
     }
 }

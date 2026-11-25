@@ -14,7 +14,7 @@ struct AirTranslateApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("文译", id: AirTranslateWindowID.main) {
+        WindowGroup(AppText.appName, id: AirTranslateWindowID.main) {
             ContentView(session: session, videoSubtitles: videoSubtitles, isMediaInputSelected: $isMediaInputSelected)
                 .environment(\.locale, AppText.interfaceLocale)
                 .frame(

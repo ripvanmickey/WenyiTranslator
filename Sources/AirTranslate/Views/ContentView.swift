@@ -75,6 +75,7 @@ struct ContentView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
+            .toolbar { shortcutToolbar(sidebarWidth: isMediaInputSelected ? MediaWorkspaceLayout.sidebarWidth(for: geometry.size.width) + MediaWorkspaceLayout.dividerWidth : 0) }
         }
         .frame(minWidth: MediaWorkspaceLayout.minimumWindowWidth(media: isMediaInputSelected))
         .animation(reduceMotion ? nil : AirTranslateDesign.Motion.enter, value: isMediaInputSelected)
@@ -90,50 +91,6 @@ struct ContentView: View {
             MainCaptionWindowObserver(isCaptionVisible: $isMainCaptionVisible)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                if let update = updates.availableUpdate {
-                    Button {
-                        openURL(update.downloadURL)
-                    } label: {
-                        Image(systemName: "arrow.down.circle")
-                    }
-                    .help(AppUpdateCopy.versionAvailable(update.summary))
-                    .accessibilityLabel(AppUpdateCopy.available)
-                    .accessibilityIdentifier("wenyiUpdateAvailable")
-                }
-
-                Button {
-                    isLibraryPresented = true
-                } label: {
-                    Image(systemName: "tray.full")
-                }
-                .help(AppText.manageSavedTranscripts)
-                .accessibilityLabel(AppText.library)
-
-                Button {
-                    toggleFloatingCaptions()
-                } label: {
-                    Image(systemName: floatingCaptionsVisible ? "captions.bubble.fill" : "captions.bubble")
-                }
-                .help(AppText.floatingCaptions)
-                .accessibilityLabel(AppText.floatingCaptions)
-                .accessibilityValue(
-                    floatingCaptionsVisible
-                        ? AppText.floatingCaptionPowerOn
-                        : AppText.floatingCaptionPowerOff
-                )
-                .accessibilityAddTraits(floatingCaptionsVisible ? .isSelected : [])
-            }
-
-            ToolbarItem(placement: .primaryAction) {
-                SettingsLink {
-                    Image(systemName: "gearshape")
-                }
-                .help(AppText.configureTranslationSettings)
-                .accessibilityLabel(AppText.translationSettings)
-            }
         }
         .controlSize(.regular)
         .sheet(isPresented: $isLibraryPresented) {
@@ -190,6 +147,66 @@ struct ContentView: View {
             session.openPrivacySettings(pane)
         case .retry:
             session.start()
+        }
+    }
+
+    @ToolbarContentBuilder
+    private func shortcutToolbar(sidebarWidth: CGFloat) -> some ToolbarContent {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if let update = updates.availableUpdate {
+                    Button {
+                        openURL(update.downloadURL)
+                    } label: {
+                        Image(systemName: "arrow.down.circle")
+                    }
+                    .help(AppUpdateCopy.versionAvailable(update.summary))
+                    .accessibilityLabel(AppUpdateCopy.available)
+                    .accessibilityIdentifier("wenyiUpdateAvailable")
+                }
+
+                Button {
+                    isLibraryPresented = true
+                } label: {
+                    Image(systemName: "tray.full")
+                }
+                .help(AppText.manageSavedTranscripts)
+                .accessibilityLabel(AppText.library)
+
+                Button {
+                    toggleFloatingCaptions()
+                } label: {
+                    Image(systemName: floatingCaptionsVisible ? "captions.bubble.fill" : "captions.bubble")
+                }
+                .help(AppText.floatingCaptions)
+                .accessibilityLabel(AppText.floatingCaptions)
+                .accessibilityValue(
+                    floatingCaptionsVisible
+                        ? AppText.floatingCaptionPowerOn
+                        : AppText.floatingCaptionPowerOff
+                )
+                .accessibilityAddTraits(floatingCaptionsVisible ? .isSelected : [])
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                SettingsLink {
+                    Image(systemName: "gearshape")
+                }
+                .help(AppText.configureTranslationSettings)
+                .accessibilityLabel(AppText.translationSettings)
+            }
+        if sidebarWidth > 0 {
+            if #available(macOS 26.0, *) {
+                ToolbarItem(id: "mediaInspectorToolbarSpace", placement: .primaryAction) {
+                    Color.clear.frame(width: sidebarWidth, height: 1)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+                .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(id: "mediaInspectorToolbarSpace", placement: .primaryAction) {
+                    Color.clear.frame(width: sidebarWidth, height: 1)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+            }
         }
     }
 
@@ -335,7 +352,7 @@ private struct MediaWorkspaceWindowSizer: NSViewRepresentable {
                 collapsedWidth = frame.width
                 frame.size.width = MediaWorkspaceLayout.expandedWindowWidth(from: frame.width, within: visible.width)
             } else if let collapsedWidth {
-                frame.size.width = max(AirTranslateDesign.mainWindowMinimumWidth, min(collapsedWidth, visible.width))
+                frame.size.width = max(MediaWorkspaceLayout.captionMinimumWidth, min(collapsedWidth, visible.width))
             }
             frame.origin.x = max(visible.minX, min(frame.origin.x, visible.maxX - frame.width))
             applied = expanded

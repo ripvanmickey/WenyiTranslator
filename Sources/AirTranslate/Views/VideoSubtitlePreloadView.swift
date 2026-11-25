@@ -20,51 +20,51 @@ struct VideoSubtitlePreloadView: View {
                         .disabled(model.isConfigurationLocked).help(AppText.ui("关闭媒体设置", "Close Media Settings", "メディア設定を閉じる"))
                         .accessibilityIdentifier("closeMediaSidebar")
                 }
-                note("继续在 Chrome／Safari 播放 YouTube，字幕跟随视频时间显示。")
+                note(AppText.ui("继续在 Chrome／Safari 播放 YouTube，字幕跟随视频时间显示。", "Play YouTube in Chrome or Safari. Captions follow the video timeline.", "Chrome／Safari で YouTube を再生すると、動画の時刻に合わせて字幕を表示します。"))
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("视频链接").font(.system(size: 13, weight: .semibold))
+                    Text(AppText.ui("视频链接", "Video link", "動画リンク")).font(.system(size: 13, weight: .semibold))
                     TextField("https://www.youtube.com/watch?v=…", text: $model.videoURL)
-                        .textFieldStyle(.roundedBorder).accessibilityLabel("YouTube 视频链接")
+                        .textFieldStyle(.roundedBorder).accessibilityLabel(AppText.ui("YouTube 视频链接", "YouTube video link", "YouTube 動画リンク"))
                 }.disabled(model.isConfigurationLocked)
 
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 6) {
-                        Text("原文").foregroundStyle(.secondary)
+                        Text(AppText.ui("原文", "Original", "原文")).foregroundStyle(.secondary)
                         languagePicker(source: true)
                         Image(systemName: "arrow.right").foregroundStyle(.secondary)
-                        Text("译文").foregroundStyle(.secondary)
+                        Text(AppText.ui("译文", "Translation", "訳文")).foregroundStyle(.secondary)
                         languagePicker(source: false)
                     }.fixedSize(horizontal: true, vertical: false)
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack { Text("原文"); languagePicker(source: true) }
-                        HStack { Text("译文"); languagePicker(source: false) }
+                        HStack { Text(AppText.ui("原文", "Original", "原文")); Spacer(minLength: 8); languagePicker(source: true) }
+                        HStack { Text(AppText.ui("译文", "Translation", "訳文")); Spacer(minLength: 8); languagePicker(source: false) }
                     }
                 }.font(.system(size: 12)).disabled(model.isConfigurationLocked)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("字幕来源").font(.system(size: 13, weight: .semibold))
+                    Text(AppText.ui("字幕来源", "Caption source", "字幕ソース")).font(.system(size: 13, weight: .semibold))
                     HStack(spacing: 8) {
-                        Picker("字幕来源", selection: $model.input) {
+                        Picker(AppText.ui("字幕来源", "Caption source", "字幕ソース"), selection: $model.input) {
                             ForEach(VideoSubtitleInput.allCases) { Text($0.title).tag($0) }
                         }.pickerStyle(.menu).labelsHidden()
                             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                         Spacer(minLength: 0)
                         if model.showsImportAction {
-                            Button("导入…") { model.importSubtitles() }.fixedSize()
+                            Button(AppText.ui("导入…", "Import…", "読み込む…")) { model.importSubtitles() }.fixedSize()
                                 .accessibilityIdentifier("mediaImportSubtitles")
                         }
                         if model.input == .openAI { configureOpenAI }
                     }
                 }.disabled(model.isConfigurationLocked)
                 note(model.input == .openAI
-                    ? "音轨片段发送到 OpenAI 识别，仅将字幕文字发送到所选翻译服务。会产生相应 API 用量。"
-                    : "使用视频已有或导入的字幕，只将字幕文字发送到所选翻译服务，不上传音频。")
+                    ? AppText.ui("音轨片段发送到 OpenAI 识别，仅将字幕文字发送到所选翻译服务。会产生相应 API 用量。", "Audio segments are sent to OpenAI for recognition. Only caption text is sent to the translation service. API usage charges apply.", "音声区間を OpenAI に送信して認識します。翻訳サービスには字幕テキストのみを送信します。API 利用料金が発生します。")
+                    : AppText.ui("使用视频已有或导入的字幕，只将字幕文字发送到所选翻译服务，不上传音频。", "Use existing or imported captions. Only text is sent to the translation service; audio is not uploaded.", "既存または読み込んだ字幕を使用します。翻訳サービスにはテキストだけを送信し、音声はアップロードしません。"))
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("翻译模型").font(.system(size: 13, weight: .semibold))
+                    Text(AppText.ui("翻译模型", "Translation model", "翻訳モデル")).font(.system(size: 13, weight: .semibold))
                     HStack(spacing: 8) {
-                        Picker("翻译模型", selection: $model.translator) {
+                        Picker(AppText.ui("翻译模型", "Translation model", "翻訳モデル"), selection: $model.translator) {
                             ForEach(VideoSubtitleTranslator.allCases) { Text($0.title).tag($0) }
                         }.pickerStyle(.menu).labelsHidden()
                             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
@@ -74,19 +74,19 @@ struct VideoSubtitlePreloadView: View {
                 }.disabled(model.isConfigurationLocked)
 
                 Divider()
-                HStack(spacing: 10) {
-                    Button(model.prepareTitle, systemImage: "arrow.down.circle") { model.prepare() }
-                        .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).disabled(!model.canPrepare)
-                    if model.isPreparing { Button("停止") { model.cancel() } }
-                    Spacer(minLength: 0)
-                    if model.document != nil {
-                        Button("导出字幕…") { model.export() }.fixedSize()
+                ViewThatFits(in: .horizontal) {
+                    preparationActions.fixedSize(horizontal: true, vertical: false)
+                    VStack(alignment: .leading, spacing: 8) {
+                        prepareButton
+                        if model.isPreparing { Button(AppText.ui("停止", "Stop", "停止")) { model.cancel() } }
+                        if model.document != nil { exportButton }
                     }
                 }
                 if model.isPreparing { ProgressView(value: model.progress) }
                 if model.readyThroughTime > 0 {
-                    Text("字幕已准备至 \(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime))，可先播放。")
+                    Text(AppText.ui("字幕已准备至 \(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime))，可先播放。", "Ready through \(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime)). You can start playback.", "\(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime)) まで準備済み。再生を開始できます。"))
                         .font(.system(size: 12)).foregroundStyle(AirTranslateDesign.Palette.live)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     note(model.status)
                 }
@@ -95,25 +95,21 @@ struct VideoSubtitlePreloadView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Divider()
-                Text("浏览器同步").font(.system(size: 15, weight: .semibold))
-                HStack(spacing: 10) {
-                    Picker("浏览器", selection: $model.browser) {
-                        ForEach(VideoPlaybackBrowser.allCases) { Text($0.title).tag($0) }
-                    }.pickerStyle(.menu).labelsHidden().fixedSize().disabled(model.isConnected || model.isConnecting)
-                    Button(model.isConnected || model.isConnecting ? "断开连接" : "连接当前视频") {
-                        if model.isConnected || model.isConnecting { model.disconnect() } else { model.connect() }
-                    }.fixedSize()
+                Text(AppText.ui("浏览器同步", "Browser sync", "ブラウザ同期")).font(.system(size: 15, weight: .semibold))
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) { browserPicker; connectionButton }.fixedSize(horizontal: true, vertical: false)
+                    VStack(alignment: .leading, spacing: 8) { browserPicker; connectionButton }
                 }
-                Text(model.isConnected ? "\(model.connectionStatus)。暂停、拖动和倍速时，左侧字幕随播放时间更新。" : model.connectionStatus)
+                Text(model.isConnected ? AppText.ui("\(model.connectionStatus)。暂停、拖动和倍速时，左侧字幕随播放时间更新。", "\(model.connectionStatus). Captions follow pauses, seeking, and playback speed.", "\(model.connectionStatus)。一時停止、シーク、再生速度の変更に合わせて字幕を更新します。") : model.connectionStatus)
                     .font(.system(size: 12)).foregroundStyle(model.isConnected ? Color.secondary : .orange)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
-                    Text("字幕延后")
+                    Text(AppText.ui("字幕延后", "Caption delay", "字幕の遅延"))
                     Stepper(value: $model.timingOffset, in: -5...5, step: 0.1) {
-                        Text(String(format: "%+.1f 秒", model.timingOffset)).monospacedDigit()
+                        Text(String(format: AppText.ui("%+.1f 秒", "%+.1f s", "%+.1f 秒"), model.timingOffset)).monospacedDigit()
                     }.fixedSize()
                 }
-                note("首次连接需允许文译自动化访问，并开启浏览器“允许来自 Apple 事件的 JavaScript”。")
+                BrowserSyncSetupGuide(browser: model.browser)
 
             }
             .font(.system(size: 13))
@@ -126,15 +122,40 @@ struct VideoSubtitlePreloadView: View {
         .onChange(of: model.timingOffset) { _, _ in model.refreshCue() }
     }
 
+    private var prepareButton: some View {
+        Button(model.prepareTitle, systemImage: "arrow.down.circle") { model.prepare() }
+            .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).disabled(!model.canPrepare)
+    }
+    private var exportButton: some View {
+        Button(AppText.ui("导出字幕…", "Export…", "書き出す…")) { model.export() }
+    }
+    private var preparationActions: some View {
+        HStack(spacing: 10) {
+            prepareButton
+            if model.isPreparing { Button(AppText.ui("停止", "Stop", "停止")) { model.cancel() } }
+            if model.document != nil { exportButton }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private var browserPicker: some View {
+        Picker(AppText.ui("浏览器", "Browser", "ブラウザ"), selection: $model.browser) {
+            ForEach(VideoPlaybackBrowser.allCases) { Text($0.title).tag($0) }
+        }.pickerStyle(.menu).labelsHidden().disabled(model.isConnected || model.isConnecting)
+    }
+    private var connectionButton: some View {
+        Button(model.isConnected || model.isConnecting ? AppText.ui("断开连接", "Disconnect", "接続を解除") : AppText.ui("连接当前视频", "Connect video", "動画に接続")) {
+            if model.isConnected || model.isConnecting { model.disconnect() } else { model.connect() }
+        }
+    }
+
     private func note(_ text: String) -> some View {
         Text(text).font(.system(size: 12)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }
     private func languagePicker(source: Bool) -> some View {
-        Picker(source ? "原文" : "译文", selection: source ? $model.sourceLanguage : $model.targetLanguage) {
+        Picker(source ? AppText.ui("原文", "Original", "原文") : AppText.ui("译文", "Translation", "訳文"), selection: source ? $model.sourceLanguage : $model.targetLanguage) {
             ForEach(LanguageOption.supported) { Text($0.localizedTitle).tag($0) }
         }.pickerStyle(.menu).labelsHidden().controlSize(.small)
-            .frame(width: source ? 64 : 88)
+            .frame(width: InterfaceLocalization.interfaceLanguage == .english ? (source ? 110 : 150) : (source ? 86 : 120))
             .fixedSize(horizontal: false, vertical: true)
     }
     private var configureOpenAI: some View {
@@ -152,16 +173,16 @@ struct MediaCaptionBoardView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Label(model.isConnected ? "已同步" : "媒体字幕", systemImage: model.isConnected ? "link.circle.fill" : "play.rectangle")
+                Label(model.isConnected ? AppText.ui("已同步", "Synced", "同期済み") : AppText.ui("媒体字幕", "Media captions", "メディア字幕"), systemImage: model.isConnected ? "link.circle.fill" : "play.rectangle")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(model.isConnected ? AirTranslateDesign.Palette.live : AirTranslateDesign.Palette.accent)
                     .padding(.horizontal, 10).padding(.vertical, 4)
                     .background(AirTranslateDesign.Palette.raised, in: Capsule())
                 Menu {
-                    Picker("原文", selection: $model.sourceLanguage) {
+                    Picker(AppText.ui("原文", "Original", "原文"), selection: $model.sourceLanguage) {
                         ForEach(LanguageOption.supported) { Text($0.localizedTitle).tag($0) }
                     }
-                    Picker("译文", selection: $model.targetLanguage) {
+                    Picker(AppText.ui("译文", "Translation", "訳文"), selection: $model.targetLanguage) {
                         ForEach(LanguageOption.supported) { Text($0.localizedTitle).tag($0) }
                     }
                 } label: {
@@ -171,7 +192,7 @@ struct MediaCaptionBoardView: View {
                 .menuStyle(.borderlessButton).fixedSize()
                 .disabled(model.isConfigurationLocked)
                 Spacer(minLength: 12)
-                Label("媒体字幕", systemImage: "play.rectangle").foregroundStyle(.secondary)
+                Label(AppText.ui("媒体字幕", "Media captions", "メディア字幕"), systemImage: "play.rectangle").foregroundStyle(.secondary)
             }
             .font(.system(size: 13)).lineLimit(1)
             .padding(.horizontal, 28).frame(height: 58)
@@ -180,17 +201,18 @@ struct MediaCaptionBoardView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         HStack {
-                            Label("跟随视频播放 · \(VideoSubtitlePreloadStore.timestamp(model.playbackTime))", systemImage: "play.circle")
+                            Label(AppText.ui("跟随视频播放 · \(VideoSubtitlePreloadStore.timestamp(model.playbackTime))", "Video time · \(VideoSubtitlePreloadStore.timestamp(model.playbackTime))", "動画の時刻・\(VideoSubtitlePreloadStore.timestamp(model.playbackTime))"), systemImage: "play.circle")
                                 .foregroundStyle(AirTranslateDesign.Palette.captionSource)
                             Spacer()
                             if model.readyThroughTime > 0 {
-                                Text("字幕已准备至 \(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime))").foregroundStyle(.gray)
+                                Text(AppText.ui("字幕已准备至 \(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime))", "Ready through \(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime))", "\(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime)) まで準備済み")).foregroundStyle(.gray)
                             }
                         }.font(.system(size: 12)).monospacedDigit()
+                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
 
                         if model.visibleCaptionContext.isEmpty {
                             VideoSubtitleTextView(cue: nil,
-                                placeholder: model.isAd ? "广告播放中" : model.isConnected ? "播放到已准备的时间段时显示字幕" : "在右侧准备字幕并连接浏览器，字幕将在这里随视频显示。",
+                                placeholder: model.isAd ? AppText.ui("广告播放中", "Ad playing", "広告再生中") : model.isConnected ? AppText.ui("播放到已准备的时间段时显示字幕", "Captions appear when playback reaches a prepared segment.", "準備済みの区間に達すると字幕を表示します。") : AppText.ui("在右侧准备字幕并连接浏览器，字幕将在这里随视频显示。", "Prepare captions on the right and connect your browser to show synchronized captions here.", "右側で字幕を準備し、ブラウザに接続すると、動画に合わせてここに字幕を表示します。"),
                                 sourceColor: AirTranslateDesign.Palette.captionSource,
                                   translationColor: AirTranslateDesign.Palette.captionTranslation)
                                 .padding(.vertical, 18)
@@ -236,7 +258,7 @@ private struct MediaCaptionCueView: View {
                     NSPasteboard.general.setString(showsTranslation && !cue.translation.isEmpty ? cue.source + "\n" + cue.translation : cue.source, forType: .string)
                     copied = true
                 } label: { Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 15)) }
-                    .buttonStyle(.plain).foregroundStyle(.gray).help("复制字幕")
+                    .buttonStyle(.plain).foregroundStyle(.gray).help(AppText.ui("复制字幕", "Copy captions", "字幕をコピー"))
             }
             VideoSubtitleTextView(cue: cue, placeholder: "", showsTranslation: showsTranslation, spacing: 12,
                                   sourceColor: AirTranslateDesign.Palette.captionSource,
@@ -301,7 +323,7 @@ private struct VideoSubtitleOverlayView: View {
             HStack(spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "line.3.horizontal")
-                    Text("视频字幕")
+                    Text(AppText.ui("视频字幕", "Video captions", "動画字幕"))
                     Spacer(minLength: 0)
                 }
                 .font(.caption).foregroundStyle(.white.opacity(0.6))
@@ -310,11 +332,11 @@ private struct VideoSubtitleOverlayView: View {
                 .help(AppText.ui("拖动这里移动字幕", "Drag here to move captions", "ここをドラッグして字幕を移動"))
                 .accessibilityIdentifier("mediaCaptionDragHandle")
                 Button { model.toggleOverlay() } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).foregroundStyle(.white).help("关闭字幕")
+                    .buttonStyle(.plain).foregroundStyle(.white).help(AppText.ui("关闭字幕", "Close captions", "字幕を閉じる"))
             }
             ScrollView {
                 VideoSubtitleTextView(cue: model.activeCue,
-                    placeholder: model.isConnected ? (model.isAd ? "广告播放中" : "等待当前时间段的字幕…") : "请在文译中连接浏览器",
+                    placeholder: model.isConnected ? (model.isAd ? AppText.ui("广告播放中", "Ad playing", "広告再生中") : AppText.ui("等待当前时间段的字幕…", "Waiting for captions at this position…", "現在の区間の字幕を待機中…")) : AppText.ui("请在文译中连接浏览器", "Connect your browser in Wenyi.", "文訳でブラウザに接続してください。"),
                     showsTranslation: model.showsTranslation)
             }
         }

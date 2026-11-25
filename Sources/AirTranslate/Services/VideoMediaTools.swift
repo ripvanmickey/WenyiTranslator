@@ -30,15 +30,15 @@ enum VideoProcess {
         let deadline = Date().addingTimeInterval(timeout)
         while process.isRunning {
             try Task.checkCancellation()
-            guard Date() < deadline else { throw VideoPreloadProblem(message: "视频处理超时，请重试。") }
+            guard Date() < deadline else { throw VideoPreloadProblem(message: AppText.ui("视频处理超时，请重试。", "Video processing timed out. Try again.", "動画処理がタイムアウトしました。再試行してください。")) }
             try await Task.sleep(for: .milliseconds(100))
         }
         guard process.terminationStatus == 0 else {
-            throw VideoPreloadProblem(message: "无法获取此视频的公开音轨或字幕。请确认视频可公开访问，或导入已有的 SRT／VTT 字幕。")
+            throw VideoPreloadProblem(message: AppText.ui("无法获取此视频的公开音轨或字幕。请确认视频可公开访问，或导入已有的 SRT／VTT 字幕。", "Cannot fetch public audio or captions. Check video access, or import an SRT / VTT file.", "公開音声または字幕を取得できません。動画へのアクセスを確認するか、SRT／VTT を読み込んでください。"))
         }
         try stdout.close(); try stderr.close()
         let size = (try? output.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        guard size <= 20_000_000 else { throw VideoPreloadProblem(message: "视频信息过大。") }
+        guard size <= 20_000_000 else { throw VideoPreloadProblem(message: AppText.ui("视频信息过大。", "Video metadata is too large.", "動画情報が大きすぎます。")) }
         return try Data(contentsOf: output)
     }
 }
@@ -69,7 +69,7 @@ actor VideoMediaTools {
     func prepare() async throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         guard FileManager.default.isExecutableFile(atPath: python.path) else {
-            throw VideoPreloadProblem(message: "应用缺少内置视频处理运行组件，请使用完整测试安装包。")
+            throw VideoPreloadProblem(message: AppText.ui("应用缺少内置视频处理运行组件，请使用完整测试安装包。", "Video processing components are missing. Use the complete app package.", "動画処理コンポーネントがありません。完全なアプリパッケージを使用してください。"))
         }
         let downloader = root.appendingPathComponent("yt-dlp")
         if !validFile(downloader, hash: Self.downloaderSHA) {
@@ -101,7 +101,7 @@ actor VideoMediaTools {
             }
             return rank($0) == rank($1) ? $0.lastPathComponent < $1.lastPathComponent : rank($0) < rank($1)
         }).first else {
-            throw VideoPreloadProblem(message: "此视频没有所选原文语言的字幕。可导入 SRT／VTT，或选择 OpenAI 音轨识别。")
+            throw VideoPreloadProblem(message: AppText.ui("此视频没有所选原文语言的字幕。可导入 SRT／VTT，或选择 OpenAI 音轨识别。", "This video has no captions in the selected source language. Import SRT / VTT or choose OpenAI audio recognition.", "選択した原文言語の字幕がありません。SRT／VTT を読み込むか、OpenAI 音声認識を選択してください。"))
         }
         return (result, try VideoSubtitleTimeline.parse(Data(contentsOf: file)))
     }
@@ -123,7 +123,7 @@ actor VideoMediaTools {
         _ = try await VideoProcess.run(python, arguments: args, environment: environment, directory: directory, timeout: 900)
         if let data = try? Data(contentsOf: directory.appendingPathComponent("media.info.json")),
            let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if info["is_live"] as? Bool == true { throw VideoPreloadProblem(message: "直播暂不支持提前生成完整字幕，请使用实时聆听。") }
+            if info["is_live"] as? Bool == true { throw VideoPreloadProblem(message: AppText.ui("直播暂不支持提前生成完整字幕，请使用实时聆听。", "Live streams cannot be preloaded. Use live listening instead.", "ライブ配信の字幕は事前準備できません。リアルタイムの音声認識を使用してください。")) }
             return info["title"] as? String ?? video.id
         }
         return video.id
@@ -133,7 +133,7 @@ actor VideoMediaTools {
         let (temporary, response) = try await session.download(from: url)
         defer { try? FileManager.default.removeItem(at: temporary) }
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-              try digest(temporary) == hash else { throw VideoPreloadProblem(message: "视频组件下载或完整性校验失败，请重试。") }
+              try digest(temporary) == hash else { throw VideoPreloadProblem(message: AppText.ui("视频组件下载或完整性校验失败，请重试。", "Video tools could not be downloaded or verified. Try again.", "動画ツールのダウンロードまたは検証に失敗しました。再試行してください。")) }
         if FileManager.default.fileExists(atPath: destination.path) { try FileManager.default.removeItem(at: destination) }
         try FileManager.default.moveItem(at: temporary, to: destination)
     }
