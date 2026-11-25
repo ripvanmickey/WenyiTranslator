@@ -2,7 +2,7 @@
 
 All notable changes to AirTranslate are documented in this file.
 
-## 1.16.7 - Unreleased
+## 1.16.7 - 2026-11-25
 
 - Build 1269: fix Cloudflare setup/consent recovery to open its own API configuration. Replace the generic settings recovery button’s stale Nari label with Open Settings; keep the text-sharing opt-in explicit.
 
