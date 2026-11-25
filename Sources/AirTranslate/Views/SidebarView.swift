@@ -345,7 +345,7 @@ struct ConsoleBarView: View {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Image(systemName: isMediaInputSelected ? (media?.isConnected == true ? "stop.fill" : "play.fill") : session.captureControlState.phase.actionSystemImage)
+                    Image(systemName: isMediaInputSelected ? (media?.isConfigurationLocked == true ? "stop.fill" : "play.fill") : session.captureControlState.phase.actionSystemImage)
                 }
 
                 Text(captureTitle)
@@ -474,7 +474,7 @@ struct ConsoleBarView: View {
 
     private var captureTitle: String {
         if isMediaInputSelected {
-            return media?.isPreparing == true || media?.isConnected == true
+            return media?.isConfigurationLocked == true
                 ? AppText.ui("停止", "Stop", "停止") : AppText.ui("开始", "Start", "開始")
         }
         return session.captureControlState.phase.actionTitle
@@ -486,7 +486,7 @@ struct ConsoleBarView: View {
     }
 
     private var captureButtonKind: AirPillButtonKind {
-        if isMediaInputSelected { return media?.isConnected == true || media?.isPreparing == true ? .stop : .start }
+        if isMediaInputSelected { return media?.isConfigurationLocked == true ? .stop : .start }
         if session.captureControlState.phase == .paused { return .paused }
         if session.isRunning || session.isStarting { return .stop }
         return .start

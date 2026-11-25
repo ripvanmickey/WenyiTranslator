@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1258: follow the linked YouTube tab across browser window/fullscreen changes and automatically retry transient playback-read failures without discarding caption state. Keep permission/configuration failures actionable and stop retrying when disconnected. Remove the duplicate media-sidebar floating-caption toggle; use the main toolbar toggle.
+
 - Build 1257: keep the native Mac Audio / Microphone / Media tabs visible but prevent mode changes during capture, startup, media preparation, or browser sync (including pause). Clicking the locked tabs asks the user to end the current recording first. Guard the selection binding and media-sidebar close action as well.
 
 - Retain the main media caption and its neighbouring reading context during silent gaps and playback pauses. Re-anchor on seek; keep floating overlays restricted to each cue's actual timing.

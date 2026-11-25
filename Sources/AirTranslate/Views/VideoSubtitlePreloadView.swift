@@ -99,9 +99,9 @@ struct VideoSubtitlePreloadView: View {
                 HStack(spacing: 10) {
                     Picker("浏览器", selection: $model.browser) {
                         ForEach(VideoPlaybackBrowser.allCases) { Text($0.title).tag($0) }
-                    }.pickerStyle(.menu).labelsHidden().fixedSize().disabled(model.isConnected)
-                    Button(model.isConnected ? "断开连接" : "连接当前视频") {
-                        if model.isConnected { model.disconnect() } else { model.connect() }
+                    }.pickerStyle(.menu).labelsHidden().fixedSize().disabled(model.isConnected || model.isConnecting)
+                    Button(model.isConnected || model.isConnecting ? "断开连接" : "连接当前视频") {
+                        if model.isConnected || model.isConnecting { model.disconnect() } else { model.connect() }
                     }.fixedSize()
                 }
                 Text(model.isConnected ? "\(model.connectionStatus)。暂停、拖动和倍速时，左侧字幕随播放时间更新。" : model.connectionStatus)
@@ -114,13 +114,7 @@ struct VideoSubtitlePreloadView: View {
                     }.fixedSize()
                 }
                 note("首次连接需允许文译自动化访问，并开启浏览器“允许来自 Apple 事件的 JavaScript”。")
-                HStack {
-                    Button(model.overlayVisible ? "隐藏悬浮字幕" : "显示悬浮字幕") { model.toggleOverlay() }
-                        .disabled(model.document == nil)
-                    Spacer()
-                    Image(systemName: "info.circle").foregroundStyle(.secondary)
-                        .help("将视频保持为当前标签页。在 Chrome 的“显示 → 开发者”或 Safari 的“开发”菜单中开启“允许来自 Apple 事件的 JavaScript”。")
-                }
+
             }
             .font(.system(size: 13))
             .padding(.horizontal, 28).padding(.vertical, 26)

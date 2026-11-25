@@ -18,9 +18,26 @@ struct VideoPlaybackSnapshot: Decodable, Sendable {
     let unsupported: Bool?
 }
 
-/// Read-only automation of the browser explicitly selected by the user.
-/// Each poll inspects only the front tab, and returns data only for youtube.com video pages.
-actor VideoBrowserConnection {
+enum VideoPlaybackReadError: LocalizedError, Sendable {
+    case temporary(String)
+    case configuration(String)
+    var errorDescription: String? {
+        switch self { case .temporary(let text), .configuration(let text): text }
+    }
+    var canRetry: Bool {
+        if case .temporary = self { return true }
+        return false
+    }
+}
+
+protocol VideoPlaybackReading: Sendable {
+    func read(_ browser: VideoPlaybackBrowser, initial: Bool, videoID: String?) async throws -> VideoPlaybackSnapshot
+}
+
+/// Read only the selected browser. After the first successful read, follow the
+/// linked video rather than whichever window becomes frontmost during fullscreen.
+actor VideoBrowserConnection: VideoPlaybackReading {
+    private var chromeTabID: Int32?
     private static let probe = """
     (()=>{
       if(!['www.youtube.com','youtube.com','m.youtube.com'].includes(location.hostname))return JSON.stringify({unsupported:true});
@@ -31,42 +48,93 @@ actor VideoBrowserConnection {
     })()
     """
 
-    func read(_ browser: VideoPlaybackBrowser, initial: Bool = false) throws -> VideoPlaybackSnapshot {
-        guard !NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).isEmpty else {
-            throw VideoPreloadProblem(message: "请先在 \(browser.title) 打开 YouTube 视频。")
-        }
-        let javascript = Self.probe.replacingOccurrences(of: "\\", with: "\\\\")
+    // URL filtering reads tab metadata only. JavaScript runs solely in the linked
+    // YouTube tab; unrelated pages are never probed.
+    static func scriptSource(_ browser: VideoPlaybackBrowser, initial: Bool, videoID: String?, chromeTabID: Int32? = nil) -> String {
+        let javascript = probe.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: " ")
+        let validID = videoID.flatMap { $0.range(of: "^[A-Za-z0-9_-]{11}$", options: .regularExpression) == nil ? nil : $0 }
+        let selectTab: String
+        if let validID, !initial {
+            let passes = browser == .chrome && chromeTabID != nil ? [true, false] : [false]
+            selectTab = passes.map { preferID in
+                let idCheck = preferID ? " and (id of browserTab is \(chromeTabID!))" : ""
+                return """
+                if selectedTab is missing value then
+                  repeat with browserWindow in windows
+                    repeat with browserTab in tabs of browserWindow
+                      try
+                        set candidateURL to URL of browserTab
+                        if (my matchesVideo(candidateURL, "\(validID)"))\(idCheck) then
+                          set selectedTab to contents of browserTab
+                          exit repeat
+                        end if
+                      end try
+                    end repeat
+                    if selectedTab is not missing value then exit repeat
+                  end repeat
+                end if
+                """
+            }.joined(separator: "\n")
+        } else {
+            selectTab = browser == .chrome
+                ? "if (count of windows) > 0 then set selectedTab to active tab of front window"
+                : "if (count of windows) > 0 then set selectedTab to current tab of front window"
+        }
         let command = browser == .chrome
-            ? "execute active tab of front window javascript \"\(javascript)\""
-            : "do JavaScript \"\(javascript)\" in front document"
-        let source = """
+            ? "set playbackJSON to execute selectedTab javascript \"\(javascript)\"\nreturn {playbackJSON, id of selectedTab}"
+            : "set playbackJSON to do JavaScript \"\(javascript)\" in selectedTab\nreturn {playbackJSON, 0}"
+        return """
+        on matchesVideo(candidateURL, videoID)
+          if candidateURL is missing value then return false
+          if not ((candidateURL starts with "https://www.youtube.com/") or (candidateURL starts with "https://youtube.com/") or (candidateURL starts with "https://m.youtube.com/")) then return false
+          return ((candidateURL contains ("v=" & videoID)) or (candidateURL contains ("/shorts/" & videoID)) or (candidateURL contains ("/live/" & videoID)) or (candidateURL contains ("/embed/" & videoID)))
+        end matchesVideo
         with timeout of \(initial ? 60 : 3) seconds
           tell application id "\(browser.bundleID)"
-            return \(command)
+            set selectedTab to missing value
+            \(selectTab)
+            if selectedTab is missing value then error "Linked YouTube tab is temporarily unavailable" number -1728
+            \(command)
           end tell
         end timeout
         """
-        guard let script = NSAppleScript(source: source) else {
-            throw VideoPreloadProblem(message: "无法创建浏览器同步连接。")
+    }
+
+    func read(_ browser: VideoPlaybackBrowser, initial: Bool = false, videoID: String? = nil) async throws -> VideoPlaybackSnapshot {
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).isEmpty else {
+            throw VideoPlaybackReadError.configuration("请先在 \(browser.title) 打开 YouTube 视频。")
+        }
+        if initial { chromeTabID = nil }
+        guard let script = NSAppleScript(source: Self.scriptSource(browser, initial: initial, videoID: videoID, chromeTabID: chromeTabID)) else {
+            throw VideoPlaybackReadError.configuration("无法创建浏览器同步连接。")
         }
         var details: NSDictionary?
         let descriptor = script.executeAndReturnError(&details)
         if let details {
             let code = details[NSAppleScript.errorNumber] as? Int ?? 0
             if code == -1743 || code == -10004 {
-                throw VideoPreloadProblem(message: "请在系统设置 → 隐私与安全性 → 自动化中，允许文译访问 \(browser.title)。")
+                throw VideoPlaybackReadError.configuration("请在系统设置 → 隐私与安全性 → 自动化中，允许文译访问 \(browser.title)。")
             }
             let explanation = details[NSAppleScript.errorMessage] as? String ?? "浏览器未返回播放位置"
-            throw VideoPreloadProblem(message: "连接 \(browser.title) 失败（\(code)）：\(explanation)")
+            let javascriptSettingsDisabled = explanation.localizedCaseInsensitiveContains("JavaScript")
+                && ["turned off", "disabled", "not allowed", "allow javascript from apple events", "允许来自", "不允许", "未启用", "無効", "許可"].contains {
+                    explanation.localizedCaseInsensitiveContains($0)
+                }
+            if javascriptSettingsDisabled {
+                throw VideoPlaybackReadError.configuration("连接 \(browser.title) 失败（\(code)）：\(explanation)")
+            }
+            throw VideoPlaybackReadError.temporary("连接 \(browser.title) 暂时不可用（\(code)）：\(explanation)")
         }
-        guard let raw = descriptor.stringValue?.data(using: .utf8), raw.count < 16_384,
+        guard let raw = descriptor.atIndex(1)?.stringValue?.data(using: .utf8), raw.count < 16_384,
               let snapshot = try? JSONDecoder().decode(VideoPlaybackSnapshot.self, from: raw),
               snapshot.unsupported != true, let url = snapshot.url,
-              (try? YouTubeVideoReference(url)) != nil, let time = snapshot.time,
-              time.isFinite, time >= 0, let rate = snapshot.rate, rate.isFinite, rate > 0 else {
-            throw VideoPreloadProblem(message: "请将要同步的 YouTube 视频切换到浏览器当前标签页。")
+              let video = try? YouTubeVideoReference(url), let time = snapshot.time,
+              time.isFinite, time >= 0, let rate = snapshot.rate, rate.isFinite, rate > 0,
+              videoID == nil || video.id == videoID else {
+            throw VideoPlaybackReadError.temporary("暂时无法读取关联视频，请保持原 YouTube 视频标签页打开。")
         }
+        if browser == .chrome { chromeTabID = descriptor.atIndex(2)?.int32Value }
         return snapshot
     }
 }

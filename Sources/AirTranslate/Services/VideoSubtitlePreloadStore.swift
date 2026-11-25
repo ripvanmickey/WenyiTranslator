@@ -35,6 +35,7 @@ final class VideoSubtitlePreloadStore {
     var progress = 0.0
     var document: VideoSubtitleDocument?
     var isConnected = false
+    var isConnecting = false
     var connectionStatus = "未连接浏览器"
     var activeCue: VideoSubtitleCue?
     var playbackTime = 0.0
@@ -51,10 +52,12 @@ final class VideoSubtitlePreloadStore {
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var connectionGeneration = UUID()
     @ObservationIgnored private let cache = VideoSubtitleCache()
-    @ObservationIgnored private let connection = VideoBrowserConnection()
+    @ObservationIgnored private let connection: any VideoPlaybackReading
     @ObservationIgnored private let audio = VideoAudioTranscription()
     @ObservationIgnored private let openAI = OpenAITranslationService()
     @ObservationIgnored private var overlay: VideoSubtitleOverlayController?
+
+    init(connection: any VideoPlaybackReading = VideoBrowserConnection()) { self.connection = connection }
 
     var translatedCount: Int { document?.cues.filter { !$0.translation.isEmpty }.count ?? 0 }
     private var inputKey: String { input == .imported ? "import:" + importedHash : input.rawValue }
@@ -83,7 +86,7 @@ final class VideoSubtitlePreloadStore {
         }
         return "\(translatedCount) / \(document.cues.count) 段已准备"
     }
-    var isConfigurationLocked: Bool { isPreparing || isConnected }
+    var isConfigurationLocked: Bool { isPreparing || isConnected || isConnecting }
     var showsImportAction: Bool { input == .imported }
     var showsOpenAIConfiguration: Bool { input == .openAI || translator == .openAI }
 
@@ -105,13 +108,14 @@ final class VideoSubtitlePreloadStore {
     var mainActionTitle: String {
         if isPreparing { return "停止准备" }
         if isConnected { return "停止同步" }
+        if isConnecting { return "停止连接" }
         if document != nil { return "连接视频" }
         return "开始预加载"
     }
-    var canPerformMainAction: Bool { isPreparing || isConnected || document != nil || canPrepare }
+    var canPerformMainAction: Bool { isPreparing || isConnected || isConnecting || document != nil || canPrepare }
     func performMainAction() {
         if isPreparing { cancel() }
-        else if isConnected { disconnect() }
+        else if isConnected || isConnecting { disconnect() }
         else if document != nil { connect() }
         else { prepare() }
     }
@@ -317,14 +321,16 @@ final class VideoSubtitlePreloadStore {
         disconnect()
         let token = UUID(); connectionGeneration = token
         let selectedBrowser = browser
+        isConnecting = true
         connectionStatus = "正在连接 \(selectedBrowser.title)…"
         monitoring = Task {
             var initial = true
             while !Task.isCancelled {
                 do {
-                    let snapshot = try await connection.read(selectedBrowser, initial: initial)
+                    let snapshot = try await connection.read(selectedBrowser, initial: initial, videoID: document?.videoID ?? connectedVideoID)
                     guard connectionGeneration == token, !Task.isCancelled else { return }
                     initial = false
+                    isConnecting = false
                     let currentVideo = try YouTubeVideoReference(snapshot.url ?? "")
                     if videoURL.isEmpty { videoURL = currentVideo.url.absoluteString }
                     connectedVideoID = currentVideo.id
@@ -338,16 +344,23 @@ final class VideoSubtitlePreloadStore {
                     }
                     try await Task.sleep(for: .milliseconds(250))
                 } catch {
-                    guard connectionGeneration == token else { return }
-                    if !Task.isCancelled { connectionStatus = Self.message(for: error) }
-                    isConnected = false; activeCue = nil; return
+                    guard connectionGeneration == token, !Task.isCancelled else { return }
+                    if let readError = error as? VideoPlaybackReadError, readError.canRetry {
+                        initial = false
+                        connectionStatus = "视频窗口切换中，正在恢复原视频同步…"
+                        do { try await Task.sleep(for: .milliseconds(500)) }
+                        catch { return }
+                        continue
+                    }
+                    connectionStatus = Self.message(for: error)
+                    isConnecting = false; isConnected = false; activeCue = nil; return
                 }
             }
         }
     }
     func disconnect() {
         connectionGeneration = UUID(); monitoring?.cancel(); monitoring = nil
-        isConnected = false; activeCue = nil; connectionStatus = "未连接浏览器"
+        isConnecting = false; isConnected = false; connectedVideoID = nil; activeCue = nil; connectionStatus = "未连接浏览器"
     }
     func refreshCue() {
         guard isConnected, !isAd, let document, connectedVideoID == document.videoID else { activeCue = nil; return }

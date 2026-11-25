@@ -8,6 +8,77 @@ import AirTranslateCore
 @Suite(.serialized)
 @MainActor
 struct MediaWorkspaceTests {
+    @Test func stoppingDuringReconnectCancelsFurtherReadsAndUnlocksSettings() async throws {
+        let reader = ScriptedPlaybackReader(steps: [.failure(.temporary("Window transition"))])
+        let model = VideoSubtitlePreloadStore(connection: reader)
+        model.connect()
+        try await waitForPlayback { model.connectionStatus.contains("正在恢复") }
+        #expect(model.isConnecting)
+        #expect(model.isConfigurationLocked)
+        model.performMainAction()
+        #expect(!model.isConfigurationLocked)
+        let stoppedCount = await reader.requests.count
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(await reader.requests.count == stoppedCount)
+        #expect(model.connectionStatus == "未连接浏览器")
+    }
+
+    @Test func fullscreenTransitionRecoversWithoutClearingCaptionsAndDisconnectCancelsRetry() async throws {
+        let videoID = "PMGSdzyRZUw"
+        let reader = ScriptedPlaybackReader(steps: [
+            .snapshot(.init(url: "https://www.youtube.com/watch?v=\(videoID)", time: 3, paused: false, rate: 1, ad: false, unsupported: false)),
+            .failure(.temporary("Window changed")),
+            .snapshot(.init(url: "https://www.youtube.com/watch?v=\(videoID)", time: 9, paused: false, rate: 1, ad: false, unsupported: false))
+        ])
+        let model = VideoSubtitlePreloadStore(connection: reader)
+        model.document = .init(videoID: videoID, title: "Fixture", sourceLanguage: "ja-JP", targetLanguage: "zh-CN", provider: "index", input: "youtube", cues: [
+            .init(id: 0, start: 0, end: 5, source: "First", translation: "第一句"),
+            .init(id: 1, start: 8, end: 12, source: "Next", translation: "下一句")])
+        model.connect()
+        try await waitForPlayback { model.connectionStatus.contains("正在恢复") }
+        #expect(model.isConnected)
+        #expect(model.isConfigurationLocked)
+        #expect(model.activeCue?.id == 0)
+        #expect(!model.visibleCaptionContext.isEmpty)
+        try await waitForPlayback { model.playbackTime == 9 }
+        #expect(model.activeCue?.id == 1)
+        let requests = await reader.requests
+        #expect(requests.count >= 3)
+        #expect(requests.allSatisfy { $0.videoID == videoID })
+        #expect(requests[0].initial)
+        #expect(!requests[1].initial)
+        model.disconnect()
+        let stoppedCount = await reader.requests.count
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(await reader.requests.count == stoppedCount)
+        #expect(!model.isConnected)
+        #expect(!model.isConnecting)
+    }
+
+    @Test func permissionErrorsDoNotRetryOrKeepSettingsLocked() async throws {
+        let reader = ScriptedPlaybackReader(steps: [.failure(.configuration("Permission denied"))])
+        let model = VideoSubtitlePreloadStore(connection: reader)
+        model.connect()
+        #expect(model.isConfigurationLocked)
+        try await waitForPlayback { model.connectionStatus == "Permission denied" }
+        #expect(!model.isConfigurationLocked)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(await reader.requests.count == 1)
+    }
+
+    @Test func browserTrackingScriptsCompileForBothSupportedBrowsers() {
+        for browser in VideoPlaybackBrowser.allCases {
+            for initial in [true, false] {
+                let appPath = browser == .chrome ? "/Applications/Google Chrome.app" : "/Applications/Safari.app"
+                let source = VideoBrowserConnection.scriptSource(browser, initial: initial, videoID: "PMGSdzyRZUw", chromeTabID: 42)
+                    .replacingOccurrences(of: "tell application id \"\(browser.bundleID)\"", with: "tell application \"\(appPath)\"")
+                var details: NSDictionary?
+                let script = NSAppleScript(source: source)
+                #expect(script?.compileAndReturnError(&details) == true, "\(browser.title): \(details?.description ?? "")")
+            }
+        }
+    }
+
     @Test func mediaConfigurationStaysLockedUntilPreparationAndSyncStop() {
         let model = VideoSubtitlePreloadStore()
         model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
@@ -130,4 +201,31 @@ struct MediaWorkspaceTests {
         #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 1400, within: 1600) == 1600)
     }
 
+}
+
+@MainActor
+private func waitForPlayback(_ condition: () -> Bool) async throws {
+    for _ in 0..<200 {
+        if condition() { return }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(condition(), "Playback state did not arrive")
+}
+
+private actor ScriptedPlaybackReader: VideoPlaybackReading {
+    enum Step: Sendable { case snapshot(VideoPlaybackSnapshot), failure(VideoPlaybackReadError) }
+    struct Request: Sendable { let initial: Bool; let videoID: String? }
+    let steps: [Step]
+    private var cursor = 0
+    private(set) var requests: [Request] = []
+    init(steps: [Step]) { self.steps = steps }
+    func read(_ browser: VideoPlaybackBrowser, initial: Bool, videoID: String?) async throws -> VideoPlaybackSnapshot {
+        requests.append(.init(initial: initial, videoID: videoID))
+        let step = steps[min(cursor, steps.count - 1)]
+        cursor += 1
+        switch step {
+        case .snapshot(let snapshot): return snapshot
+        case .failure(let error): throw error
+        }
+    }
 }
