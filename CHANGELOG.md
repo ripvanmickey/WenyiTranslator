@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1262: the console pause/resume button and Command-Shift-Space control the linked Chrome/Safari video in Media mode. Follow actual browser playback state, prevent duplicate commands, and retain subtitle sync and locked configuration while paused. Surface rejected playback actions without disconnecting.
+
 - Build 1261: keep the main caption workspace and bottom console mounted when window occlusion or app activation changes. Avoid blank left columns, lost caption scroll state and layout jumps while the media inspector remains visible. Refresh visibility on window/app activation without using it to remove layout components. Retain Nemotron audio preloading.
 
 - Build 1260: add Nemotron on-device audio recognition as a media caption source. Recognize 16 kHz PCM phrases locally with one offline model worker per job, translate text progressively, and reuse engine-specific recognition checkpoints and caption caches. No audio is sent to a cloud ASR endpoint in this mode.

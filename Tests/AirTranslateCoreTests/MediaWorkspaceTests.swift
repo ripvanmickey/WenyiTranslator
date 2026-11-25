@@ -128,15 +128,59 @@ struct MediaWorkspaceTests {
         #expect(await reader.requests.count == 1)
     }
 
+    @Test func mediaPauseControlsLinkedVideoAndKeepsSyncLocked() async throws {
+        let reader = ScriptedPlaybackReader(steps: [.snapshot(.init(url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", time: 3, paused: false, rate: 1, ad: false, unsupported: false))])
+        let model = VideoSubtitlePreloadStore(connection: reader)
+        #expect(!model.canTogglePlayback)
+        model.connect()
+        try await waitForPlayback { model.isConnected }
+        await model.togglePlayback()
+        #expect(model.isPaused)
+        #expect(model.isConfigurationLocked)
+        #expect(await reader.controls.first?.videoID == "PMGSdzyRZUw")
+        #expect(await reader.controls.first?.paused == true)
+        await model.togglePlayback()
+        #expect(!model.isPaused)
+        #expect(await reader.controls.last?.paused == false)
+        model.disconnect()
+        await model.togglePlayback()
+        #expect(await reader.controls.count == 2)
+        #expect(!model.canTogglePlayback)
+    }
+
+    @Test func failedOrLatePlaybackCommandsDoNotDisconnectOrReviveSync() async throws {
+        let reader = ScriptedPlaybackReader(steps: [.snapshot(.init(url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", time: 3, paused: false, rate: 1, ad: false, unsupported: false))])
+        let model = VideoSubtitlePreloadStore(connection: reader)
+        model.connect()
+        try await waitForPlayback { model.isConnected }
+        await reader.setControlFailure(true)
+        await model.togglePlayback()
+        #expect(model.isConnected)
+        #expect(model.error == "Playback rejected")
+        #expect(!model.isChangingPlayback)
+        await reader.setControlFailure(false)
+        await reader.setControlDelay()
+        let pending = Task { await model.togglePlayback() }
+        try await waitForPlayback { model.isChangingPlayback }
+        #expect(!model.canTogglePlayback)
+        model.disconnect()
+        await pending.value
+        #expect(!model.isConnected)
+        #expect(!model.isChangingPlayback)
+        #expect(!model.isConfigurationLocked)
+    }
+
     @Test func browserTrackingScriptsCompileForBothSupportedBrowsers() {
         for browser in VideoPlaybackBrowser.allCases {
             for initial in [true, false] {
+              for paused in [nil, true, false] as [Bool?] {
                 let appPath = browser == .chrome ? "/Applications/Google Chrome.app" : "/Applications/Safari.app"
-                let source = VideoBrowserConnection.scriptSource(browser, initial: initial, videoID: "PMGSdzyRZUw", chromeTabID: 42)
+                let source = VideoBrowserConnection.scriptSource(browser, initial: initial, videoID: "PMGSdzyRZUw", chromeTabID: 42, paused: paused)
                     .replacingOccurrences(of: "tell application id \"\(browser.bundleID)\"", with: "tell application \"\(appPath)\"")
                 var details: NSDictionary?
                 let script = NSAppleScript(source: source)
                 #expect(script?.compileAndReturnError(&details) == true, "\(browser.title): \(details?.description ?? "")")
+              }
             }
         }
     }
@@ -277,6 +321,20 @@ private func waitForPlayback(_ condition: () -> Bool) async throws {
 private actor ScriptedPlaybackReader: VideoPlaybackReading {
     enum Step: Sendable { case snapshot(VideoPlaybackSnapshot), failure(VideoPlaybackReadError) }
     struct Request: Sendable { let initial: Bool; let videoID: String? }
+    struct Control: Sendable { let paused: Bool; let videoID: String }
+    private(set) var controls: [Control] = []
+    private var controlledPaused: Bool?
+    private var controlFailure = false
+    private var controlDelay = false
+    func setControlFailure(_ enabled: Bool) { controlFailure = enabled }
+    func setControlDelay() { controlDelay = true }
+    func setPaused(_ paused: Bool, browser: VideoPlaybackBrowser, videoID: String) async throws -> VideoPlaybackSnapshot {
+        controls.append(.init(paused: paused, videoID: videoID))
+        if controlDelay { try await Task.sleep(for: .milliseconds(100)) }
+        if controlFailure { throw VideoPlaybackReadError.temporary("Playback rejected") }
+        controlledPaused = paused
+        return .init(url: "https://www.youtube.com/watch?v=\(videoID)", time: 3, paused: paused, rate: 1, ad: false, unsupported: false)
+    }
     let steps: [Step]
     private var cursor = 0
     private(set) var requests: [Request] = []
@@ -286,7 +344,7 @@ private actor ScriptedPlaybackReader: VideoPlaybackReading {
         let step = steps[min(cursor, steps.count - 1)]
         cursor += 1
         switch step {
-        case .snapshot(let snapshot): return snapshot
+        case .snapshot(let snapshot): return .init(url: snapshot.url, time: snapshot.time, paused: controlledPaused ?? snapshot.paused, rate: snapshot.rate, ad: snapshot.ad, unsupported: snapshot.unsupported)
         case .failure(let error): throw error
         }
     }

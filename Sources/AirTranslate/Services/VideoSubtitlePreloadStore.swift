@@ -45,6 +45,7 @@ final class VideoSubtitlePreloadStore {
     var activeCue: VideoSubtitleCue?
     var playbackTime = 0.0
     private var connectedVideoID: String?
+    private(set) var isChangingPlayback = false
     var isPaused = true
     var isAd = false
     var timingOffset = 0.0
@@ -364,7 +365,28 @@ final class VideoSubtitlePreloadStore {
             }
         }
     }
+    var canTogglePlayback: Bool { isConnected && !isChangingPlayback && connectedVideoID != nil }
+
+    func togglePlayback() async {
+        guard canTogglePlayback, let videoID = connectedVideoID else { return }
+        let token = connectionGeneration
+        let paused = !isPaused
+        isChangingPlayback = true
+        defer { if connectionGeneration == token { isChangingPlayback = false } }
+        do {
+            let snapshot = try await connection.setPaused(paused, browser: browser, videoID: videoID)
+            guard connectionGeneration == token, isConnected else { return }
+            isPaused = snapshot.paused ?? isPaused
+            playbackTime = snapshot.time ?? playbackTime
+            refreshCue()
+        } catch {
+            guard connectionGeneration == token, isConnected else { return }
+            self.error = error.localizedDescription
+        }
+    }
+
     func disconnect() {
+        isChangingPlayback = false
         connectionGeneration = UUID(); monitoring?.cancel(); monitoring = nil
         isConnecting = false; isConnected = false; connectedVideoID = nil; activeCue = nil; connectionStatusText = MediaLocalizedText("未连接浏览器", "Browser not connected", "ブラウザ未接続")
     }

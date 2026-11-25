@@ -394,16 +394,22 @@ struct ConsoleBarView: View {
     }
 
     private var pauseButton: some View {
-        Button {
-            session.isPaused ? session.resume() : session.pause()
+        let paused = isMediaInputSelected ? (media?.isPaused ?? true) : session.isPaused
+        let title = isMediaInputSelected
+            ? (paused ? AppText.ui("播放视频", "Play video", "動画を再生") : AppText.ui("暂停视频", "Pause video", "動画を一時停止"))
+            : (paused ? AppText.resume : AppText.pause)
+        return Button {
+            if isMediaInputSelected {
+                Task { await media?.togglePlayback() }
+            } else { session.isPaused ? session.resume() : session.pause() }
         } label: {
-            Image(systemName: session.isPaused ? "play.fill" : "pause.fill")
+            Image(systemName: paused ? "play.fill" : "pause.fill")
         }
         .buttonStyle(AirIconButton())
         .airFocusRing(cornerRadius: 18)
-        .disabled(isMediaInputSelected || !session.captureControlState.canTogglePause)
-        .help(session.isPaused ? AppText.resume : AppText.pause)
-        .accessibilityLabel(session.isPaused ? AppText.resume : AppText.pause)
+        .disabled(isMediaInputSelected ? media?.canTogglePlayback != true : !session.captureControlState.canTogglePause)
+        .help(title)
+        .accessibilityLabel(title)
     }
 
     private var audioSourceControl: some View {

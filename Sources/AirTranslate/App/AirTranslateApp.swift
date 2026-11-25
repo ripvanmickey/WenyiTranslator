@@ -74,11 +74,12 @@ private struct CaptureCommands: Commands {
             .keyboardShortcut(.return, modifiers: [.command])
             .disabled(isMediaInputSelected ? !videoSubtitles.canPerformMainAction : !session.captureControlState.canToggleCapture)
 
-            Button(session.isPaused ? AppText.resume : AppText.pause) {
-                session.isPaused ? session.resume() : session.pause()
+            Button((isMediaInputSelected ? videoSubtitles.isPaused : session.isPaused) ? AppText.resume : AppText.pause) {
+                if isMediaInputSelected { Task { await videoSubtitles.togglePlayback() } }
+                else { session.isPaused ? session.resume() : session.pause() }
             }
             .keyboardShortcut(.space, modifiers: [.command, .shift])
-            .disabled(isMediaInputSelected || !session.captureControlState.canTogglePause)
+            .disabled(isMediaInputSelected ? !videoSubtitles.canTogglePlayback : !session.captureControlState.canTogglePause)
         }
     }
 }

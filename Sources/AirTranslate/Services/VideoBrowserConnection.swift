@@ -32,9 +32,10 @@ enum VideoPlaybackReadError: LocalizedError, Sendable {
 
 protocol VideoPlaybackReading: Sendable {
     func read(_ browser: VideoPlaybackBrowser, initial: Bool, videoID: String?) async throws -> VideoPlaybackSnapshot
+    func setPaused(_ paused: Bool, browser: VideoPlaybackBrowser, videoID: String) async throws -> VideoPlaybackSnapshot
 }
 
-/// Read only the selected browser. After the first successful read, follow the
+/// Read the selected browser and control playback only on explicit user actions. After the first successful read, follow the
 /// linked video rather than whichever window becomes frontmost during fullscreen.
 actor VideoBrowserConnection: VideoPlaybackReading {
     private var chromeTabID: Int32?
@@ -50,8 +51,24 @@ actor VideoBrowserConnection: VideoPlaybackReading {
 
     // URL filtering reads tab metadata only. JavaScript runs solely in the linked
     // YouTube tab; unrelated pages are never probed.
-    static func scriptSource(_ browser: VideoPlaybackBrowser, initial: Bool, videoID: String?, chromeTabID: Int32? = nil) -> String {
-        let javascript = probe.replacingOccurrences(of: "\\", with: "\\\\")
+    static func scriptSource(_ browser: VideoPlaybackBrowser, initial: Bool, videoID: String?, chromeTabID: Int32? = nil, paused: Bool? = nil) -> String {
+        let validControlID = videoID.flatMap { $0.range(of: "^[A-Za-z0-9_-]{11}$", options: .regularExpression) == nil ? nil : $0 }
+        let action: String
+        if let paused, let validControlID {
+            action = """
+            (()=>{
+              const u=new URL(location.href);
+              const id=u.searchParams.get('v')||u.pathname.split('/')[2];
+              if(id!=='\(validControlID)')throw new Error('Linked video changed');
+              if(!['www.youtube.com','youtube.com','m.youtube.com'].includes(u.hostname))throw new Error('Unsupported host');
+              const v=document.querySelector('video.html5-main-video')||document.querySelector('video');
+              if(!v)throw new Error('Video unavailable');
+              \(paused ? "v.pause();" : "v.play().catch(()=>{});")
+              return \(probe);
+            })()
+            """
+        } else { action = probe }
+        let javascript = action.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: " ")
         let validID = videoID.flatMap { $0.range(of: "^[A-Za-z0-9_-]{11}$", options: .regularExpression) == nil ? nil : $0 }
         let selectTab: String
@@ -101,12 +118,29 @@ actor VideoBrowserConnection: VideoPlaybackReading {
         """
     }
 
+    func setPaused(_ paused: Bool, browser: VideoPlaybackBrowser, videoID: String) async throws -> VideoPlaybackSnapshot {
+        guard videoID.range(of: "^[A-Za-z0-9_-]{11}$", options: .regularExpression) != nil else {
+            throw VideoPlaybackReadError.configuration("Invalid linked video")
+        }
+        _ = try execute(browser, initial: false, videoID: videoID, paused: paused)
+        try await Task.sleep(for: .milliseconds(200))
+        let snapshot = try execute(browser, initial: false, videoID: videoID)
+        guard snapshot.paused == paused else {
+            throw VideoPlaybackReadError.temporary(AppText.ui("浏览器未完成播放操作，请在视频页面点击播放后重试。", "The browser could not change playback. Click play on the video page and try again.", "ブラウザで再生状態を変更できませんでした。動画ページで再生してから再試行してください。"))
+        }
+        return snapshot
+    }
+
     func read(_ browser: VideoPlaybackBrowser, initial: Bool = false, videoID: String? = nil) async throws -> VideoPlaybackSnapshot {
+        try execute(browser, initial: initial, videoID: videoID)
+    }
+
+    private func execute(_ browser: VideoPlaybackBrowser, initial: Bool, videoID: String?, paused: Bool? = nil) throws -> VideoPlaybackSnapshot {
         guard !NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).isEmpty else {
             throw VideoPlaybackReadError.configuration(AppText.ui("请先在 \(browser.title) 打开 YouTube 视频。", "Open a YouTube video in \(browser.title) first.", "先に \(browser.title) で YouTube 動画を開いてください。"))
         }
         if initial { chromeTabID = nil }
-        guard let script = NSAppleScript(source: Self.scriptSource(browser, initial: initial, videoID: videoID, chromeTabID: chromeTabID)) else {
+        guard let script = NSAppleScript(source: Self.scriptSource(browser, initial: initial, videoID: videoID, chromeTabID: chromeTabID, paused: paused)) else {
             throw VideoPlaybackReadError.configuration(AppText.ui("无法创建浏览器同步连接。", "Cannot create the browser sync connection.", "ブラウザ同期接続を作成できません。"))
         }
         var details: NSDictionary?
