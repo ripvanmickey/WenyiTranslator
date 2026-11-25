@@ -47,7 +47,8 @@ struct VideoSubtitlePreloadView: View {
                     HStack(spacing: 8) {
                         Picker("字幕来源", selection: $model.input) {
                             ForEach(VideoSubtitleInput.allCases) { Text($0.title).tag($0) }
-                        }.pickerStyle(.menu).labelsHidden().fixedSize(horizontal: true, vertical: false)
+                        }.pickerStyle(.menu).labelsHidden()
+                            .frame(minWidth: 0, maxWidth: .infinity)
                         Spacer(minLength: 0)
                         if model.showsImportAction {
                             Button("导入…") { model.importSubtitles() }.fixedSize()
@@ -65,7 +66,8 @@ struct VideoSubtitlePreloadView: View {
                     HStack(spacing: 8) {
                         Picker("翻译模型", selection: $model.translator) {
                             ForEach(VideoSubtitleTranslator.allCases) { Text($0.title).tag($0) }
-                        }.pickerStyle(.menu).labelsHidden().fixedSize(horizontal: true, vertical: false)
+                        }.pickerStyle(.menu).labelsHidden()
+                            .frame(minWidth: 0, maxWidth: .infinity)
                         Spacer(minLength: 0)
                         if model.translator == .openAI { configureOpenAI }
                     }
@@ -195,7 +197,8 @@ struct MediaCaptionBoardView: View {
                         if model.visibleCaptionContext.isEmpty {
                             VideoSubtitleTextView(cue: nil,
                                 placeholder: model.isAd ? "广告播放中" : model.isConnected ? "播放到已准备的时间段时显示字幕" : "在右侧准备字幕并连接浏览器，字幕将在这里随视频显示。",
-                                sourceColor: AirTranslateDesign.Palette.captionSource)
+                                sourceColor: AirTranslateDesign.Palette.captionSource,
+                                  translationColor: AirTranslateDesign.Palette.captionTranslation)
                                 .padding(.vertical, 18)
                         } else {
                             ForEach(model.visibleCaptionContext) { cue in
@@ -242,7 +245,8 @@ private struct MediaCaptionCueView: View {
                     .buttonStyle(.plain).foregroundStyle(.gray).help("复制字幕")
             }
             VideoSubtitleTextView(cue: cue, placeholder: "", showsTranslation: showsTranslation, spacing: 12,
-                                  sourceColor: AirTranslateDesign.Palette.captionSource)
+                                  sourceColor: AirTranslateDesign.Palette.captionSource,
+                                  translationColor: AirTranslateDesign.Palette.captionTranslation)
         }
         .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -260,13 +264,14 @@ struct VideoSubtitleTextView: View {
     var spacing: CGFloat = 8
     // Floating subtitles always use a dark surface; the main workspace supplies its adaptive color.
     var sourceColor: Color = FloatingCaptionAppearance.sourceTextColor
+    var translationColor: Color = FloatingCaptionAppearance.translationTextColor
     var body: some View {
         VStack(alignment: .leading, spacing: spacing) {
             if let cue {
                 Text(cue.source).font(.system(size: 18)).foregroundStyle(sourceColor)
                 if showsTranslation && !cue.translation.isEmpty {
                     Text(cue.translation).font(.system(size: 23, weight: .medium))
-                        .foregroundStyle(FloatingCaptionAppearance.translationTextColor)
+                        .foregroundStyle(translationColor)
                 }
             } else { Text(placeholder).foregroundStyle(sourceColor.opacity(0.7)) }
         }
@@ -299,9 +304,17 @@ private struct VideoSubtitleOverlayView: View {
     @Bindable var model: VideoSubtitlePreloadStore
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("视频字幕").font(.caption).foregroundStyle(.white.opacity(0.6))
-                Spacer()
+            HStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "line.3.horizontal")
+                    Text("视频字幕")
+                    Spacer(minLength: 0)
+                }
+                .font(.caption).foregroundStyle(.white.opacity(0.6))
+                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                .overlay { FloatingCaptionDragSurface().accessibilityHidden(true) }
+                .help(AppText.ui("拖动这里移动字幕", "Drag here to move captions", "ここをドラッグして字幕を移動"))
+                .accessibilityIdentifier("mediaCaptionDragHandle")
                 Button { model.toggleOverlay() } label: { Image(systemName: "xmark") }
                     .buttonStyle(.plain).foregroundStyle(.white).help("关闭字幕")
             }

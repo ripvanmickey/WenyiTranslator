@@ -9,14 +9,15 @@ import AirTranslateCore
 @MainActor
 struct MediaWorkspaceTests {
     @Test func captionColorsFollowSystemAppearance() throws {
-        for (name, expectedSource, expectedBackground) in [
-            (NSAppearance.Name.aqua, "#000000", "#F4F5F7"),
-            (NSAppearance.Name.darkAqua, "#FFFFFF", "#121417")
+        for (name, expectedSource, expectedBackground, expectedTranslation) in [
+            (NSAppearance.Name.aqua, "#000000", "#F4F5F7", "#9A6700"),
+            (NSAppearance.Name.darkAqua, "#FFFFFF", "#121417", "#FFD600")
         ] {
             let appearance = try #require(NSAppearance(named: name))
             appearance.performAsCurrentDrawingAppearance {
                 #expect(FloatingCaptionAppearance.hexString(from: NSColor(AirTranslateDesign.Palette.captionSource)) == expectedSource)
                 #expect(FloatingCaptionAppearance.hexString(from: NSColor(AirTranslateDesign.Palette.captionMediaCanvas)) == expectedBackground)
+                #expect(FloatingCaptionAppearance.hexString(from: NSColor(AirTranslateDesign.Palette.captionTranslation)) == expectedTranslation)
                 #expect(FloatingCaptionAppearance.hexString(from: NSColor(FloatingCaptionAppearance.translationTextColor)) == "#FFD600")
                 #expect(FloatingCaptionAppearance.hexString(from: NSColor(FloatingCaptionAppearance.sourceTextColor)) == "#FFFFFF")
             }

@@ -4,6 +4,12 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Fix main-window resize clipping: propagate the active media minimum to the scene and use native content-minimum window resizing, so the window cannot shrink below the single-row console and inspector. Let inspector model menus shrink within their column.
+
+- Add an explicit drag handle across the media floating-caption header. Dragging moves the panel within the visible screen while caption text selection and the close button remain available.
+
+- Build 1254: improve light-appearance caption contrast with dark yellow (#9A6700) translations. Dark surfaces and floating overlays retain bright yellow (#FFD600).
+
 - Caption surfaces follow system appearance again: black source text on the light solid canvas, white source text on dark surfaces, and yellow translations in both appearances. Floating dark overlays retain white source text.
 
 - Build 1253: keep all console controls on one row. Enforce a 900 pt caption-column minimum and a 1201 pt minimum window width when the media inspector is open; cap inspector width to preserve that column. Remove the compact wrapping console.

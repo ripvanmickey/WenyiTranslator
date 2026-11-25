@@ -522,7 +522,7 @@ private struct CaptionLineView: View, Equatable {
                         status: showsTranslationStatus ? line.localTranslationStatus : nil,
                         font: AirTranslateDesign.Typography.captionTranslation,
                         lineSpacing: 6,
-                        color: FloatingCaptionAppearance.translationTextColor
+                        color: AirTranslateDesign.Palette.captionTranslation
                     )
                 } else {
                     TurnTranscriptText(

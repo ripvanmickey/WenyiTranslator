@@ -18,11 +18,12 @@ struct AirTranslateApp: App {
             ContentView(session: session, videoSubtitles: videoSubtitles, isMediaInputSelected: $isMediaInputSelected)
                 .environment(\.locale, AppText.interfaceLocale)
                 .frame(
-                    minWidth: AirTranslateDesign.mainWindowMinimumWidth,
+                    minWidth: MediaWorkspaceLayout.minimumWindowWidth(media: isMediaInputSelected),
                     minHeight: AirTranslateDesign.mainWindowMinimumHeight
                 )
                 .tint(AirTranslateDesign.Palette.accent)
         }
+        .windowResizability(.contentMinSize)
         .windowToolbarStyle(.unifiedCompact(showsTitle: true))
         .commands {
             CommandGroup(replacing: .newItem) {}

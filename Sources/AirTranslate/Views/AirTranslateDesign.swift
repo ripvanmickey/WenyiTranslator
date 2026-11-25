@@ -17,6 +17,7 @@ enum AirTranslateDesign {
         static let warning = dynamicColor(light: 0xB97600, dark: 0xF2B53D)
         static let captionMediaCanvas = dynamicColor(light: 0xF4F5F7, dark: 0x121417)
         static let captionSource = dynamicColor(light: 0x000000, dark: 0xFFFFFF)
+        static let captionTranslation = dynamicColor(light: 0x9A6700, dark: 0xFFD600)
         static let canvas = dynamicColor(light: 0xF4F5F7, dark: 0x121417)
         static let raised = dynamicColor(light: 0xFFFFFF, dark: 0x1B1E23)
         static let raisedHover = dynamicColor(light: 0xF8FAFB, dark: 0x22262C)
