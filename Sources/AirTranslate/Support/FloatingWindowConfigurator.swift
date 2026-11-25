@@ -7,13 +7,28 @@ struct FloatingWindowConfigurator: NSViewRepresentable {
     let keepsAboveOtherWindows: Bool
     let hasCaptionText: Bool
 
+    final class Coordinator {
+        var revision = 0
+        weak var window: NSWindow?
+        var placement = FloatingCaptionWindowPlacement()
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeNSView(context _: Context) -> NSView {
         NSView()
     }
 
-    func updateNSView(_ view: NSView, context _: Context) {
+    func updateNSView(_ view: NSView, context: Context) {
+        let coordinator = context.coordinator
+        coordinator.revision += 1
+        let revision = coordinator.revision
         DispatchQueue.main.async {
-            guard let window = view.window else { return }
+            guard coordinator.revision == revision, let window = view.window else { return }
+            if coordinator.window !== window {
+                coordinator.window = window
+                coordinator.placement = FloatingCaptionWindowPlacement()
+            }
 
             window.identifier = NSUserInterfaceItemIdentifier(AirTranslateWindowID.floatingCaptions)
             window.level = keepsAboveOtherWindows ? .floating : .normal
@@ -26,35 +41,23 @@ struct FloatingWindowConfigurator: NSViewRepresentable {
             window.hasShadow = false
             window.ignoresMouseEvents = !hasCaptionText
 
-            let maximumSize = FloatingCaptionWindowController.maximumWindowSize(for: window.screen ?? NSScreen.main)
-            window.maxSize = maximumSize
+            // Empty/waiting captions must not move or resize the invisible panel.
+            guard hasCaptionText else { return }
+            guard let screen = window.screen ?? NSScreen.main else { return }
+            let maximumSize = FloatingCaptionWindowController.maximumWindowSize(for: screen)
             let safeMinimumSize = NSSize(
                 width: max(FloatingCaptionWindowController.minimumWindowSize.width, minimumWindowSize.width),
                 height: max(FloatingCaptionWindowController.minimumWindowSize.height, minimumWindowSize.height)
             )
             let targetContentHeight = min(max(preferredContentHeight, safeMinimumSize.height), maximumSize.height)
+            let current = window.frame
+            let target = coordinator.placement.fittedFrame(current: current,
+                currentContentHeight: window.contentLayoutRect.height,
+                targetContentHeight: targetContentHeight, visibleFrame: screen.visibleFrame,
+                minimumSize: safeMinimumSize, hasCaptionText: hasCaptionText)
+            window.maxSize = maximumSize
             window.minSize = safeMinimumSize
-            if abs(window.contentLayoutRect.height - targetContentHeight) > 1 {
-                window.setFrame(FloatingCaptionAppearance.fittedWindowFrame(window.frame,
-                    currentContentHeight: window.contentLayoutRect.height,
-                    targetContentHeight: targetContentHeight), display: true)
-            }
-            keepWindowVisible(window)
-        }
-    }
-
-    private func keepWindowVisible(_ window: NSWindow) {
-        guard window.isVisible else { return }
-        guard let visibleFrame = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
-
-        let frame = FloatingCaptionWindowController.clampedFrame(
-            window.frame,
-            within: visibleFrame,
-            minimumSize: minimumWindowSize
-        )
-
-        if !NSEqualRects(frame, window.frame) {
-            window.setFrame(frame, display: true)
+            if !NSEqualRects(target, window.frame) { window.setFrame(target, display: true) }
         }
     }
 }

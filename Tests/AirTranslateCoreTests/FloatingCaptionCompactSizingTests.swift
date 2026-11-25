@@ -28,4 +28,40 @@ struct FloatingCaptionCompactSizingTests {
             currentContentHeight: 180, targetContentHeight: 250)
         #expect(fitted == NSRect(x: 500, y: 80, width: 720, height: 270))
     }
+
+    @Test func waitingDoesNotMoveOrResizeThePanel() {
+        var placement = FloatingCaptionWindowPlacement()
+        let current = NSRect(x: 2200, y: 300, width: 720, height: 180)
+        let result = placement.fittedFrame(current: current, currentContentHeight: 180,
+            targetContentHeight: 90, visibleFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080),
+            minimumSize: NSSize(width: 420, height: 90), hasCaptionText: false)
+        #expect(result == current)
+    }
+
+    @Test func autoGrowthNearScreenEdgeDoesNotPermanentlyShiftTheAnchor() {
+        var placement = FloatingCaptionWindowPlacement()
+        let screen = NSRect(x: 0, y: 0, width: 1920, height: 1080)
+        let original = NSRect(x: 500, y: 850, width: 720, height: 120)
+        let grown = placement.fittedFrame(current: original, currentContentHeight: 120,
+            targetContentHeight: 420, visibleFrame: screen,
+            minimumSize: NSSize(width: 420, height: 90), hasCaptionText: true)
+        #expect(grown.minY < original.minY)
+        let shrunk = placement.fittedFrame(current: grown, currentContentHeight: 420,
+            targetContentHeight: 120, visibleFrame: screen,
+            minimumSize: NSSize(width: 420, height: 90), hasCaptionText: true)
+        #expect(shrunk.origin == original.origin)
+    }
+
+    @Test func manualMoveAcrossDisplaysBecomesTheNewAnchor() {
+        var placement = FloatingCaptionWindowPlacement()
+        let original = NSRect(x: 500, y: 200, width: 720, height: 120)
+        _ = placement.fittedFrame(current: original, currentContentHeight: 120,
+            targetContentHeight: 120, visibleFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080),
+            minimumSize: NSSize(width: 420, height: 90), hasCaptionText: true)
+        let moved = NSRect(x: 2200, y: 150, width: 720, height: 120)
+        let resized = placement.fittedFrame(current: moved, currentContentHeight: 120,
+            targetContentHeight: 240, visibleFrame: NSRect(x: 1920, y: 0, width: 1440, height: 900),
+            minimumSize: NSSize(width: 420, height: 90), hasCaptionText: true)
+        #expect(resized.origin == moved.origin)
+    }
 }

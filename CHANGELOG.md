@@ -2,6 +2,10 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.9 - Unreleased
+
+- Build 1273: keep floating-caption placement fixed while waiting, discard stale queued layout updates, and retain the user-selected anchor when temporary screen-edge corrections are needed during automatic resizing.
+
 ## 1.16.8 - 2026-11-25
 
 - Build 1272: size live and media floating-caption backgrounds to measured text, shrink previously enlarged windows while preserving their bottom edge, and cap long passages to a scrollable 420-point overlay. Connecting the current video now automatically prepares captions, reusing complete caches and resuming unfinished work with the selected provider.

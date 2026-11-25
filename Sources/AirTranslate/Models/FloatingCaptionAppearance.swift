@@ -78,3 +78,25 @@ enum FloatingCaptionAppearance {
         )
     }
 }
+
+/// Keep a user's placement separate from temporary screen-edge corrections during auto-sizing.
+struct FloatingCaptionWindowPlacement {
+    private var anchorOrigin: NSPoint?
+    private var lastAppliedFrame: NSRect?
+
+    mutating func fittedFrame(current: NSRect, currentContentHeight: CGFloat,
+                             targetContentHeight: CGFloat, visibleFrame: NSRect,
+                             minimumSize: NSSize, hasCaptionText: Bool) -> NSRect {
+        guard hasCaptionText else { return current }
+        if anchorOrigin == nil || lastAppliedFrame?.origin != current.origin {
+            anchorOrigin = current.origin
+        }
+        var proposed = FloatingCaptionAppearance.fittedWindowFrame(current,
+            currentContentHeight: currentContentHeight, targetContentHeight: targetContentHeight)
+        proposed.origin = anchorOrigin ?? current.origin
+        let result = FloatingCaptionWindowController.clampedFrame(proposed,
+            within: visibleFrame, minimumSize: minimumSize)
+        lastAppliedFrame = result
+        return result
+    }
+}
