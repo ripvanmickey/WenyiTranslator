@@ -20,7 +20,9 @@ struct ContentView: View {
             AirTranslateDesign.Palette.canvas
                 .ignoresSafeArea()
 
-            if isMainCaptionVisible {
+            // Keep the layout mounted when occlusion changes or the app is inactive.
+            // Visibility notifications only gate accessibility announcements below.
+            Group {
                 if isMediaInputSelected {
                     MediaCaptionBoardView(model: videoSubtitles)
                 } else {
@@ -58,7 +60,7 @@ struct ContentView: View {
             HStack(spacing: 0) {
                 captionWorkspace
                     .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if isMainCaptionVisible {
+                        Group {
                             ConsoleBarView(session: session, isMediaInputSelected: $isMediaInputSelected, media: videoSubtitles)
                                 .padding(.horizontal, 24)
                                 .padding(.top, isMediaInputSelected ? 18 : 8)

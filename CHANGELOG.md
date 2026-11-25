@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1261: keep the main caption workspace and bottom console mounted when window occlusion or app activation changes. Avoid blank left columns, lost caption scroll state and layout jumps while the media inspector remains visible. Refresh visibility on window/app activation without using it to remove layout components. Retain Nemotron audio preloading.
+
 - Build 1260: add Nemotron on-device audio recognition as a media caption source. Recognize 16 kHz PCM phrases locally with one offline model worker per job, translate text progressively, and reuse engine-specific recognition checkpoints and caption caches. No audio is sent to a cloud ASR endpoint in this mode.
 
 - Build 1259: translate media controls, progress, browser sync and video-processing notices into English and Japanese; retain translations for existing progress messages when the interface language changes. Adapt segmented-control widths, language rows and sidebar actions to localized labels. Keep toolbar shortcuts above the main caption column when the media extension is open. Add browser-specific setup steps and an optional animated illustration within browser sync, respecting Reduce Motion.

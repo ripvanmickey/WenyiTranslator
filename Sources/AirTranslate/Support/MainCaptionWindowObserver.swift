@@ -154,6 +154,7 @@ final class MainCaptionVisibilityView: NSView {
             Self.attachedObservers.add(self)
             for name in [
                 NSWindow.didChangeOcclusionStateNotification,
+                NSWindow.didBecomeKeyNotification,
                 NSWindow.willMiniaturizeNotification,
                 NSWindow.didMiniaturizeNotification,
                 NSWindow.didDeminiaturizeNotification,
@@ -164,7 +165,7 @@ final class MainCaptionVisibilityView: NSView {
                     name: name, object: observedWindow
                 )
             }
-            for name in [NSApplication.didHideNotification, NSApplication.didUnhideNotification] {
+            for name in [NSApplication.didHideNotification, NSApplication.didUnhideNotification, NSApplication.didBecomeActiveNotification] {
                 NotificationCenter.default.addObserver(
                     self, selector: #selector(windowStateChanged(_:)),
                     name: name, object: NSApplication.shared
