@@ -69,7 +69,18 @@ final class VideoSubtitlePreloadStore {
     }
     var prepareTitle: String {
         guard hasMatchingDocument else { return "开始预加载" }
-        return document?.completed == true ? "已从本机载入" : "补齐缺失字幕"
+        if document?.completed == true { return "已从本机载入" }
+        return document?.audioProgress?.isRecognitionComplete == false ? "继续准备字幕" : "补齐缺失字幕"
+    }
+    var readyThroughTime: Double {
+        document?.cues.prefix(while: { !$0.translation.isEmpty }).last?.end ?? 0
+    }
+    var preparationSummary: String {
+        guard let document else { return "" }
+        if let audio = document.audioProgress, !audio.isRecognitionComplete {
+            return "\(translatedCount) 段已准备 · 识别 \(audio.nextRange) / \(audio.ranges.count)"
+        }
+        return "\(translatedCount) / \(document.cues.count) 段已准备"
     }
     var canPrepare: Bool {
         !isPreparing && (try? YouTubeVideoReference(videoURL)) != nil
@@ -96,9 +107,13 @@ final class VideoSubtitlePreloadStore {
             }
             document = saved
             progress = Double(translatedCount) / Double(max(1, saved.cues.count))
-            status = saved.completed
-                ? "已自动载入本机缓存，无需重新下载或翻译。可直接连接浏览器显示字幕。"
-                : "已自动载入本机缓存，已准备的字幕可直接播放；点击“补齐缺失字幕”只处理未完成部分。"
+            if saved.completed {
+                status = "已自动载入本机缓存，无需重新下载或翻译。可直接连接浏览器显示字幕。"
+            } else if saved.audioProgress?.isRecognitionComplete == false {
+                status = "已自动载入本机缓存，可直接播放已准备的字幕；点击“继续准备字幕”从未完成片段继续。"
+            } else {
+                status = "已自动载入本机缓存，已准备的字幕可直接播放；点击“补齐缺失字幕”只处理未完成部分。"
+            }
             refreshCue()
         } catch {
             guard !Task.isCancelled, !isPreparing, cacheSelectionKey == selection else { return }
@@ -131,6 +146,45 @@ final class VideoSubtitlePreloadStore {
                     guard key?.isEmpty == false else { throw VideoPreloadProblem(message: "请先在设置 → API 密钥中配置 OpenAI。") }
                 }
                 try Task.checkCancellation()
+                if selectedInput == .openAI && (document == nil || document?.audioProgress?.isRecognitionComplete == false) {
+                    // Finish a cached phrase whose recognition succeeded but translation was interrupted.
+                    try await translatePending(source: source, target: target, provider: provider, token: token)
+                    status = "正在获取视频音轨…已有字幕可先播放。"
+                    let result = try await VideoMediaTools.shared.audio(for: video, directory: folder)
+                    if document == nil {
+                        status = "正在划分音轨片段，随后边识别边翻译…"
+                        let ranges = try await audio.prepareRanges(result.url)
+                        document = .init(videoID: video.id, title: result.title, sourceLanguage: source.id,
+                            targetLanguage: target.id, provider: provider.rawValue, input: inputKey, cues: [],
+                            audioProgress: .init(ranges: ranges))
+                        if let document { try await cache.save(document) }
+                    }
+                    guard let checkpoint = document?.audioProgress else { throw VideoSubtitleError.invalidAudio }
+                    try await audio.transcribe(result.url, language: source, ranges: checkpoint.ranges,
+                                               from: checkpoint.nextRange) { [weak self] cue, done, total in
+                        guard let self, self.generation == token else { throw CancellationError() }
+                        try Task.checkCancellation()
+                        if let cue { self.document?.cues.append(cue) }
+                        self.document?.audioProgress?.nextRange = done
+                        self.document?.updatedAt = Date()
+                        // Persist recognition before translating: a failed translation must not resend audio.
+                        if let document = self.document { try await self.cache.save(document) }
+                        self.status = "识别音轨 \(done) / \(total)，正在准备本段译文…"
+                        if cue != nil, let index = self.document?.cues.indices.last {
+                            try await self.translateCue(at: index, source: source, target: target, provider: provider, token: token)
+                        }
+                        self.progress = Double(done) / Double(max(1, total))
+                        self.status = "已准备至 \(Self.timestamp(self.readyThroughTime))，可先播放；后续字幕继续处理中（\(done) / \(total)）。"
+                        self.refreshCue()
+                    }
+                    guard self.document?.cues.isEmpty == false else {
+                        throw VideoPreloadProblem(message: "音轨中未识别到可用语音。")
+                    }
+                    document?.completed = true
+                    if let document { try await cache.save(document) }
+                    status = "字幕已准备完成，重播时可直接使用本机缓存。"; progress = 1
+                    return
+                }
                 if document == nil {
                     let title: String, cues: [VideoSubtitleCue]
                     switch selectedInput {
@@ -141,15 +195,7 @@ final class VideoSubtitlePreloadStore {
                     case .imported:
                         title = video.id; cues = importedCues
                     case .openAI:
-                        status = "正在获取视频音轨…"
-                        let result = try await VideoMediaTools.shared.audio(for: video, directory: folder)
-                        title = result.title
-                        status = "OpenAI 正在识别音轨，按语音片段生成时间轴…"
-                        cues = try await audio.transcribe(result.url, language: source) { [weak self] _, done, total in
-                            guard let self, self.generation == token else { return }
-                            self.progress = Double(done) / Double(max(1, total)) * 0.45
-                            self.status = "识别音轨 \(done) / \(total)"
-                        }
+                        throw VideoSubtitleError.invalidAudio
                     }
                     guard !cues.isEmpty, cues.count <= 30_000, (cues.last?.end ?? 0) <= 43_200 else {
                         throw VideoPreloadProblem(message: "字幕为空或视频过长，暂无法预加载。")
@@ -158,31 +204,8 @@ final class VideoSubtitlePreloadStore {
                         targetLanguage: target.id, provider: provider.rawValue, input: inputKey, cues: Self.group(cues))
                     if let document { try await cache.save(document) }
                 }
-                guard let total = document?.cues.count, total > 0 else { throw VideoSubtitleError.noSubtitles }
-                var configuration = LocalTranslationConfiguration()
-                configuration.enabled = true; configuration.onlineIndex = true
-                for index in 0..<total {
-                    try Task.checkCancellation()
-                    guard generation == token else { throw CancellationError() }
-                    guard let cue = document?.cues[index] else { continue }
-                    if cue.translation.isEmpty {
-                        status = "正在准备译文 \(index + 1) / \(total)，已完成的字幕可先播放。"
-                        let translated: String
-                        if source == target { translated = cue.source }
-                        else if provider == .openAI {
-                            translated = try await openAI.translate(cue.source, source: source, target: target, model: .gpt41Mini)
-                        } else {
-                            translated = try await LocalTranslationService.shared.translate(cue.source, source: source.id,
-                                target: target.id, configuration: configuration, asSingleCaption: true)
-                        }
-                        try Task.checkCancellation()
-                        document?.cues[index].translation = translated
-                        document?.updatedAt = Date()
-                        refreshCue()
-                    }
-                    progress = 0.45 + Double(index + 1) / Double(total) * 0.55
-                    if index.isMultiple(of: 5), let document { try await cache.save(document) }
-                }
+                guard document?.cues.isEmpty == false else { throw VideoSubtitleError.noSubtitles }
+                try await translatePending(source: source, target: target, provider: provider, token: token)
                 document?.completed = true
                 if let document { try await cache.save(document) }
                 status = "字幕已准备完成，重播时可直接使用本机缓存。"; progress = 1
@@ -196,6 +219,48 @@ final class VideoSubtitlePreloadStore {
                 }
             }
         }
+    }
+
+    private func translatePending(source: LanguageOption, target: LanguageOption,
+                                  provider: VideoSubtitleTranslator, token: UUID) async throws {
+        let total = document?.cues.count ?? 0
+        for index in 0..<total {
+            status = "正在准备译文 \(index + 1) / \(total)，已完成的字幕可先播放。"
+            try await translateCue(at: index, source: source, target: target, provider: provider, token: token)
+            if let audio = document?.audioProgress, !audio.isRecognitionComplete {
+                progress = Double(audio.nextRange) / Double(max(1, audio.ranges.count))
+            } else {
+                progress = Double(index + 1) / Double(max(1, total))
+            }
+        }
+    }
+
+    private func translateCue(at index: Int, source: LanguageOption, target: LanguageOption,
+                              provider: VideoSubtitleTranslator, token: UUID) async throws {
+        try Task.checkCancellation()
+        guard generation == token else { throw CancellationError() }
+        guard let cue = document?.cues[index], cue.translation.isEmpty else { return }
+        let translated: String
+        if source == target { translated = cue.source }
+        else if provider == .openAI {
+            translated = try await openAI.translate(cue.source, source: source, target: target, model: .gpt41Mini)
+        } else {
+            var configuration = LocalTranslationConfiguration()
+            configuration.enabled = true; configuration.onlineIndex = true
+            translated = try await LocalTranslationService.shared.translate(cue.source, source: source.id,
+                target: target.id, configuration: configuration, asSingleCaption: true)
+        }
+        try Task.checkCancellation()
+        guard generation == token else { throw CancellationError() }
+        document?.cues[index].translation = translated
+        document?.updatedAt = Date()
+        refreshCue()
+        if let document { try await cache.save(document) }
+    }
+
+    static func timestamp(_ seconds: Double) -> String {
+        let value = Int(max(0, seconds))
+        return String(format: "%02d:%02d", value / 60, value % 60)
     }
 
     func cancel() { preparation?.cancel() }

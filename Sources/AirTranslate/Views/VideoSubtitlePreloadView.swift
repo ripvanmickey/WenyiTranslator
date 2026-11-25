@@ -55,14 +55,18 @@ struct VideoSubtitlePreloadView: View {
                         Button("停止", systemImage: "stop.fill") { model.cancel() }
                     }
                     Spacer()
-                    if let document = model.document {
-                        Text("\(model.translatedCount) / \(document.cues.count) 段已准备")
+                    if model.document != nil {
+                        Text(model.preparationSummary)
                             .font(.callout).foregroundStyle(.secondary)
                         Button("导出字幕…", systemImage: "square.and.arrow.up") { model.export() }
                     }
                 }
                 if model.isPreparing { ProgressView(value: model.progress) }
                 Text(model.status).font(.callout).foregroundStyle(.secondary)
+                if model.readyThroughTime > 0 {
+                    Label("字幕已准备至 \(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime))，可先播放", systemImage: "play.circle")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
                 if let error = model.error {
                     Label(error, systemImage: "info.circle").foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)

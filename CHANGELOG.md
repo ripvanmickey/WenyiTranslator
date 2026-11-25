@@ -2,6 +2,12 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.5 - Unreleased
+
+- Make OpenAI video-audio preloading progressive: recognize a phrase, persist its source text and audio checkpoint, translate it, and expose the whole caption before recognizing later phrases. Playback no longer waits for full-track recognition. The initial audio download is still required.
+- Persist the original audio segmentation and completed-range cursor so interrupted jobs reuse recognized phrases, including ranges without speech. Retry a failed translation from saved text without uploading that audio again. Older complete-source caches remain compatible.
+- Show how far translated captions are ready for playback and distinguish continuing audio preparation from filling missing translations.
+
 ## 1.16.4 - 2026-11-25
 
 - Automatically restore matching local video subtitle caches when the video or language selection changes. Reuse complete caches without network requests and only translate missing cues on explicit resume. Show concrete browser automation errors for connection failures.

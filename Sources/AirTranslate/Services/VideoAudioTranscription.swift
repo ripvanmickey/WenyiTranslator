@@ -11,39 +11,51 @@ actor VideoAudioTranscription {
         return URLSession(configuration: configuration)
     }()
 
-    /// Upload is called only by the user-started, explicitly selected audio-recognition job.
-    /// Each cue uses the media interval, never HTTP completion time. This is phrase-level timing.
-    func transcribe(_ file: URL, language: LanguageOption,
-                    progress: @MainActor @Sendable ([VideoSubtitleCue], Int, Int) -> Void) async throws -> [VideoSubtitleCue] {
+    func prepareRanges(_ file: URL) async throws -> [VideoAudioRange] {
+        let asset = AVURLAsset(url: file)
+        let duration = try await validatedDuration(asset)
+        let ranges = try await speechRanges(asset, duration: duration)
+        guard !ranges.isEmpty else { throw VideoPreloadProblem(message: "音轨中未检测到可用语音。") }
+        return ranges.map { .init(start: $0.lowerBound, end: $0.upperBound) }
+    }
+
+    /// Each completed phrase is delivered immediately; media intervals stay fixed on resume.
+    func transcribe(_ file: URL, language: LanguageOption, ranges: [VideoAudioRange], from startIndex: Int,
+                    progress: @MainActor @Sendable (VideoSubtitleCue?, Int, Int) async throws -> Void) async throws {
         guard let key = try OpenAIAPIKeyStore.readAPIKey(), !key.isEmpty else {
             throw VideoPreloadProblem(message: "请先在设置 → API 密钥中配置 OpenAI。")
         }
         let asset = AVURLAsset(url: file)
-        let duration = try await asset.load(.duration).seconds
-        guard duration.isFinite, duration > 0, duration <= 10_800 else {
-            throw VideoPreloadProblem(message: "音轨需在 3 小时以内。")
-        }
-        let ranges = try await speechRanges(asset, duration: duration)
-        var cues: [VideoSubtitleCue] = []
-        for (index, range) in ranges.enumerated() {
-            try Task.checkCancellation()
+        let duration = try await validatedDuration(asset)
+        guard ranges.count <= 30_000, ranges.enumerated().allSatisfy({ index, range in
+            range.start.isFinite && range.end.isFinite && range.start >= 0 && range.end > range.start
+                && range.end <= duration + 0.1 && range.end - range.start <= 15.1
+                && (index == 0 || range.start >= ranges[index - 1].end)
+        }) else { throw VideoSubtitleError.invalidAudio }
+        try await VideoSubtitleProgressivePipeline.run(ranges: ranges, from: startIndex) { _, range in
             let clip = file.deletingLastPathComponent().appendingPathComponent("clip-\(UUID().uuidString).m4a")
             defer { try? FileManager.default.removeItem(at: clip) }
             guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
                 throw VideoSubtitleError.invalidAudio
             }
             exporter.outputURL = clip; exporter.outputFileType = .m4a
-            exporter.timeRange = CMTimeRange(start: CMTime(seconds: range.lowerBound, preferredTimescale: 600),
-                end: CMTime(seconds: range.upperBound, preferredTimescale: 600))
+            exporter.timeRange = CMTimeRange(start: CMTime(seconds: range.start, preferredTimescale: 600),
+                end: CMTime(seconds: range.end, preferredTimescale: 600))
             try await VideoAudioExport(exporter).run()
             try Task.checkCancellation()
             guard exporter.status == .completed else { throw VideoSubtitleError.invalidAudio }
-            let text = try await request(clip, language: language, key: key)
-            if !text.isEmpty { cues.append(.init(id: cues.count, start: range.lowerBound, end: range.upperBound, source: text)) }
-            await progress(cues, index + 1, ranges.count)
+            return try await self.request(clip, language: language, key: key)
+        } consume: { cue, done, total in
+            try await progress(cue, done, total)
         }
-        guard !cues.isEmpty else { throw VideoPreloadProblem(message: "音轨中未识别到可用语音。") }
-        return cues
+    }
+
+    private func validatedDuration(_ asset: AVAsset) async throws -> Double {
+        let duration = try await asset.load(.duration).seconds
+        guard duration.isFinite, duration > 0, duration <= 10_800 else {
+            throw VideoPreloadProblem(message: "音轨需在 3 小时以内。")
+        }
+        return duration
     }
 
     private func request(_ file: URL, language: LanguageOption, key: String) async throws -> String {
