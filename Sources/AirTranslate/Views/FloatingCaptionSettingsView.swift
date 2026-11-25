@@ -3,7 +3,6 @@ import SwiftUI
 
 struct FloatingCaptionSettingsView: View {
     @Bindable var session: TranslationSessionStore
-    @State private var showsAdvanced = false
     @State private var availableWidth: CGFloat = 0
 
     var body: some View {
@@ -48,12 +47,11 @@ struct FloatingCaptionSettingsView: View {
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Divider()
-            DisclosureGroup(isExpanded: $showsAdvanced) {
-                advancedOptions.padding(.top, 14)
-            } label: {
-                Text(AppText.ui("高级选项", "Advanced options", "詳細設定")).font(.headline)
-            }
-            .accessibilityIdentifier("unifiedCaptionAdvancedOptions")
+            Text(AppText.ui("高级选项", "Advanced options", "詳細設定"))
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            advancedOptions
+                .accessibilityIdentifier("unifiedCaptionAdvancedControls")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

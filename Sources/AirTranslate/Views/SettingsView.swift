@@ -463,7 +463,8 @@ struct SettingsView: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 220)
+                .pickerStyle(.menu)
+                .frame(width: 220, alignment: .leading)
                 .disabled(isSessionConfigurationLocked || session.audioInputSource != .microphone)
             }
         }
@@ -1997,6 +1998,7 @@ struct SettingsNoticeRow: View {
 
             Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(AirTranslateDesign.Spacing.sm)
         .background(
             AirTranslateDesign.Palette.pausedSoft,
@@ -2018,13 +2020,15 @@ private struct SettingsNoticeActionRow: View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .center, spacing: 12) {
                 noticeLabel.fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 0)
                 actionButton.fixedSize()
             }
             VStack(alignment: .leading, spacing: 10) {
                 noticeLabel
-                actionButton
+                actionButton.padding(.leading, 38)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(AirTranslateDesign.Spacing.sm)
         .background(
             AirTranslateDesign.Palette.pausedSoft,
@@ -2070,7 +2074,7 @@ struct SettingsGroup<Content: View>: View {
                 .textCase(.uppercase)
                 .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
 
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 content
             }
             .padding(.horizontal, AirTranslateDesign.Spacing.md)

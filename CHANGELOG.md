@@ -2,6 +2,10 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.8 - Unreleased
+
+- Build 1270: align plain/action setting notices to the same full-width content column, keep action buttons trailing or beneath notice text on narrow layouts, and left-align the microphone device menu with the other audio controls. Keep floating-caption advanced options permanently expanded, with font size, spacing, opacity, alignment, and window settings directly accessible.
+
 ## 1.16.7 - 2026-11-25
 
 - Build 1269: fix Cloudflare setup/consent recovery to open its own API configuration. Replace the generic settings recovery button’s stale Nari label with Open Settings; keep the text-sharing opt-in explicit.
