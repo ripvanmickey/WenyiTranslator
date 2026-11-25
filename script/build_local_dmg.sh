@@ -30,7 +30,7 @@ STAGING="$(mktemp -d "${TMPDIR:-/tmp}/airtranslate-local-dmg.XXXXXX")"
 APP="$STAGING/$APP_NAME.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY_DIR/AirTranslate" "$APP/Contents/MacOS/AirTranslate"
-cp "$ROOT_DIR/Resources/NemotronBridge.py" "$ROOT_DIR/Resources/NemotronSourceManifest.json" "$APP/Contents/Resources/"
+cp "$ROOT_DIR/Resources/NemotronBridge.py" "$ROOT_DIR/Resources/NemotronFileBridge.py" "$ROOT_DIR/Resources/NemotronSourceManifest.json" "$APP/Contents/Resources/"
 cp -R "$ROOT_DIR/Resources/ASRRuntime" "$ROOT_DIR/Resources/ASRProject" "$APP/Contents/Resources/"
 python3 "$ROOT_DIR/script/prune_asr_runtime.py" "$APP/Contents/Resources/ASRRuntime" --apply \
   > "$OUTPUT_DIR/$ARTIFACT-runtime-prune.json"

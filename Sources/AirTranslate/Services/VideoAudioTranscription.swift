@@ -3,6 +3,8 @@ import CoreMedia
 import Foundation
 import AirTranslateCore
 
+enum VideoAudioRecognitionEngine: Sendable { case openAI, nemotron }
+
 actor VideoAudioTranscription {
     private let session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
@@ -21,10 +23,16 @@ actor VideoAudioTranscription {
 
     /// Each completed phrase is delivered immediately; media intervals stay fixed on resume.
     func transcribe(_ file: URL, language: LanguageOption, ranges: [VideoAudioRange], from startIndex: Int,
+                    engine: VideoAudioRecognitionEngine = .openAI,
+                    resources: URL = ManagedASRRuntime.resources, modelData: URL = ManagedASRRuntime.data,
                     progress: @MainActor @Sendable (VideoSubtitleCue?, Int, Int) async throws -> Void) async throws {
-        guard let key = try OpenAIAPIKeyStore.readAPIKey(), !key.isEmpty else {
-            throw VideoPreloadProblem(message: AppText.ui("请先在设置 → API 密钥中配置 OpenAI。", "Configure OpenAI in Settings → API Keys first.", "先に「設定 → API キー」で OpenAI を設定してください。"))
-        }
+        let key: String
+        if engine == .openAI {
+            guard let savedKey = try OpenAIAPIKeyStore.readAPIKey(), !savedKey.isEmpty else {
+                throw VideoPreloadProblem(message: AppText.ui("请先在设置 → API 密钥中配置 OpenAI。", "Configure OpenAI in Settings → API Keys first.", "先に「設定 → API キー」で OpenAI を設定してください。"))
+            }
+            key = savedKey
+        } else { key = "" }
         let asset = AVURLAsset(url: file)
         let duration = try await validatedDuration(asset)
         guard ranges.count <= 30_000, ranges.enumerated().allSatisfy({ index, range in
@@ -32,7 +40,16 @@ actor VideoAudioTranscription {
                 && range.end <= duration + 0.1 && range.end - range.start <= 15.1
                 && (index == 0 || range.start >= ranges[index - 1].end)
         }) else { throw VideoSubtitleError.invalidAudio }
-        try await VideoSubtitleProgressivePipeline.run(ranges: ranges, from: startIndex) { _, range in
+        let worker: NemotronVideoRecognizer?
+        if engine == .nemotron {
+            worker = try NemotronVideoRecognizer(resources: resources, modelData: modelData, language: language, directory: file.deletingLastPathComponent())
+        } else { worker = nil }
+        defer { worker?.stop() }
+        if let worker { try await worker.start() }
+        try await VideoSubtitleProgressivePipeline.run(ranges: ranges, from: startIndex) { index, range in
+            if let worker {
+                return try await worker.transcribe(asset, range: range, index: index, directory: file.deletingLastPathComponent())
+            }
             let clip = file.deletingLastPathComponent().appendingPathComponent("clip-\(UUID().uuidString).m4a")
             defer { try? FileManager.default.removeItem(at: clip) }
             guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {

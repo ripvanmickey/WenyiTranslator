@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import SwiftUI
 import Foundation
@@ -8,6 +9,40 @@ import AirTranslateCore
 @Suite(.serialized)
 @MainActor
 struct MediaWorkspaceTests {
+    @Test func localNemotronUsesSeparateCacheAndOnlyTextTranslationCredentials() {
+        let model = VideoSubtitlePreloadStore()
+        model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
+        model.input = .openAI
+        let cloudKey = model.cacheSelectionKey
+        model.input = .nemotron
+        #expect(model.input.requiresAudioRecognition)
+        #expect(model.input.audioEngine == .nemotron)
+        #expect(model.cacheSelectionKey != cloudKey)
+        #expect(!model.showsImportAction)
+        #expect(!model.showsOpenAIConfiguration)
+        model.translator = .openAI
+        #expect(model.showsOpenAIConfiguration)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["WENYI_NEMOTRON_VIDEO_SMOKE"] == "1"))
+    func localNemotronVideoSmoke() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        let resources = URL(fileURLWithPath: try #require(environment["WENYI_NEMOTRON_RESOURCES"]))
+        let file = URL(fileURLWithPath: try #require(environment["WENYI_NEMOTRON_FIXTURE"]))
+        let duration = try await AVURLAsset(url: file).load(.duration).seconds
+        var captions: [VideoSubtitleCue] = []
+        try await VideoAudioTranscription().transcribe(file, language: .english,
+            ranges: [.init(start: 0, end: min(duration, 15))], from: 0, engine: .nemotron,
+            resources: resources) { cue, done, total in
+                if let cue { captions.append(cue) }
+                #expect(done == 1 && total == 1)
+            }
+        #expect(captions.count == 1)
+        let cue = try #require(captions.first)
+        #expect(cue.source.lowercased().contains("country"))
+        #expect(cue.start == 0)
+    }
+
     @Test func localizedMediaTextAndControlsFitEnglishAndJapanese() {
         let original = InterfaceLocalization.shared.preference
         defer { InterfaceLocalization.shared.preference = original }

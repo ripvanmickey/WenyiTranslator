@@ -55,9 +55,17 @@ struct VideoSubtitlePreloadView: View {
                                 .accessibilityIdentifier("mediaImportSubtitles")
                         }
                         if model.input == .openAI { configureOpenAI }
+                        if model.input == .nemotron {
+                            Button(AppText.ui("模型", "Model", "モデル")) {
+                                session.requestGeneralSettings()
+                                openSettings()
+                            }.fixedSize().accessibilityIdentifier("mediaNemotronModelSettings")
+                        }
                     }
                 }.disabled(model.isConfigurationLocked)
-                note(model.input == .openAI
+                note(model.input == .nemotron
+                    ? AppText.ui("音轨由本机 Nemotron 识别，不上传音频；仅将字幕文字发送给所选翻译服务。需先下载 Nemotron 模型。", "Nemotron recognizes audio on this Mac without uploading it. Only text is sent to the translation service. Download the Nemotron model first.", "Nemotron がこの Mac で音声を認識し、音声はアップロードしません。翻訳サービスにはテキストのみを送信します。先に Nemotron モデルをダウンロードしてください。")
+                    : model.input == .openAI
                     ? AppText.ui("音轨片段发送到 OpenAI 识别，仅将字幕文字发送到所选翻译服务。会产生相应 API 用量。", "Audio segments are sent to OpenAI for recognition. Only caption text is sent to the translation service. API usage charges apply.", "音声区間を OpenAI に送信して認識します。翻訳サービスには字幕テキストのみを送信します。API 利用料金が発生します。")
                     : AppText.ui("使用视频已有或导入的字幕，只将字幕文字发送到所选翻译服务，不上传音频。", "Use existing or imported captions. Only text is sent to the translation service; audio is not uploaded.", "既存または読み込んだ字幕を使用します。翻訳サービスにはテキストだけを送信し、音声はアップロードしません。"))
 

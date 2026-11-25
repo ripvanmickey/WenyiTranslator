@@ -5,12 +5,15 @@ import Observation
 import AirTranslateCore
 
 enum VideoSubtitleInput: String, CaseIterable, Identifiable {
-    case youtube, openAI, imported
+    case youtube, openAI, nemotron, imported
     var id: String { rawValue }
+    var requiresAudioRecognition: Bool { self == .openAI || self == .nemotron }
+    var audioEngine: VideoAudioRecognitionEngine { self == .nemotron ? .nemotron : .openAI }
     var title: String {
         switch self {
         case .youtube: AppText.ui("YouTube 已有字幕", "YouTube captions", "YouTube 字幕")
         case .openAI: AppText.ui("OpenAI 音轨识别 · 云端", "OpenAI audio recognition · Cloud", "OpenAI 音声認識・クラウド")
+        case .nemotron: AppText.ui("Nemotron 音轨识别 · 本地", "Nemotron audio · On-device", "Nemotron 音声認識・端末内")
         case .imported: AppText.ui("导入 SRT／VTT", "Import SRT / VTT", "SRT／VTT を読み込む")
         }
     }
@@ -186,7 +189,8 @@ final class VideoSubtitlePreloadStore {
                     guard key?.isEmpty == false else { throw VideoPreloadProblem(message: AppText.ui("请先在设置 → API 密钥中配置 OpenAI。", "Configure OpenAI in Settings → API Keys first.", "先に「設定 → API キー」で OpenAI を設定してください。")) }
                 }
                 try Task.checkCancellation()
-                if selectedInput == .openAI && (document == nil || document?.audioProgress?.isRecognitionComplete == false) {
+                if selectedInput.requiresAudioRecognition && (document == nil || document?.audioProgress?.isRecognitionComplete == false) {
+                    if selectedInput == .nemotron { try NemotronVideoRecognizer.validate() }
                     // Finish a cached phrase whose recognition succeeded but translation was interrupted.
                     try await translatePending(source: source, target: target, provider: provider, token: token)
                     statusText = MediaLocalizedText("正在获取视频音轨…已有字幕可先播放。", "Fetching video audio… Ready captions can already be played.", "動画の音声を取得中…準備済みの字幕は再生できます。")
@@ -201,7 +205,7 @@ final class VideoSubtitlePreloadStore {
                     }
                     guard let checkpoint = document?.audioProgress else { throw VideoSubtitleError.invalidAudio }
                     try await audio.transcribe(result.url, language: source, ranges: checkpoint.ranges,
-                                               from: checkpoint.nextRange) { [weak self] cue, done, total in
+                                               from: checkpoint.nextRange, engine: selectedInput.audioEngine) { [weak self] cue, done, total in
                         guard let self, self.generation == token else { throw CancellationError() }
                         try Task.checkCancellation()
                         if let cue { self.document?.cues.append(cue) }
@@ -234,7 +238,7 @@ final class VideoSubtitlePreloadStore {
                         title = result.title; cues = result.cues
                     case .imported:
                         title = video.id; cues = importedCues
-                    case .openAI:
+                    case .openAI, .nemotron:
                         throw VideoSubtitleError.invalidAudio
                     }
                     guard !cues.isEmpty, cues.count <= 30_000, (cues.last?.end ?? 0) <= 43_200 else {
