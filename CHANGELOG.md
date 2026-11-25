@@ -4,6 +4,10 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Caption surfaces follow system appearance again: black source text on the light solid canvas, white source text on dark surfaces, and yellow translations in both appearances. Floating dark overlays retain white source text.
+
+- Build 1253: keep all console controls on one row. Enforce a 900 pt caption-column minimum and a 1201 pt minimum window width when the media inspector is open; cap inspector width to preserve that column. Remove the compact wrapping console.
+
 - Build 1252: align the media workspace with the Figma layout: keep the console below the left caption column, size the right inspector proportionally, arrange languages inline, restore compact source/model rows, and show neighbouring caption phrases with the current phrase outlined. On narrow windows the console wraps within the left column.
 
 - Build 1251: add Media beside Mac Audio and Microphone. Move video preloading and browser sync controls into a right-hand main-window sidebar, and display prepared captions in the shared left workspace. Import and OpenAI configuration actions appear inline only for applicable selections. Media actions and keyboard shortcuts do not start live audio capture.

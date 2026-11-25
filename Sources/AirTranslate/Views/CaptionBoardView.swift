@@ -467,7 +467,6 @@ private struct StageEmptyStateView: View {
 }
 
 private struct CaptionLineView: View, Equatable {
-    @Environment(\.colorScheme) private var colorScheme
     let line: CaptionLine
     let showsTranslationPane: Bool
     var showsRecognitionState = false
@@ -510,7 +509,7 @@ private struct CaptionLineView: View, Equatable {
                         confirmation: usesLocalPreview ? line.isFinal : nil,
                         font: AirTranslateDesign.Typography.captionOriginal,
                         lineSpacing: 4,
-                        color: FloatingCaptionAppearance.sourceTextColor
+                        color: AirTranslateDesign.Palette.captionSource
                     )
 
                     TurnTranscriptText(
@@ -535,7 +534,7 @@ private struct CaptionLineView: View, Equatable {
                         confirmation: usesLocalPreview ? line.isFinal : nil,
                         font: AirTranslateDesign.Typography.captionTranslation,
                         lineSpacing: 6,
-                        color: FloatingCaptionAppearance.sourceTextColor
+                        color: AirTranslateDesign.Palette.captionSource
                     )
                 }
             }
@@ -543,9 +542,6 @@ private struct CaptionLineView: View, Equatable {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .airStageBlock(isLive: isLive)
-        .background(colorScheme == .light ? Color(white: 0.10) : Color.clear,
-                    in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.surface, style: .continuous))
-        .environment(\.colorScheme, .dark)
     }
 }
 

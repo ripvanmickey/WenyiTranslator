@@ -65,7 +65,7 @@ struct ContentView: View {
                                 .padding(.bottom, isMediaInputSelected ? 24 : 16)
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(minWidth: MediaWorkspaceLayout.captionMinimumWidth, maxWidth: .infinity, maxHeight: .infinity)
                 if isMediaInputSelected {
                     Divider()
                     VideoSubtitlePreloadView(model: videoSubtitles, session: session) {
@@ -76,6 +76,7 @@ struct ContentView: View {
                 }
             }
         }
+        .frame(minWidth: MediaWorkspaceLayout.minimumWindowWidth(media: isMediaInputSelected))
         .animation(reduceMotion ? nil : AirTranslateDesign.Motion.enter, value: isMediaInputSelected)
         .onChange(of: isMediaInputSelected) { _, selected in
             if !selected {
@@ -301,7 +302,7 @@ private struct ToastMessageView: View {
 }
 
 /// Expand the window to add the inspector while preserving the caption column's width.
-/// Narrow displays keep their usable screen width and use the compact console layout.
+/// Enforce the console width floor rather than wrapping its controls.
 private struct MediaWorkspaceWindowSizer: NSViewRepresentable {
     let expanded: Bool
     let reduceMotion: Bool
@@ -318,12 +319,18 @@ private struct MediaWorkspaceWindowSizer: NSViewRepresentable {
         private var collapsedWidth: CGFloat?
         override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); applySize() }
         func applySize() {
-            guard let window, applied != expanded else { return }
+            guard let window else { return }
+            let previousFrame = window.frame
+            window.contentMinSize = NSSize(
+                width: MediaWorkspaceLayout.minimumWindowWidth(media: expanded),
+                height: max(window.contentMinSize.height, AirTranslateDesign.mainWindowMinimumHeight)
+            )
+            guard applied != expanded else { return }
             guard !window.styleMask.contains(.fullScreen), let visible = window.screen?.visibleFrame else {
                 applied = expanded
                 return
             }
-            var frame = window.frame
+            var frame = previousFrame
             if expanded {
                 collapsedWidth = frame.width
                 frame.size.width = MediaWorkspaceLayout.expandedWindowWidth(from: frame.width, within: visible.width)

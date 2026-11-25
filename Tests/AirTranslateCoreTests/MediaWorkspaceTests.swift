@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import Foundation
 import Testing
 import AirTranslateCore
@@ -6,6 +8,21 @@ import AirTranslateCore
 @Suite(.serialized)
 @MainActor
 struct MediaWorkspaceTests {
+    @Test func captionColorsFollowSystemAppearance() throws {
+        for (name, expectedSource, expectedBackground) in [
+            (NSAppearance.Name.aqua, "#000000", "#F4F5F7"),
+            (NSAppearance.Name.darkAqua, "#FFFFFF", "#121417")
+        ] {
+            let appearance = try #require(NSAppearance(named: name))
+            appearance.performAsCurrentDrawingAppearance {
+                #expect(FloatingCaptionAppearance.hexString(from: NSColor(AirTranslateDesign.Palette.captionSource)) == expectedSource)
+                #expect(FloatingCaptionAppearance.hexString(from: NSColor(AirTranslateDesign.Palette.captionMediaCanvas)) == expectedBackground)
+                #expect(FloatingCaptionAppearance.hexString(from: NSColor(FloatingCaptionAppearance.translationTextColor)) == "#FFD600")
+                #expect(FloatingCaptionAppearance.hexString(from: NSColor(FloatingCaptionAppearance.sourceTextColor)) == "#FFFFFF")
+            }
+        }
+    }
+
     @Test func configurationActionsFollowSourceAndTranslator() {
         let model = VideoSubtitlePreloadStore()
         for source in VideoSubtitleInput.allCases {
@@ -64,13 +81,19 @@ struct MediaWorkspaceTests {
         #expect(model.visibleCaptionContext.isEmpty)
     }
 
-    @Test func inspectorMatchesFigmaProportionWithoutTakingOverNarrowWindows() {
+    @Test func inspectorPreservesSingleRowConsoleAtEveryAllowedWidth() {
         #expect(MediaWorkspaceLayout.sidebarWidth(for: 1640) == 480)
         #expect(MediaWorkspaceLayout.sidebarWidth(for: 900) == 300)
         #expect(900 - MediaWorkspaceLayout.sidebarWidth(for: 900) >= 600)
         #expect(MediaWorkspaceLayout.sidebarWidth(for: 2400) == 480)
         #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 900, within: 1600) > 1200)
-        #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 900, within: 900) == 900)
+        #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 900, within: 900) == MediaWorkspaceLayout.minimumExpandedWidth)
+        #expect(MediaWorkspaceLayout.minimumWindowWidth(media: false) == 900)
+        #expect(MediaWorkspaceLayout.minimumWindowWidth(media: true) == 1201)
+        for width in stride(from: 1201.0, through: 2400.0, by: 37) {
+            let captionWidth = width - MediaWorkspaceLayout.sidebarWidth(for: width) - 1
+            #expect(captionWidth >= 900)
+        }
         #expect(MediaWorkspaceLayout.expandedWindowWidth(from: 1400, within: 1600) == 1600)
     }
 

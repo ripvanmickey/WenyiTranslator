@@ -185,7 +185,7 @@ struct MediaCaptionBoardView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         HStack {
                             Label("跟随视频播放 · \(VideoSubtitlePreloadStore.timestamp(model.playbackTime))", systemImage: "play.circle")
-                                .foregroundStyle(.white)
+                                .foregroundStyle(AirTranslateDesign.Palette.captionSource)
                             Spacer()
                             if model.readyThroughTime > 0 {
                                 Text("字幕已准备至 \(VideoSubtitlePreloadStore.timestamp(model.readyThroughTime))").foregroundStyle(.gray)
@@ -194,7 +194,8 @@ struct MediaCaptionBoardView: View {
 
                         if model.visibleCaptionContext.isEmpty {
                             VideoSubtitleTextView(cue: nil,
-                                placeholder: model.isAd ? "广告播放中" : model.isConnected ? "播放到已准备的时间段时显示字幕" : "在右侧准备字幕并连接浏览器，字幕将在这里随视频显示。")
+                                placeholder: model.isAd ? "广告播放中" : model.isConnected ? "播放到已准备的时间段时显示字幕" : "在右侧准备字幕并连接浏览器，字幕将在这里随视频显示。",
+                                sourceColor: AirTranslateDesign.Palette.captionSource)
                                 .padding(.vertical, 18)
                         } else {
                             ForEach(model.visibleCaptionContext) { cue in
@@ -240,7 +241,8 @@ private struct MediaCaptionCueView: View {
                 } label: { Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 15)) }
                     .buttonStyle(.plain).foregroundStyle(.gray).help("复制字幕")
             }
-            VideoSubtitleTextView(cue: cue, placeholder: "", showsTranslation: showsTranslation, spacing: 12)
+            VideoSubtitleTextView(cue: cue, placeholder: "", showsTranslation: showsTranslation, spacing: 12,
+                                  sourceColor: AirTranslateDesign.Palette.captionSource)
         }
         .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -256,15 +258,17 @@ struct VideoSubtitleTextView: View {
     let placeholder: String
     var showsTranslation = true
     var spacing: CGFloat = 8
+    // Floating subtitles always use a dark surface; the main workspace supplies its adaptive color.
+    var sourceColor: Color = FloatingCaptionAppearance.sourceTextColor
     var body: some View {
         VStack(alignment: .leading, spacing: spacing) {
             if let cue {
-                Text(cue.source).font(.system(size: 18)).foregroundStyle(FloatingCaptionAppearance.sourceTextColor)
+                Text(cue.source).font(.system(size: 18)).foregroundStyle(sourceColor)
                 if showsTranslation && !cue.translation.isEmpty {
                     Text(cue.translation).font(.system(size: 23, weight: .medium))
                         .foregroundStyle(FloatingCaptionAppearance.translationTextColor)
                 }
-            } else { Text(placeholder).foregroundStyle(.white.opacity(0.7)) }
+            } else { Text(placeholder).foregroundStyle(sourceColor.opacity(0.7)) }
         }
         .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)

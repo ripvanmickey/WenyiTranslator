@@ -279,39 +279,13 @@ struct ConsoleBarView: View {
         }
     }
 
-    private var consoleSurface: some View {
-        ViewThatFits(in: .horizontal) {
-            consoleMaterial(consoleControls, compact: false)
-            consoleMaterial(compactConsoleControls, compact: true)
-        }
-    }
-
     @ViewBuilder
-    private func consoleMaterial<Content: View>(_ content: Content, compact: Bool) -> some View {
-        let shape = RoundedRectangle(cornerRadius: compact ? 24 : 40, style: .continuous)
+    private var consoleSurface: some View {
         if #available(macOS 26.0, *) {
-            content.glassEffect(.regular, in: shape)
+            consoleControls.glassEffect(.regular, in: Capsule())
         } else {
-            content.background(.regularMaterial, in: shape)
+            consoleControls.background(.regularMaterial, in: Capsule())
         }
-    }
-
-    private var compactConsoleControls: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 12) {
-                captureButton
-                pauseButton
-                Spacer(minLength: 0)
-                outputControl
-            }
-            HStack(spacing: 12) {
-                audioSourceControl
-                if !isMediaInputSelected && session.audioInputSource == .microphone { microphoneControl }
-                Spacer(minLength: 0)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: 1120)
     }
 
     @ViewBuilder
