@@ -1,17 +1,10 @@
 import AppKit
 import SwiftUI
 
-private enum DraftEditorField: Hashable {
-    case source
-    case translation
-}
-
 struct TranscriptLibraryView: View {
     @Bindable var session: TranslationSessionStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var focusedDraftEditor: DraftEditorField?
-    @State private var draftEditorTextViews: [DraftEditorField: NSTextView] = [:]
     @State private var isDeleteSelectedConfirmationPresented = false
     @State private var isDeleteAllConfirmationPresented = false
     @State private var isCopyFeedbackVisible = false
@@ -306,8 +299,6 @@ struct TranscriptLibraryView: View {
                 }
                 .padding(.vertical, 8)
 
-                draftEditor(for: selectedTranscript)
-
                 HStack {
                     Button {
                         session.saveSelectedTranscriptEdits()
@@ -338,110 +329,10 @@ struct TranscriptLibraryView: View {
         }
     }
 
-    @ViewBuilder
-    private func draftEditor(for transcript: SavedTranscript) -> some View {
-        if transcript.isOriginalAndTranslation {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 12) {
-                    sourceEditorPane
-                    translationEditorPane
-                }
-                .frame(minWidth: AirTranslateDesign.libraryEditorBreakpoint)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    sourceEditorPane
-                    translationEditorPane
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            draftEditorPane(
-                title: AppText.original,
-                text: $session.savedDraftSourceText,
-                field: .source
-            )
-        }
-    }
-
-    private var sourceEditorPane: some View {
-        draftEditorPane(
-            title: AppText.original,
-            text: $session.savedDraftSourceText,
-            field: .source
-        )
-    }
-
-    private var translationEditorPane: some View {
-        draftEditorPane(
-            title: AppText.translation,
-            text: $session.savedDraftTranslationText,
-            field: .translation
-        )
-    }
-
-    private func draftEditorPane(
-        title: String,
-        text: Binding<String>,
-        field: DraftEditorField
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text(title)
-                    .font(AirTranslateDesign.Typography.sectionLabel)
-                    .tracking(0.6)
-                    .textCase(.uppercase)
-                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-
-                Spacer(minLength: 0)
-
-                writingToolsButton(for: field)
-                    .disabled(!hasDraftText(for: field))
-            }
-
-            WritingToolsTextEditor(
-                text: text,
-                field: field,
-                focusedField: $focusedDraftEditor
-            ) { field, textView in
-                draftEditorTextViews[field] = textView
-            }
-            .background(AirTranslateDesign.Palette.canvas, in: RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous)
-                    .strokeBorder(AirTranslateDesign.Palette.hairline)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private func writingToolsButton(for field: DraftEditorField) -> some View {
-        Button {
-            showWritingTools(for: field)
-        } label: {
-            Image(systemName: "sparkles")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                .frame(width: 26, height: 26)
-                .airTranslateInteractiveSurface()
-        }
-        .buttonStyle(AirTranslatePressButtonStyle())
-        .disabled(!PlatformSupport.supportsWritingTools)
-        .help(AppText.appleIntelligenceWritingTools)
-        .accessibilityLabel(AppText.appleIntelligenceWritingTools)
-    }
-
     private var canCopyDraft: Bool {
-        hasDraftText(for: .source) || hasDraftText(for: .translation)
-    }
-
-    private func hasDraftText(for field: DraftEditorField) -> Bool {
-        let text = switch field {
-        case .source:
-            session.savedDraftSourceText
-        case .translation:
-            session.savedDraftTranslationText
+        [session.savedDraftSourceText, session.savedDraftTranslationText].contains {
+            $0.rangeOfCharacter(from: .whitespacesAndNewlines.inverted) != nil
         }
-        return text.rangeOfCharacter(from: .whitespacesAndNewlines.inverted) != nil
     }
 
     private func copyDraftText() -> Bool {
@@ -460,15 +351,6 @@ struct TranscriptLibraryView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(copiedText, forType: .string)
         return true
-    }
-
-    private func showWritingTools(for field: DraftEditorField) {
-        focusedDraftEditor = field
-        DispatchQueue.main.async {
-            guard let textView = draftEditorTextViews[field] else { return }
-            textView.window?.makeFirstResponder(textView)
-            if #available(macOS 15.2, *) { NSApp.sendAction(#selector(NSResponder.showWritingTools(_:)), to: textView, from: nil) }
-        }
     }
 
     private func showCopyFeedback() {
@@ -499,96 +381,6 @@ struct TranscriptLibraryView: View {
 
         if let firstTranscript = session.savedTranscripts.first {
             session.selectSavedTranscript(firstTranscript.id)
-        }
-    }
-}
-
-private struct WritingToolsTextEditor: NSViewRepresentable {
-    @Binding var text: String
-    let field: DraftEditorField
-    @Binding var focusedField: DraftEditorField?
-    let onTextViewResolved: (DraftEditorField, NSTextView?) -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
-        scrollView.borderType = .noBorder
-
-        let textView = NSTextView(frame: .zero)
-        textView.delegate = context.coordinator
-        textView.string = text
-        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
-        textView.textColor = .labelColor
-        textView.drawsBackground = false
-        textView.isEditable = true
-        textView.isSelectable = true
-        textView.isRichText = false
-        textView.importsGraphics = false
-        textView.allowsUndo = true
-        textView.textContainerInset = NSSize(width: 14, height: 14)
-        textView.minSize = NSSize(width: 0, height: 0)
-        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
-        textView.autoresizingMask = [.width]
-        textView.textContainer?.widthTracksTextView = true
-        textView.textContainer?.heightTracksTextView = false
-        if #available(macOS 15.0, *) {
-            textView.writingToolsBehavior = .complete
-            textView.allowedWritingToolsResultOptions = .plainText
-        }
-
-        scrollView.documentView = textView
-        context.coordinator.textView = textView
-        DispatchQueue.main.async {
-            onTextViewResolved(field, textView)
-        }
-        return scrollView
-    }
-
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        context.coordinator.parent = self
-        guard let textView = context.coordinator.textView else { return }
-
-        if textView.string != text {
-            textView.string = text
-        }
-
-        if focusedField == field, textView.window?.firstResponder !== textView {
-            DispatchQueue.main.async {
-                textView.window?.makeFirstResponder(textView)
-            }
-        }
-
-        DispatchQueue.main.async {
-            onTextViewResolved(field, textView)
-        }
-    }
-
-    static func dismantleNSView(_ scrollView: NSScrollView, coordinator: Coordinator) {
-        DispatchQueue.main.async {
-            coordinator.parent.onTextViewResolved(coordinator.parent.field, nil)
-        }
-    }
-
-    final class Coordinator: NSObject, NSTextViewDelegate {
-        var parent: WritingToolsTextEditor
-        weak var textView: NSTextView?
-
-        init(_ parent: WritingToolsTextEditor) {
-            self.parent = parent
-        }
-
-        func textDidChange(_ notification: Notification) {
-            guard let textView = notification.object as? NSTextView else { return }
-            parent.text = textView.string
         }
     }
 }

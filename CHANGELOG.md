@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.8 - Unreleased
 
+- Build 1271: remove the original and translation text editors from saved records; retain title editing, copy, Finder access, and record management.
+
 - Build 1270: align plain/action setting notices to the same full-width content column, keep action buttons trailing or beneath notice text on narrow layouts, and left-align the microphone device menu with the other audio controls. Keep floating-caption advanced options permanently expanded, with font size, spacing, opacity, alignment, and window settings directly accessible.
 
 ## 1.16.7 - 2026-11-25
