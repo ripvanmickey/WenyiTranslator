@@ -48,7 +48,7 @@ struct VideoSubtitlePreloadView: View {
                         Picker("字幕来源", selection: $model.input) {
                             ForEach(VideoSubtitleInput.allCases) { Text($0.title).tag($0) }
                         }.pickerStyle(.menu).labelsHidden()
-                            .frame(minWidth: 0, maxWidth: .infinity)
+                            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                         Spacer(minLength: 0)
                         if model.showsImportAction {
                             Button("导入…") { model.importSubtitles() }.fixedSize()
@@ -67,7 +67,7 @@ struct VideoSubtitlePreloadView: View {
                         Picker("翻译模型", selection: $model.translator) {
                             ForEach(VideoSubtitleTranslator.allCases) { Text($0.title).tag($0) }
                         }.pickerStyle(.menu).labelsHidden()
-                            .frame(minWidth: 0, maxWidth: .infinity)
+                            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                         Spacer(minLength: 0)
                         if model.translator == .openAI { configureOpenAI }
                     }

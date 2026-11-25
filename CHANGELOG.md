@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.5 - Unreleased
 
+- Build 1255: left-align the media subtitle-source and translation-model pickers with their section headings while retaining flexible widths and conditional trailing actions.
+
 - Fix main-window resize clipping: propagate the active media minimum to the scene and use native content-minimum window resizing, so the window cannot shrink below the single-row console and inspector. Let inspector model menus shrink within their column.
 
 - Add an explicit drag handle across the media floating-caption header. Dragging moves the panel within the visible screen while caption text selection and the close button remain available.
