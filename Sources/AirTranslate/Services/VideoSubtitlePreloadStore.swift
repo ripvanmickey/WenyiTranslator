@@ -20,9 +20,9 @@ enum VideoSubtitleInput: String, CaseIterable, Identifiable {
     }
 }
 enum VideoSubtitleTranslator: String, CaseIterable, Identifiable {
-    case index, openAI
+    case index, openAI, cloudflare
     var id: String { rawValue }
-    var title: String { self == .index ? AppText.ui("Index 在线翻译", "Index translation", "Index オンライン翻訳") : "OpenAI · GPT-4.1 mini" }
+    var title: String { self == .cloudflare ? CloudflareCopy.title : self == .index ? AppText.ui("Index 在线翻译", "Index translation", "Index オンライン翻訳") : "OpenAI · GPT-4.1 mini" }
 }
 
 @Observable @MainActor
@@ -71,12 +71,16 @@ final class VideoSubtitlePreloadStore {
     private var inputKey: String { input == .imported ? "import:" + importedHash : input.rawValue }
     var cacheSelectionKey: String {
         [(try? YouTubeVideoReference(videoURL))?.id ?? "", sourceLanguage.id, targetLanguage.id,
-         translator.rawValue, inputKey].joined(separator: "\u{0}")
+         translationCacheProvider, inputKey].joined(separator: "\u{0}")
+    }
+    var cloudflareConfiguration: CloudflareConfiguration { captionSession?.localTranslation.cloudflareConfiguration ?? .init() }
+    private var translationCacheProvider: String {
+        translator == .cloudflare ? cloudflareConfiguration.cacheIdentity : translator.rawValue
     }
     private var hasMatchingDocument: Bool {
         guard let document, let video = try? YouTubeVideoReference(videoURL) else { return false }
         return document.videoID == video.id && document.sourceLanguage == sourceLanguage.id
-            && document.targetLanguage == targetLanguage.id && document.provider == translator.rawValue
+            && document.targetLanguage == targetLanguage.id && document.provider == translationCacheProvider
             && document.input == inputKey
     }
     var prepareTitle: String {
@@ -144,7 +148,7 @@ final class VideoSubtitlePreloadStore {
         guard let video = try? YouTubeVideoReference(videoURL), input != .imported || !imported.isEmpty else {
             statusText = MediaLocalizedText("输入 YouTube 链接，先准备字幕，再连接浏览器播放。", "Enter a YouTube link, prepare captions, then connect your browser.", "YouTube リンクを入力し、字幕を準備してからブラウザに接続してください。"); return
         }
-        let source = sourceLanguage.id, target = targetLanguage.id, provider = translator.rawValue, selectedInput = inputKey
+        let source = sourceLanguage.id, target = targetLanguage.id, provider = translationCacheProvider, selectedInput = inputKey
         do {
             let saved = try await cache.load(videoID: video.id, source: source, target: target,
                                              provider: provider, input: selectedInput)
@@ -173,6 +177,7 @@ final class VideoSubtitlePreloadStore {
         error = nil; isPreparing = true; progress = 0; activeCue = nil; document = nil
         let source = sourceLanguage, target = targetLanguage, provider = translator, selectedInput = input
         let inputKey = selectedInput == .imported ? "import:" + importedHash : selectedInput.rawValue
+        let providerKey = translationCacheProvider
         let importedCues = imported
         let token = UUID(); generation = token
         preparation = Task {
@@ -184,9 +189,13 @@ final class VideoSubtitlePreloadStore {
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 if let saved = try await cache.load(videoID: video.id, source: source.id, target: target.id,
-                                                    provider: provider.rawValue, input: inputKey) {
+                                                    provider: providerKey, input: inputKey) {
                     document = saved
                     if saved.completed { progress = 1; statusText = MediaLocalizedText("已读取本机缓存，可连接浏览器显示字幕。", "Cache loaded. Connect your browser to show captions.", "キャッシュを読み込みました。ブラウザに接続して字幕を表示できます。"); refreshCue(); return }
+                }
+                if provider == .cloudflare {
+                    _ = try cloudflareConfiguration.validated()
+                    guard captionSession?.hasCloudflareAPIKey == true else { throw CloudflareTranslationError.missingKey }
                 }
                 if selectedInput == .openAI || provider == .openAI {
                     let key = try await Task.detached { try OpenAIAPIKeyStore.readAPIKey(retryAfterFailure: true) }.value
@@ -208,7 +217,7 @@ final class VideoSubtitlePreloadStore {
                         statusText = MediaLocalizedText("正在划分音轨片段，随后边识别边翻译…", "Segmenting audio, then recognizing and translating each phrase…", "音声を区切り、区間ごとに認識と翻訳を進めます…")
                         let ranges = try await audio.prepareRanges(result.url)
                         document = .init(videoID: video.id, title: result.title, sourceLanguage: source.id,
-                            targetLanguage: target.id, provider: provider.rawValue, input: inputKey, cues: [],
+                            targetLanguage: target.id, provider: providerKey, input: inputKey, cues: [],
                             audioProgress: .init(ranges: ranges))
                         if let document { try await cache.save(document) }
                     }
@@ -254,7 +263,7 @@ final class VideoSubtitlePreloadStore {
                         throw VideoPreloadProblem(message: AppText.ui("字幕为空或视频过长，暂无法预加载。", "Captions are empty or the video is too long to preload.", "字幕が空か、動画が長すぎるため準備できません。"))
                     }
                     document = .init(videoID: video.id, title: title, sourceLanguage: source.id,
-                        targetLanguage: target.id, provider: provider.rawValue, input: inputKey, cues: Self.group(cues))
+                        targetLanguage: target.id, provider: providerKey, input: inputKey, cues: Self.group(cues))
                     if let document { try await cache.save(document) }
                 }
                 guard document?.cues.isEmpty == false else { throw VideoSubtitleError.noSubtitles }
@@ -295,7 +304,12 @@ final class VideoSubtitlePreloadStore {
         guard let cue = document?.cues[index], cue.translation.isEmpty else { return }
         let translated: String
         if source == target { translated = cue.source }
-        else if provider == .openAI {
+        else if provider == .cloudflare {
+            let configuration = cloudflareConfiguration
+            let key = try await Task.detached { try CloudflareAPIKeyStore.readAPIKey() }.value
+            translated = try await CloudflareTranslationService.shared.translate(cue.source, source: source.id,
+                target: target.id, configuration: configuration, key: key)
+        } else if provider == .openAI {
             translated = try await openAI.translate(cue.source, source: source, target: target, model: .gpt41Mini)
         } else {
             var configuration = LocalTranslationConfiguration()

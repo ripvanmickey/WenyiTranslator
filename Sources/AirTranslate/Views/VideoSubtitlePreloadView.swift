@@ -86,6 +86,12 @@ struct VideoSubtitlePreloadView: View {
                             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                         Spacer(minLength: 0)
                         if model.translator == .openAI { configureOpenAI }
+                        if model.translator == .cloudflare {
+                            Button(AppText.ui("配置", "Configure", "設定")) {
+                                session.requestAPIKeySettings(provider: .cloudflare)
+                                openSettings()
+                            }.fixedSize().accessibilityIdentifier("mediaConfigureCloudflare")
+                        }
                     }
                 }.disabled(model.isConfigurationLocked)
 

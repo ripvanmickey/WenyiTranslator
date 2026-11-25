@@ -6,7 +6,7 @@ struct ProcessingModePicker: View {
     private var locked: Bool { session.isRunning || session.isStarting }
     private var supportsOutputSwitch: Bool {
         switch ProcessingEngine.current(for: session) {
-        case .apple, .indexOnline, .openAI, .nari, .grok: true
+        case .apple, .indexOnline, .cloudflare, .openAI, .nari, .grok: true
         default: false
         }
     }

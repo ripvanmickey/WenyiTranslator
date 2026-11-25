@@ -1,0 +1,65 @@
+[
+  {
+    "asset": "apple",
+    "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/apple.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "2a1509dccd25e6d2bc7a11a8e52941077e1a48555e192ce638699b9f083c2a7c",
+    "license": "SimpleIcons-LICENSE.md"
+  },
+  {
+    "asset": "bilibili",
+    "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/bilibili.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "0b31005ccf765a9d37be2c42f1d36e44572ccadb088250626d9905ae5d4f3d21",
+    "license": "SimpleIcons-LICENSE.md"
+  },
+  {
+    "asset": "cloudflare",
+    "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/cloudflare.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "408096d99907fd99e0863cb5d73f77a72537c6a85fd8d5e2704178a83a891f08",
+    "license": "SimpleIcons-LICENSE.md"
+  },
+  {
+    "asset": "googlegemini",
+    "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/googlegemini.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "a6228d8846040401e941a39ed17459785e8324dbb7b870ce84233c9b3e9863a0",
+    "license": "SimpleIcons-LICENSE.md"
+  },
+  {
+    "asset": "meta",
+    "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/meta.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "e3e9db62f59dc477e5917687349b8aa9685b841d40300c1afad60ad85075cd2e",
+    "license": "SimpleIcons-LICENSE.md"
+  },
+  {
+    "asset": "nvidia",
+    "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/nvidia.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "b0e4cfc12712c840d4d630c9a717200fbd09aeeadbd3faeac13bda2e2ed050b0",
+    "license": "SimpleIcons-LICENSE.md"
+  },
+  {
+    "asset": "openai",
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/openai.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186",
+    "license": "LobeIcons-LICENSE"
+  },
+  {
+    "asset": "qwen",
+    "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/qwen.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "36854c60b26bfa5a0cc0d4123727c0ef559efba6f129c0dfa623f3c443fe3e5b",
+    "license": "SimpleIcons-LICENSE.md"
+  },
+  {
+    "asset": "xai",
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/xai.svg",
+    "retrieved": "2026-11-25",
+    "sha256": "89eb7de9f0d02a41cfecd9109e253d7fd3529e27467dee4254faa67f3ac21451",
+    "license": "LobeIcons-LICENSE"
+  }
+]

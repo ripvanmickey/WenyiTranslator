@@ -2,6 +2,10 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.6 - Unreleased
+
+- Build 1268: add Cloudflare Workers AI text translation after on-device recognition and for media captions; separate Account ID/model/Token configuration, explicit text-sharing opt-in, fixed-host requests and provider/account/model-specific caches. Bundle provider logos with source/license notices; mark Meta as not live-tested.
+
 ## 1.16.5 - 2026-11-25
 
 - Build 1267: remove Azure/MAI, Nari and Jev configuration entries and disable legacy selection/restore paths. Older Azure/Nari selections fall back to local recognition; Jev stays off. Preserve stored credentials without querying retired providers at launch. Restore MAI voice preferences to Apple; initialize unused realtime playback nodes only when audio is played, so settings restoration does not require an audio component.

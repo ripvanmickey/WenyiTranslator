@@ -1,3 +1,5 @@
+**1.16.6 / build 1268（测试）：** 新增 Cloudflare Workers AI，本地识别和媒体字幕均可使用其文字翻译；独立配置 Account ID、Token 与模型，内置各服务 Logo。[配置与验证范围](docs/cloudflare-workers-ai.md)。
+
 **Build 1267：** 暂停 Azure／MAI、Nari 和 Jev，移除其配置入口。下方历史版本介绍中的相关配置不适用于当前构建。[变更说明](docs/paused-integrations.md)。
 
 <p align="center">

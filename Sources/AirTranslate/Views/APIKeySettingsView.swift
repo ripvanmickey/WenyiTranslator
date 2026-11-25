@@ -31,11 +31,12 @@ struct APIKeySettingsView: View {
                     ProviderCredentialRow(
                         name: provider.title,
                         symbol: provider.symbol,
+                        brand: provider,
                         model: model(for: provider),
                         detail: detail(for: provider),
                         consoleURL: provider.consoleURL,
                         hasKey: hasKey(provider),
-                        needsConfiguration: provider == .qwen && !session.hasQwenConfiguration,
+                        needsConfiguration: (provider == .qwen && !session.hasQwenConfiguration) || (provider == .cloudflare && !session.hasCloudflareConfiguration),
                         isCurrent: activeProvider == provider,
                         isLocked: isLocked,
                         requiresAPIKey: provider != .indexOnline,
@@ -49,6 +50,7 @@ struct APIKeySettingsView: View {
                     ) {
                         if provider == .indexOnline { indexAPIConfiguration }
                         if provider == .qwen { qwenConfiguration }
+                        if provider == .cloudflare { CloudflareSettingsView(session: session) }
                     }
                     .id(provider.rawValue)
                     if provider != visibleProviders.last {
@@ -150,6 +152,7 @@ struct APIKeySettingsView: View {
     }
 
     private var activeProvider: CredentialProvider? {
+        if session.isUsingLocalTranslation && session.localTranslation.usesCloudflare { return .cloudflare }
         if session.localTranslation.usesOnlineIndex { return .indexOnline }
         if session.isUsingJevSelection { return .jev }
         if session.isUsingQwenTranslation { return .qwen }
@@ -168,6 +171,7 @@ struct APIKeySettingsView: View {
         case .openAI: session.hasOpenAIAPIKey
         case .gemini: session.hasGeminiAPIKey
         case .meta: session.hasMetaAPIKey
+        case .cloudflare: session.hasCloudflareAPIKey
         case .azure: session.hasAzureSpeechAPIKey
         case .jev: session.hasJevAPIKey
         case .openRouter: session.hasOpenRouterAPIKey
@@ -183,6 +187,7 @@ struct APIKeySettingsView: View {
         case .openAI:
             ProcessingEngine.openAI.information(in: session).modelID
         case .gemini: (session.geminiTranslationModel.isEnabled ? session.geminiTranslationModel : session.preferredGeminiModel).title
+        case .cloudflare: session.localTranslation.cloudflareConfiguration.modelID
         case .meta: MetaTranscriptionModel.museVoiceTranscribe.title
         case .azure: session.azureTranscriptionModel.title
         case .jev: "jev-latest"
@@ -200,7 +205,8 @@ struct APIKeySettingsView: View {
             ? AppText.ui("语音在本机识别，仅上传字幕文字进行翻译。", "On-device recognition. Only caption text is uploaded for translation.", "音声は端末内で認識し、翻訳する字幕テキストのみを送信します。")
             : AppText.openAIAudioDescription
         case .gemini: AppText.geminiAPIKeyDescription
-        case .meta: AppText.metaScribeDetail
+        case .meta: AppText.metaScribeDetail + "\n" + CloudflareCopy.notTested
+        case .cloudflare: CloudflareCopy.detail + "\n" + CloudflareCopy.quota
         case .azure: AzureMAICopy.detail(for: session.azureTranscriptionModel)
         case .jev: JevCopy.detail
         case .openRouter: MAIVoiceCopy.detail
@@ -219,6 +225,7 @@ struct APIKeySettingsView: View {
         case .indexOnline: nil
         case .openAI: try OpenAIAPIKeyStore.readAPIKey(retryAfterFailure: true)
         case .gemini: try GeminiAPIKeyStore.readAPIKey()
+        case .cloudflare: try CloudflareAPIKeyStore.readAPIKey(retryAfterFailure: true)
         case .meta: try MetaAPIKeyStore.readAPIKey()
         case .azure: try AzureSpeechAPIKeyStore.readAPIKey()
         case .jev: try JevAPIKeyStore.readAPIKey()
@@ -235,6 +242,7 @@ struct APIKeySettingsView: View {
         case .indexOnline: break
         case .openAI: try session.saveOpenAIAPIKey(key)
         case .gemini: try session.saveGeminiAPIKey(key)
+        case .cloudflare: try session.saveCloudflareAPIKey(key)
         case .meta: try session.saveMetaAPIKey(key)
         case .azure: try session.saveAzureSpeechAPIKey(key)
         case .jev: try session.saveJevAPIKey(key)
@@ -251,6 +259,7 @@ struct APIKeySettingsView: View {
         case .indexOnline: break
         case .openAI: try session.removeOpenAIAPIKey()
         case .gemini: try session.removeGeminiAPIKey()
+        case .cloudflare: try session.removeCloudflareAPIKey()
         case .meta: try session.removeMetaAPIKey()
         case .azure: try session.removeAzureSpeechAPIKey()
         case .jev: try session.removeJevAPIKey()
@@ -263,9 +272,9 @@ struct APIKeySettingsView: View {
 }
 
 enum CredentialProvider: String, CaseIterable, Identifiable {
-    case openAI, gemini, meta, azure, nari, grok, qwen, openRouter, jev, indexOnline
+    case openAI, gemini, cloudflare, meta, azure, nari, grok, qwen, openRouter, jev, indexOnline
     // Retain legacy identifiers for compatibility, without configuration entries.
-    static let selectableCases: [Self] = [.openAI, .gemini, .meta, .grok, .qwen, .indexOnline]
+    static let selectableCases: [Self] = [.openAI, .gemini, .cloudflare, .meta, .grok, .qwen, .indexOnline]
     var isAvailable: Bool { Self.selectableCases.contains(self) }
     var id: String { rawValue }
     var title: String {
@@ -273,6 +282,7 @@ enum CredentialProvider: String, CaseIterable, Identifiable {
         case .indexOnline: AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳")
         case .openAI: "OpenAI"
         case .gemini: "Gemini"
+        case .cloudflare: CloudflareCopy.title
         case .meta: "Meta"
         case .azure: "Azure / Microsoft Foundry"
         case .jev: "TypeSafe · Jev"
@@ -287,6 +297,7 @@ enum CredentialProvider: String, CaseIterable, Identifiable {
         case .indexOnline: "character.bubble"
         case .openAI: "waveform"
         case .gemini: "sparkles"
+        case .cloudflare: "cloud"
         case .meta: "person.2.wave.2"
         case .azure: "cloud"
         case .jev: "text.badge.checkmark"
@@ -301,6 +312,7 @@ enum CredentialProvider: String, CaseIterable, Identifiable {
         case .indexOnline: "https://github.com/bilibili/Index-Translate"
         case .openAI: "https://platform.openai.com/api-keys"
         case .gemini: "https://aistudio.google.com/apikey"
+        case .cloudflare: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai"
         case .meta: "https://dev.meta.ai"
         case .azure: "https://ai.azure.com"
         case .jev: "https://typesafe.ai"

@@ -617,6 +617,7 @@ final class TranslationSessionStore {
     }
     var hasOpenAIAPIKey = OpenAIAPIKeyStore.hasAPIKey()
     var hasGeminiAPIKey = GeminiAPIKeyStore.hasAPIKey()
+    var hasCloudflareAPIKey = CloudflareAPIKeyStore.hasAPIKey()
     var hasAzureSpeechAPIKey = false // Integration paused; do not query its credentials on launch.
     var hasOpenRouterAPIKey = OpenRouterAPIKeyStore.hasAPIKey()
     var hasJevAPIKey = false // Integration paused; do not query its credentials on launch.
@@ -969,6 +970,25 @@ final class TranslationSessionStore {
         localTranslation.enabled = enabled
     }
 
+    var hasCloudflareConfiguration: Bool { (try? localTranslation.cloudflareConfiguration.validated()) != nil }
+    func useCloudflareTranslation() {
+        guard !isRunning, !isStarting else { return }
+        useAppleDefaultMode()
+        isJevSelectionEnabled = false
+        localTranslation.enabled = true
+        localTranslation.cloudflare = true
+    }
+    func saveCloudflareAPIKey(_ key: String) throws {
+        guard !isRunning, !isStarting else { return }
+        try CloudflareAPIKeyStore.saveAPIKey(key)
+        hasCloudflareAPIKey = true
+    }
+    func removeCloudflareAPIKey() throws {
+        guard !isRunning, !isStarting else { return }
+        try CloudflareAPIKeyStore.deleteAPIKey()
+        hasCloudflareAPIKey = false
+    }
+
     func enableOnlineIndexTranslation() {
         guard !isRunning, !isStarting else { return }
         useAppleDefaultMode()
@@ -979,6 +999,7 @@ final class TranslationSessionStore {
     private var savedRecordLocalTranslation: LocalTranslationConfiguration {
         var configuration = localTranslation
         configuration.onlineIndex = nil
+        configuration.cloudflare = nil
         return configuration
     }
 
@@ -1037,7 +1058,7 @@ final class TranslationSessionStore {
         let quality = isUsingAppleTextTranslation && appleTranslationOptions.effectiveQuality == .highQuality
             ? " · " + (isUsingAppleRealtimeFallback ? AppleTranslationCopy.fallbackTitle : AppleTranslationCopy.title(for: .highQuality)) : ""
         if isUsingLocalTranslation {
-            let provider = localTranslation.usesOnlineIndex ? AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳") : "LM Studio"
+            let provider = localTranslation.usesCloudflare ? CloudflareCopy.title : localTranslation.usesOnlineIndex ? AppText.ui("Index 在线翻译", "Index Online Translation", "Index オンライン翻訳") : "LM Studio"
             return "\(recognitionEngineTitle) + \(provider) · \(localTranslation.activeModelID)"
         }
         if openAITranslationModel.usesTextTranslation {
@@ -1681,6 +1702,7 @@ final class TranslationSessionStore {
         }
         if isUsingLocalTranslation {
             do {
+                if localTranslation.usesCloudflare && !hasCloudflareAPIKey { throw CloudflareTranslationError.missingKey }
                 _ = try localTranslation.validatedBaseURL()
                 try localTranslation.validateModel()
             } catch {
@@ -1874,7 +1896,7 @@ final class TranslationSessionStore {
 
     private func finishLocalCaptionRefinementsIfNeeded() -> Bool {
         let configuration = localTranslation
-        guard !configuration.usesOnlineIndex,
+        guard !configuration.usesOnlineIndex, !configuration.usesCloudflare,
               configuration.activeModelID.lowercased().contains("index-translate") else { return false }
 
         flushPendingRecognizedCaption()
@@ -2601,6 +2623,7 @@ final class TranslationSessionStore {
         applyAppleVoiceOutputDefault()
         restoreFloatingCaptionDisplayModeAfterTranscribeOnly()
         if localTranslation.usesOnlineIndex { localTranslation.onlineIndex = nil }
+        if localTranslation.usesCloudflare { localTranslation.cloudflare = nil; localTranslation.enabled = false }
     }
 
     // 제공자는 OpenAI로 유지하고 출력 목적에 맞는 기존 음성 모델을 선택한다.
@@ -7048,7 +7071,7 @@ final class TranslationSessionStore {
         if isUsingLocalTranslation, let identity = incrementalIdentity {
             return try await IncrementalLocalTranslator.shared.translate(text, identity: identity,
                 source: source.id, target: target.id, configuration: localTranslation,
-                apiKey: localTranslation.usesOnlineIndex ? nil : LocalTranslationAPIKeyStore.readAPIKey(),
+                apiKey: localTranslation.readAPIKey(),
                 diagnosticID: diagnosticID, punctuation: punctuation, progress: progress)
         }
         let translationOptions = appleTranslationOptions
@@ -7083,7 +7106,7 @@ final class TranslationSessionStore {
 
                 let translatedSegment: String
                 if isUsingLocalTranslation {
-                    let key = localTranslation.usesOnlineIndex ? nil : try LocalTranslationAPIKeyStore.readAPIKey()
+                    let key = try localTranslation.readAPIKey()
                     let completedParagraphs = translatedParagraphs
                     let completedSegments = translatedSegments
                     translatedSegment = try await LocalTranslationService.shared.translate(
@@ -8164,7 +8187,7 @@ final class TranslationSessionStore {
     }
 
     private var canReviewCaptionContext: Bool {
-        contextualCaptionCorrectionEnabled && isUsingLocalTranslation && !localTranslation.usesOnlineIndex && isRunning && !isPaused && !isFinishingLocalTranslation
+        contextualCaptionCorrectionEnabled && isUsingLocalTranslation && !localTranslation.usesOnlineIndex && !localTranslation.usesCloudflare && isRunning && !isPaused && !isFinishingLocalTranslation
             && translationTask == nil && latestTranslationRequest == nil && orderedTranslationRequests.isEmpty
     }
 

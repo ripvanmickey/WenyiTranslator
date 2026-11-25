@@ -3,7 +3,7 @@ import Foundation
 extension ProcessingEngine {
     var usesOnDeviceRecognition: Bool {
         switch self {
-        case .apple, .indexOnline: true
+        case .apple, .indexOnline, .cloudflare: true
         case .openAI, .gemini, .meta, .azure, .nari, .grok, .qwen: false
         }
     }
@@ -11,6 +11,7 @@ extension ProcessingEngine {
     var credentialProvider: CredentialProvider? {
         switch self {
         case .apple, .indexOnline: nil
+        case .cloudflare: .cloudflare
         case .openAI: .openAI
         case .gemini: .gemini
         case .meta: .meta
@@ -25,6 +26,7 @@ extension ProcessingEngine {
     func hasRequiredKey(in session: TranslationSessionStore) -> Bool {
         switch self {
         case .apple, .indexOnline: true
+        case .cloudflare: session.hasCloudflareAPIKey
         case .openAI: session.hasOpenAIAPIKey
         case .gemini: session.hasGeminiAPIKey
         case .meta: session.hasMetaAPIKey
@@ -50,6 +52,7 @@ extension ProcessingEngine {
         switch self {
         case .apple: session.useAppleDefaultMode()
         case .indexOnline: session.enableOnlineIndexTranslation()
+        case .cloudflare: session.useCloudflareTranslation()
         case .openAI: session.useOpenAIMode()
         case .gemini: session.usePreferredGeminiMode()
         case .meta: session.useMetaScribeMode()

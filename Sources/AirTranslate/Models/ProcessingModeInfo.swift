@@ -28,6 +28,8 @@ struct ProcessingModeInfo {
         azureModel: AzureTranscriptionModel = .transcribe2
     ) -> Self {
         switch engine {
+        case .cloudflare:
+            return Self(modelID: CloudflareConfiguration.defaultModel, summary: CloudflareCopy.detail, price: CloudflareCopy.quota)
         case .qwen:
             return Self(modelID: qwenModel.rawValue, summary: QwenCopy.detail(for: qwenModel), price: QwenCopy.price(for: qwenModel))
         case .indexOnline:
@@ -112,6 +114,10 @@ struct ProcessingModeInfo {
 extension ProcessingEngine {
     @MainActor
     func information(in session: TranslationSessionStore) -> ProcessingModeInfo {
+        if self == .cloudflare {
+            return ProcessingModeInfo(modelID: session.localTranslation.cloudflareConfiguration.modelID,
+                summary: CloudflareCopy.detail, price: CloudflareCopy.quota)
+        }
         if self == .openAI, session.openAITranslationModel.usesTextTranslation {
             return ProcessingModeInfo(
                 modelID: session.openAITranslationModel.apiModelID,

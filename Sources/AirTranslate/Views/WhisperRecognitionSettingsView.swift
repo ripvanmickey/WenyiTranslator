@@ -117,11 +117,11 @@ struct WhisperRecognitionSettingsView: View {
 
     private var recognitionEnginePicker: some View {
         Picker(AppText.ui("语音识别引擎", "Speech Recognition Engine", "音声認識エンジン"), selection: $session.localRecognitionEngine) {
-            Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")).tag("nemotron")
-            Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")).tag("qwen")
-            if PlatformSupport.supportsAppleSpeech { Text("Apple Speech").tag("apple") }
-            if session.localRecognitionEngine == "whisper" { Text("WhisperKit").tag("whisper") }
-            Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")).tag("multitalker")
+            Label { Text(AppText.ui("Nemotron 3.5 · 0.6B（推荐）", "Nemotron 3.5 · 0.6B (Recommended)", "Nemotron 3.5 · 0.6B（推奨）")) } icon: { ProviderBrandIcon(provider: nil, size: 16, assetName: "nvidia") }.tag("nemotron")
+            Label { Text(AppText.ui("Qwen3-ASR（英语试用）", "Qwen3-ASR (English Trial)", "Qwen3-ASR（英語の試用）")) } icon: { ProviderBrandIcon(provider: .qwen, size: 16, assetName: "qwen") }.tag("qwen")
+            if PlatformSupport.supportsAppleSpeech { Label { Text("Apple Speech") } icon: { ProviderBrandIcon(provider: nil, size: 16, assetName: "apple") }.tag("apple") }
+            if session.localRecognitionEngine == "whisper" { Label { Text("WhisperKit") } icon: { ProviderBrandIcon(provider: .openAI, size: 16, assetName: "openai") }.tag("whisper") }
+            Label { Text(AppText.ui("Multitalker Parakeet（实验）", "Multitalker Parakeet (Experimental)", "Multitalker Parakeet（実験的）")) } icon: { ProviderBrandIcon(provider: nil, size: 16, assetName: "nvidia") }.tag("multitalker")
         }
         .pickerStyle(.menu)
         .labelsHidden()

@@ -1,3 +1,5 @@
+**1.16.6 / build 1268 (테스트):** 로컬 음성 인식 및 미디어 자막의 텍스트 번역에 Cloudflare Workers AI를 추가했습니다. Account ID, Token, 모델을 별도로 설정하고 제공자 로고를 앱에 포함합니다. [설정 및 검증 범위](docs/cloudflare-workers-ai.md).
+
 **Build 1267:** Azure/MAI, Nari 및 Jev 연동을 일시 중단하고 설정 항목을 제거했습니다. 이전 버전의 관련 설정 안내는 현재 빌드에 적용되지 않습니다. [자세히](docs/paused-integrations.md).
 
 <p align="center">

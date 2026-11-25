@@ -30,6 +30,7 @@ enum SidebarSegmentedControlPresentation: Equatable {
 enum ProcessingEngine: String, CaseIterable, Identifiable {
     case apple
     case indexOnline
+    case cloudflare
     case openAI
     case gemini
     case meta
@@ -39,7 +40,7 @@ enum ProcessingEngine: String, CaseIterable, Identifiable {
     case qwen
 
     // Paused integrations remain decodable, but cannot be selected.
-    static let selectableCases: [Self] = [.apple, .indexOnline, .openAI, .gemini, .meta, .grok, .qwen]
+    static let selectableCases: [Self] = [.apple, .indexOnline, .cloudflare, .openAI, .gemini, .meta, .grok, .qwen]
     var isAvailable: Bool { Self.selectableCases.contains(self) }
     var id: String { rawValue }
 
@@ -52,6 +53,7 @@ enum ProcessingEngine: String, CaseIterable, Identifiable {
             japanese: "Index オンライン翻訳（Bilibili、無料・オープンソース）",
             chineseSimplified: "Index 在线翻译（B 站免费开源）"
         )
+        case .cloudflare: CloudflareCopy.title
         case .openAI: AppText.openAIAudio
         case .gemini: AppText.geminiModels
         case .azure: AzureMAICopy.title
@@ -73,6 +75,7 @@ enum ProcessingEngine: String, CaseIterable, Identifiable {
             return .openAI
         }
         if session.isUsingGemini { return .gemini }
+        if session.localTranslation.usesCloudflare { return .cloudflare }
         return session.localTranslation.usesOnlineIndex ? .indexOnline : .apple
     }
 }
@@ -241,6 +244,7 @@ struct StageHeaderView: View {
         case .nari: !session.hasNariAPIKey
         case .meta: !session.hasMetaAPIKey
         case .apple: session.isUsingJevSelection && !session.hasJevAPIKey
+        case .cloudflare: !session.hasCloudflareAPIKey || !session.hasCloudflareConfiguration
         case .indexOnline: false
         }
     }
@@ -255,6 +259,7 @@ struct StageHeaderView: View {
         case .nari: NariCopy.configurationRequired
         case .meta: AppText.metaAPIKeyNotConfigured
         case .apple: session.isUsingJevSelection ? JevCopy.keyRequired : AppText.configureTranslationSettings
+        case .cloudflare: CloudflareCopy.configure
         case .indexOnline: AppText.configureTranslationSettings
         }
     }

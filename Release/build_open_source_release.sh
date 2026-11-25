@@ -69,6 +69,7 @@ swift build -c release
 BUILD_BINARY="$(swift build -c release --show-bin-path)/$APP_NAME"
 
 install -m 755 "$BUILD_BINARY" "$APP_BINARY"
+cp -R "$ROOT_DIR/Resources/ProviderLogos" "$APP_RESOURCES/"
 # 배포 실행 파일의 디버그 심볼을 제거한 뒤 서명한다.
 /usr/bin/strip -S "$APP_BINARY"
 set +e

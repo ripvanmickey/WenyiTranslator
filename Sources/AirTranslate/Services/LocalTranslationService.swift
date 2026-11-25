@@ -6,13 +6,27 @@ struct LocalTranslationConfiguration: Codable, Equatable, Sendable {
     var baseURL = "http://localhost:1235/v1"
     var modelID = ""
     var onlineIndex: Bool?
+    var cloudflare: Bool?
+    var cloudflareAccountID: String?
+    var cloudflareModelID: String?
+    var cloudflareTextSharingAllowed: Bool?
+    var usesCloudflare: Bool { cloudflare == true }
+    var cloudflareConfiguration: CloudflareConfiguration {
+        .init(accountID: cloudflareAccountID ?? "", modelID: cloudflareModelID ?? CloudflareConfiguration.defaultModel,
+              allowsTextSharing: cloudflareTextSharingAllowed == true)
+    }
+    func readAPIKey() throws -> String? {
+        if usesOnlineIndex { return nil }
+        return usesCloudflare ? try CloudflareAPIKeyStore.readAPIKey() : try LocalTranslationAPIKeyStore.readAPIKey()
+    }
     static let indexBaseURL = "https://index-translate.bilibili.com/v1"
     static let indexModelID = "Index-Translate-35B-A3B"
     var usesOnlineIndex: Bool { onlineIndex == true }
-    var activeBaseURL: String { usesOnlineIndex ? Self.indexBaseURL : baseURL }
-    var activeModelID: String { usesOnlineIndex ? Self.indexModelID : modelID }
+    var activeBaseURL: String { usesCloudflare ? ((try? cloudflareConfiguration.validated().baseURL.absoluteString) ?? "cloudflare:unconfigured") : usesOnlineIndex ? Self.indexBaseURL : baseURL }
+    var activeModelID: String { usesCloudflare ? cloudflareConfiguration.modelID : usesOnlineIndex ? Self.indexModelID : modelID }
 
     func validatedBaseURL() throws -> URL {
+        if usesCloudflare { return try cloudflareConfiguration.validated().baseURL }
         if usesOnlineIndex { return URL(string: Self.indexBaseURL)! }
         guard let components = URLComponents(string: baseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
               let host = components.host?.lowercased(),
@@ -26,6 +40,7 @@ struct LocalTranslationConfiguration: Codable, Equatable, Sendable {
     }
 
     func validateModel() throws {
+        if usesCloudflare { _ = try cloudflareConfiguration.validated(); return }
         guard !activeModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw LocalTranslationError.modelRequired
         }
@@ -417,6 +432,13 @@ actor LocalTranslationService {
                    diagnosticID: UUID? = nil,
                    progress: Progress? = nil) async throws -> String {
         try configuration.validateModel()
+        if configuration.usesCloudflare {
+            let result = try await CloudflareTranslationService.shared.translate(text, source: source, target: target,
+                configuration: configuration.cloudflareConfiguration, key: apiKey)
+            try Task.checkCancellation()
+            if let progress { await progress(result) }
+            return result
+        }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let chunks: [String]
         if configuration.usesOnlineIndex {

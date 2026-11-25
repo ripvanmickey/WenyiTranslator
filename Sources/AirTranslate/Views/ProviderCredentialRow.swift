@@ -4,6 +4,7 @@ import SwiftUI
 struct ProviderCredentialRow<Configuration: View>: View {
     let name: String
     let symbol: String
+    var brand: CredentialProvider? = nil
     let model: String
     let detail: String
     let consoleURL: URL
@@ -45,9 +46,7 @@ struct ProviderCredentialRow<Configuration: View>: View {
                     isExpanded.toggle()
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: symbol)
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(AirTranslateDesign.Palette.accent)
+                        ProviderBrandIcon(provider: brand, fallback: symbol, size: 22)
                             .frame(width: 34, height: 34)
                             .background(AirTranslateDesign.Palette.accentSoft, in: RoundedRectangle(cornerRadius: 9))
                             .accessibilityHidden(true)

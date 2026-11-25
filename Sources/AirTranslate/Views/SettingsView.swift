@@ -215,7 +215,11 @@ struct SettingsView: View {
             ) {
                 Picker(SettingsCopy.processingEngine, selection: processingModeSelection) {
                     ForEach(ProcessingEngine.selectableCases) { mode in
-                        Text(mode.settingsMenuTitle(in: session)).tag(mode)
+                        Label {
+                            Text(mode.settingsMenuTitle(in: session))
+                        } icon: {
+                            ProviderBrandIcon(provider: mode.credentialProvider ?? (mode == .indexOnline ? .indexOnline : nil), fallback: "cpu", size: 16, assetName: mode == .apple ? "apple" : nil)
+                        }.tag(mode)
                     }
                 }
                 .pickerStyle(.menu)
@@ -262,7 +266,16 @@ struct SettingsView: View {
                 }
             }
 
-            if mode.usesOnDeviceRecognition {
+            if mode == .cloudflare {
+                WhisperRecognitionSettingsView(session: session, isOnlineIndex: false, onManageModel: { showsSpeechModelManagement = true })
+                SettingsNoticeActionRow(text: CloudflareCopy.detail, systemImage: "cloud", actionTitle: CloudflareCopy.configure) {
+                    session.requestAPIKeySettings(provider: .cloudflare)
+                    selectedCategory.wrappedValue = .apiKeys
+                }
+                SettingsValueRow(title: AppText.ui("翻译模型", "Translation Model", "翻訳モデル"), detail: CloudflareCopy.quota,
+                    systemImage: "character.bubble", value: session.localTranslation.cloudflareConfiguration.modelID)
+            }
+            if mode.usesOnDeviceRecognition && mode != .cloudflare {
                 LocalTranslationSettingsView(session: session, isOnlineIndex: mode == .indexOnline, onManageSpeechModel: { showsSpeechModelManagement = true })
                     .id(mode)
             }
@@ -907,6 +920,8 @@ struct SettingsView: View {
                 session.useAppleDefaultMode()
             case .indexOnline:
                 session.enableOnlineIndexTranslation()
+            case .cloudflare:
+                session.useCloudflareTranslation()
             case .openAI:
                 session.useOpenAIMode()
             case .gemini:
@@ -1083,6 +1098,7 @@ private extension ProcessingEngine {
 
     @MainActor
     func recognitionDetail(in session: TranslationSessionStore) -> String {
+        if self == .cloudflare { return CloudflareCopy.detail }
         if self == .openAI, session.openAITranslationModel.usesTextTranslation {
             return AppText.ui("语音在本机识别，只将字幕文字发送到 OpenAI 翻译。", "Recognize speech on this Mac and send only caption text to OpenAI for translation.", "この Mac で音声を認識し、字幕テキストのみを OpenAI に送信して翻訳します。")
         }

@@ -44,6 +44,7 @@ mkdir -p "$APP_MACOS"
 mkdir -p "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+cp -R "$ROOT_DIR/Resources/ProviderLogos" "$APP_RESOURCES/"
 cp "$ROOT_DIR/Resources/WenyiIcon.icns" "$APP_RESOURCES/AppIcon.icns"
 cp "$ROOT_DIR/Resources/WenyiIcon.png" "$APP_RESOURCES/AppIcon.png"
 
