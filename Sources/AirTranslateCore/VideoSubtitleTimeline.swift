@@ -150,13 +150,27 @@ public enum VideoSubtitleTimeline {
     }
 
     public static func srt(_ cues: [VideoSubtitleCue], bilingual: Bool = true) -> String {
-        cues.enumerated().map { index, cue in
-            let text = bilingual && !cue.translation.isEmpty ? cue.source + "\n" + cue.translation : cue.source
-            return "\(index + 1)\n\(srtTime(cue.start)) --> \(srtTime(cue.end))\n\(text)\n"
-        }.joined(separator: "\n")
+        var blocks: [String] = []
+        blocks.reserveCapacity(cues.count)
+        for cue in cues {
+            guard cue.start >= 0,
+                  let start = Int64(exactly: (cue.start * 1_000).rounded()),
+                  let end = Int64(exactly: (cue.end * 1_000).rounded()), end > start else { continue }
+            let text = srtText(bilingual ? cue.source + "\n" + cue.translation : cue.source)
+            guard !text.isEmpty else { continue }
+            blocks.append("\(blocks.count + 1)\n\(srtTime(start)) --> \(srtTime(end))\n\(text)\n")
+        }
+        return blocks.joined(separator: "\n")
     }
-    private static func srtTime(_ seconds: Double) -> String {
-        let ms = Int((max(0, seconds) * 1_000).rounded())
-        return String(format: "%02d:%02d:%02d,%03d", ms / 3_600_000, ms / 60_000 % 60, ms / 1_000 % 60, ms % 1_000)
+
+    private static func srtText(_ text: String) -> String {
+        // A blank line separates cues in SRT, even when a translator returns paragraphs.
+        text.components(separatedBy: .newlines)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            .joined(separator: "\n")
+    }
+
+    private static func srtTime(_ ms: Int64) -> String {
+        String(format: "%02lld:%02lld:%02lld,%03lld", ms / 3_600_000, ms / 60_000 % 60, ms / 1_000 % 60, ms % 1_000)
     }
 }

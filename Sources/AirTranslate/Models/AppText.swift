@@ -1208,6 +1208,20 @@ enum AppText {
         )
     }
     static var savedTranscripts: String { localized(english: "Saved Transcripts", korean: "저장된 기록", japanese: "保存済み記録", chineseSimplified: "已保存记录") }
+    static var savedMediaSubtitles: String {
+        localized(english: "Media Subtitles", korean: "미디어 자막", japanese: "メディア字幕", chineseSimplified: "媒体字幕")
+    }
+    static var downloadSRT: String {
+        localized(english: "Download SRT…", korean: "SRT 다운로드…", japanese: "SRT をダウンロード…", chineseSimplified: "下载 SRT…")
+    }
+    static var subtitleExportFailed: String {
+        localized(
+            english: "Caption export failed. Check the save location.",
+            korean: "자막을 내보내지 못했습니다. 저장 위치를 확인하세요.",
+            japanese: "字幕を書き出せませんでした。保存先を確認してください。",
+            chineseSimplified: "字幕导出失败，请检查保存位置。"
+        )
+    }
     static var transcriptPersistence: String {
         localized(
             english: "Save Transcript Files",
@@ -1291,16 +1305,16 @@ enum AppText {
     }
     static var deleteAllSavedTranscriptsConfirmation: String {
         localized(
-            english: "Delete all saved transcript files? This cannot be undone.",
-            korean: "저장된 기록 파일을 모두 지울까요? 이 작업은 되돌릴 수 없습니다.",
-            japanese: "保存済みの記録をすべて削除しますか？この操作は取り消せません。", chineseSimplified: "确定删除所有已保存的记录文件吗？此操作无法撤销。"
+            english: "Delete all saved TXT records? This cannot be undone.",
+            korean: "저장된 TXT 기록을 모두 지울까요? 이 작업은 되돌릴 수 없습니다.",
+            japanese: "保存済みの TXT 記録をすべて削除しますか？この操作は取り消せません。", chineseSimplified: "确定删除全部 TXT 记录吗？此操作无法撤销。"
         )
     }
     static var deleteAllSavedTranscriptsHelp: String {
         localized(
-            english: "Delete every saved transcript file.",
-            korean: "저장된 모든 기록 파일을 삭제합니다.",
-            japanese: "保存済みの記録をすべて削除します。", chineseSimplified: "删除所有已保存的记录文件。"
+            english: "Delete every saved TXT record.",
+            korean: "저장된 모든 TXT 기록을 삭제합니다.",
+            japanese: "保存済みの TXT 記録をすべて削除します。", chineseSimplified: "删除全部已保存的 TXT 记录。"
         )
     }
     static var editSaved: String { localized(english: "Edit Saved", korean: "저장본 편집", japanese: "記録を編集", chineseSimplified: "编辑记录") }

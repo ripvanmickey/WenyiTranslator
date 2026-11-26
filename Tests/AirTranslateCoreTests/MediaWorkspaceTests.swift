@@ -9,6 +9,65 @@ import AirTranslateCore
 @Suite(.serialized)
 @MainActor
 struct MediaWorkspaceTests {
+    @Test func historyFindsOldMediaCachesAndKeepsVersionsSeparate() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let writer = VideoSubtitleCache(root: folder)
+        let cue = VideoSubtitleCue(id: 0, start: 1.25, end: 3, source: "初めまして。", translation: "初次见面。")
+        let completed = VideoSubtitleDocument(videoID: "PMGSdzyRZUw", title: "Historical video",
+            sourceLanguage: "ja-JP", targetLanguage: "zh-CN", provider: "index",
+            input: "import:previously-imported-file", cues: [cue], completed: true)
+        try await writer.save(completed)
+
+        var partial = completed
+        partial.provider = "openAI"
+        partial.completed = false
+        partial.cues[0].translation = ""
+        try await writer.save(partial)
+
+        var emptyCheckpoint = completed
+        emptyCheckpoint.input = "nemotron"
+        emptyCheckpoint.completed = false
+        emptyCheckpoint.cues = []
+        try await writer.save(emptyCheckpoint)
+        try Data("malformed JSON".utf8).write(to: folder.appendingPathComponent("invalid.json"))
+        try JSONEncoder().encode(completed).write(to: folder.appendingPathComponent("unrelated.json"))
+
+        // A newly opened library has access to old captions without the original imported file.
+        let reader = VideoSubtitleCache(root: folder)
+        let history = try await reader.history()
+        #expect(history.count == 2)
+        #expect(Set(history.map(\.id)).count == 2)
+        let old = try #require(history.first { $0.completed })
+        #expect(old.title == "Historical video")
+        let restored = try await reader.load(old)
+        #expect(restored?.cues == [cue])
+
+        let checkpoint = try #require(history.first { !$0.completed })
+        let loadedPartial = try await reader.load(checkpoint)
+        #expect(loadedPartial?.cues.first?.translation == "")
+        #expect(loadedPartial?.cues.first?.start == 1.25)
+
+        try FileManager.default.removeItem(at: folder.appendingPathComponent(old.id))
+        #expect(try await reader.load(old) == nil)
+    }
+
+    @Test func historySRTIncludesBilingualAndSourceOnlyCuesAtTheirOriginalTimes() throws {
+        let subtitles: [VideoSubtitleCue] = [
+            .init(id: 0, start: 1.25, end: 3.125, source: "初めまして。",
+                  translation: "初次见面。\r\n\r\n很高兴见到你。"),
+            .init(id: 1, start: 9, end: 10, source: "次の話です。"),
+            .init(id: 2, start: 10, end: 11, source: " \n "),
+            .init(id: 3, start: 1e24, end: 2e24, source: "Invalid time")
+        ]
+        let srt = VideoSubtitleTimeline.srt(subtitles)
+        #expect(srt.contains("00:00:01,250 --> 00:00:03,125"))
+        let parsed = try VideoSubtitleTimeline.parse(Data(srt.utf8))
+        #expect(parsed.map(\.start) == [1.25, 9])
+        #expect(parsed.map(\.end) == [3.125, 10])
+        #expect(parsed.map(\.source) == ["初めまして。\n初次见面。\n很高兴见到你。", "次の話です。"])
+    }
+
     @Test(arguments: [
         ("How to understand the world through stories and everyday conversations - YouTube", "en-US"),
         ("これからの社会で私たちはどのように暮らしていけばよいのでしょうか - YouTube", "ja-JP"),

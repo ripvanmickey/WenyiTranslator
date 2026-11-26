@@ -96,7 +96,10 @@ struct ContentView: View {
         }
         .controlSize(.regular)
         .sheet(isPresented: $isLibraryPresented) {
-            TranscriptLibraryView(session: session, mediaTranslator: isMediaInputSelected ? videoSubtitles.translator : nil)
+            TranscriptLibraryView(
+                session: session, subtitleCache: videoSubtitles.cache,
+                mediaTranslator: isMediaInputSelected ? videoSubtitles.translator : nil
+            )
         }
         .onAppear {
             videoSubtitles.captionSession = session

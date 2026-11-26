@@ -1,8 +1,10 @@
 import AppKit
 import SwiftUI
+import AirTranslateCore
 
 struct TranscriptLibraryView: View {
     @Bindable var session: TranslationSessionStore
+    let subtitleCache: VideoSubtitleCache
     var mediaTranslator: VideoSubtitleTranslator? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -10,6 +12,11 @@ struct TranscriptLibraryView: View {
     @State private var isDeleteAllConfirmationPresented = false
     @State private var isCopyFeedbackVisible = false
     @State private var copyFeedbackToken = 0
+    @State private var isLoadingMediaHistory = true
+    @State private var mediaHistory: [VideoSubtitleHistoryEntry] = []
+    @State private var selectedMedia: VideoSubtitleHistoryEntry?
+    @State private var pendingExport: VideoSubtitleHistoryEntry?
+    @State private var mediaError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,13 +52,24 @@ struct TranscriptLibraryView: View {
             AppText.deleteAllSavedTranscriptsConfirmation,
             isPresented: $isDeleteAllConfirmationPresented
         ) {
-            Button(AppText.deleteAllSavedTranscripts, role: .destructive) {
+            Button(deleteAllTitle, role: .destructive) {
                 session.deleteAllSavedTranscripts()
             }
             Button(AppText.cancel, role: .cancel) {}
         }
+        .alert(AppText.savedMediaSubtitles, isPresented: Binding(
+            get: { mediaError != nil }, set: { if !$0 { mediaError = nil } }
+        )) {
+            Button(AppText.close, role: .cancel) { mediaError = nil }
+        } message: {
+            Text(mediaError ?? "")
+        }
         .onAppear {
             ensureSelection()
+        }
+        .task { await loadMediaHistory() }
+        .task(id: pendingExport?.id) {
+            if let entry = pendingExport { await exportMedia(entry) }
         }
         .onDisappear { session.cancelSavedTitleGeneration(); session.cancelTranscriptCleanup() }
         .onChange(of: selectedAI) { _, _ in
@@ -81,7 +99,7 @@ struct TranscriptLibraryView: View {
                         .font(AirTranslateDesign.Typography.stageTitle)
                         .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
-                    Text(AppText.transcriptPersistenceDescription)
+                    Text(libraryDescription)
                         .font(AirTranslateDesign.Typography.meta)
                         .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                         .lineLimit(2)
@@ -155,7 +173,7 @@ struct TranscriptLibraryView: View {
             Button(role: .destructive) {
                 isDeleteAllConfirmationPresented = true
             } label: {
-                Label(AppText.deleteAllSavedTranscripts, systemImage: "trash")
+                Label(deleteAllTitle, systemImage: "trash")
             }
             .buttonStyle(.bordered)
             .tint(AirTranslateDesign.Palette.danger)
@@ -164,9 +182,35 @@ struct TranscriptLibraryView: View {
         }
     }
 
+    private var libraryDescription: String {
+        guard !mediaHistory.isEmpty else { return AppText.transcriptPersistenceDescription }
+        return AppText.ui("实时记录按设置保存为 TXT。媒体字幕从本机缓存读取。",
+                          "Live transcripts are saved as TXT according to your settings. Media subtitles are loaded from the local cache.",
+                          "リアルタイムの記録は設定に従って TXT に保存します。メディア字幕は端末のキャッシュから読み込みます。")
+    }
+
+    private var deleteAllTitle: String {
+        mediaHistory.isEmpty ? AppText.deleteAllSavedTranscripts
+            : AppText.ui("删除全部 TXT", "Delete All TXT", "TXT をすべて削除")
+    }
+
+    private var libraryItems: [TranscriptLibraryItem] {
+        (session.savedTranscripts.map(TranscriptLibraryItem.transcript) + mediaHistory.map(TranscriptLibraryItem.media))
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    private var selectedItemID: TranscriptLibraryItem.ID? {
+        if let selectedMedia { return .media(selectedMedia.id) }
+        return session.selectedSavedTranscriptID.map(TranscriptLibraryItem.ID.transcript)
+    }
+
     @ViewBuilder
     private var content: some View {
-        if session.savedTranscripts.isEmpty {
+        let items = libraryItems
+        if items.isEmpty && isLoadingMediaHistory {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if items.isEmpty {
             VStack(spacing: AirTranslateDesign.Spacing.md) {
                 AudioLevelWaveform(
                     level: nil,
@@ -193,7 +237,7 @@ struct TranscriptLibraryView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             HStack(spacing: 0) {
-                transcriptList
+                transcriptList(items)
                     .frame(width: 260)
 
                 Rectangle()
@@ -206,18 +250,15 @@ struct TranscriptLibraryView: View {
         }
     }
 
-    private var transcriptList: some View {
+    private func transcriptList(_ items: [TranscriptLibraryItem]) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
-                ForEach(session.savedTranscripts) { transcript in
+                ForEach(items) { item in
                     Button {
-                        session.selectSavedTranscript(transcript.id)
+                        select(item)
                     } label: {
-                        TranscriptLibraryRow(
-                            transcript: transcript,
-                            isSelected: session.selectedSavedTranscriptID == transcript.id
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous))
+                        TranscriptLibraryRow(item: item, isSelected: selectedItemID == item.id)
+                            .contentShape(RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -231,12 +272,18 @@ struct TranscriptLibraryView: View {
 
     @ViewBuilder
     private var editor: some View {
-        if let selectedTranscript = session.selectedSavedTranscript {
+        if selectedMedia != nil || session.selectedSavedTranscript != nil {
             GeometryReader { geometry in
                 ScrollView(.vertical) {
-                    editorCard(for: selectedTranscript)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: geometry.size.height, alignment: .center)
+                    Group {
+                        if let selectedMedia {
+                            mediaCard(for: selectedMedia)
+                        } else if let transcript = session.selectedSavedTranscript {
+                            editorCard(for: transcript)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: geometry.size.height, alignment: .center)
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
@@ -361,6 +408,90 @@ struct TranscriptLibraryView: View {
         .padding(AirTranslateDesign.Spacing.md)
     }
 
+    private func mediaCard(for entry: VideoSubtitleHistoryEntry) -> some View {
+        let source = AppText.languageTitle(for: entry.sourceLanguage, fallback: entry.sourceLanguage)
+        let target = AppText.languageTitle(for: entry.targetLanguage, fallback: entry.targetLanguage)
+        let input = entry.input.hasPrefix("import:") ? VideoSubtitleInput.imported : VideoSubtitleInput(rawValue: entry.input)
+        let translator = entry.provider.hasPrefix("cloudflare:")
+            ? VideoSubtitleTranslator.cloudflare : VideoSubtitleTranslator(rawValue: entry.provider)
+        let engineNames = [input?.title, translator?.title].compactMap { $0 }.joined(separator: " · ")
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Label(AppText.savedMediaSubtitles, systemImage: "play.rectangle")
+                .font(AirTranslateDesign.Typography.stageTitle)
+                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(entry.title)
+                    .font(.headline)
+                    .lineLimit(3)
+                    .help(entry.title)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("\(source) → \(target)")
+                if !engineNames.isEmpty { Text(engineNames) }
+                Text(entry.updatedAt, format: .dateTime.year().month().day().hour().minute())
+                if !entry.completed {
+                    Text(AppText.ui("字幕未处理完，可下载已准备的部分。",
+                                    "Preparation is incomplete. Captions prepared so far are available to download.",
+                                    "字幕の準備は途中です。準備済みの部分をダウンロードできます。"))
+                }
+            }
+            .font(AirTranslateDesign.Typography.meta)
+            .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                pendingExport = entry
+            } label: {
+                Label(AppText.downloadSRT, systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(pendingExport != nil)
+            .help(AppText.ui("保存本机字幕及已有译文。", "Save cached captions with any available translations.",
+                             "キャッシュ内の字幕を取得済みの訳文と一緒に保存します。"))
+            .accessibilityIdentifier("downloadSavedMediaSRT")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(AirTranslateDesign.Spacing.md)
+        .airRaisedSurface()
+        .padding(AirTranslateDesign.Spacing.md)
+    }
+
+    private func loadMediaHistory() async {
+        defer { isLoadingMediaHistory = false }
+        do {
+            let entries = try await subtitleCache.history()
+            guard !Task.isCancelled else { return }
+            mediaHistory = entries
+            ensureSelection()
+        } catch {
+            guard !Task.isCancelled else { return }
+            mediaError = AppText.ui("无法读取本机媒体字幕记录。", "Could not read the local media subtitle history.",
+                                    "端末のメディア字幕履歴を読み込めませんでした。")
+        }
+    }
+
+    private func exportMedia(_ entry: VideoSubtitleHistoryEntry) async {
+        defer {
+            if !Task.isCancelled { pendingExport = nil }
+        }
+        let document = try? await subtitleCache.load(entry)
+        guard !Task.isCancelled, selectedMedia?.id == entry.id else { return }
+        guard let document else {
+            mediaError = AppText.ui("此记录的本机字幕已不可用。", "Cached subtitles for this record are unavailable.",
+                                    "この記録のキャッシュ字幕は利用できません。")
+            return
+        }
+        do {
+            try VideoSubtitlePreloadStore.exportSRT(document)
+        } catch VideoSubtitleError.noSubtitles {
+            mediaError = AppText.ui("此记录没有可下载的字幕。", "This record has no subtitles to download.",
+                                    "この記録にダウンロードできる字幕はありません。")
+        } catch {
+            mediaError = AppText.subtitleExportFailed
+        }
+    }
+
     private var canCopyDraft: Bool {
         [session.savedDraftSourceText, session.savedDraftTranslationText].contains {
             $0.rangeOfCharacter(from: .whitespacesAndNewlines.inverted) != nil
@@ -416,39 +547,99 @@ struct TranscriptLibraryView: View {
     }
 
     private func ensureSelection() {
+        guard selectedMedia == nil else { return }
         if let selectedSavedTranscriptID = session.selectedSavedTranscriptID,
            session.savedTranscripts.contains(where: { $0.id == selectedSavedTranscriptID }) {
             return
         }
 
-        if let firstTranscript = session.savedTranscripts.first {
-            session.selectSavedTranscript(firstTranscript.id)
+        if let first = libraryItems.first {
+            select(first)
+        }
+    }
+
+    private func select(_ item: TranscriptLibraryItem) {
+        pendingExport = nil
+        switch item {
+        case let .transcript(transcript):
+            selectedMedia = nil
+            session.selectSavedTranscript(transcript.id)
+        case let .media(entry):
+            session.cancelSavedTitleGeneration()
+            session.cancelTranscriptCleanup()
+            selectedMedia = entry
+        }
+    }
+}
+
+private enum TranscriptLibraryItem: Identifiable {
+    enum ID: Hashable {
+        case transcript(String), media(String)
+    }
+
+    case transcript(SavedTranscript)
+    case media(VideoSubtitleHistoryEntry)
+
+    var id: ID {
+        switch self {
+        case let .transcript(record): .transcript(record.id)
+        case let .media(entry): .media(entry.id)
+        }
+    }
+
+    var title: String {
+        switch self {
+        case let .transcript(record): record.title
+        case let .media(entry): entry.title
+        }
+    }
+
+    var updatedAt: Date {
+        switch self {
+        case let .transcript(record): record.updatedAt
+        case let .media(entry): entry.updatedAt
+        }
+    }
+
+    var subtitle: String? {
+        switch self {
+        case let .transcript(record): record.isOriginalAndTranslation ? AppText.originalAndTranslation : nil
+        case .media: AppText.savedMediaSubtitles
+        }
+    }
+
+    func icon(selected: Bool) -> String {
+        switch self {
+        case let .transcript(record):
+            record.isOriginalAndTranslation ? "doc.on.doc.fill" : selected ? "doc.text.fill" : "doc.text"
+        case .media:
+            selected ? "play.rectangle.fill" : "play.rectangle"
         }
     }
 }
 
 private struct TranscriptLibraryRow: View {
-    let transcript: SavedTranscript
+    let item: TranscriptLibraryItem
     let isSelected: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: transcript.isOriginalAndTranslation ? "doc.on.doc.fill" : (isSelected ? "doc.text.fill" : "doc.text"))
+            Image(systemName: item.icon(selected: isSelected))
                 .foregroundStyle(isSelected ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
                 .frame(width: 16)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(transcript.title)
+                Text(item.title)
                     .font(AirTranslateDesign.Typography.libraryRowTitle)
                     .lineLimit(2)
                     .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
                 HStack(spacing: 5) {
-                    if transcript.isOriginalAndTranslation {
-                        Text(AppText.originalAndTranslation)
+                    if let subtitle = item.subtitle {
+                        Text(subtitle)
                     }
 
-                    Text(transcript.updatedAt, style: .date)
+                    Text(item.updatedAt, style: .date)
                 }
                 .font(AirTranslateDesign.Typography.meta)
                 .foregroundStyle(AirTranslateDesign.Palette.textSecondary)

@@ -2,6 +2,7 @@ import AppKit
 import CryptoKit
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 import AirTranslateCore
 
 enum VideoSubtitleInput: String, CaseIterable, Identifiable {
@@ -87,7 +88,7 @@ final class VideoSubtitlePreloadStore {
     @ObservationIgnored private var monitoring: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var connectionGeneration = UUID()
-    @ObservationIgnored private let cache: VideoSubtitleCache
+    @ObservationIgnored let cache: VideoSubtitleCache
     @ObservationIgnored private let connection: any VideoPlaybackReading
     @ObservationIgnored private let browserTabs: any VideoBrowserTabReading
     @ObservationIgnored private let audio = VideoAudioTranscription()
@@ -545,10 +546,20 @@ final class VideoSubtitlePreloadStore {
     }
     func export() {
         guard let document else { return }
-        let panel = NSSavePanel(); panel.nameFieldStringValue = "Wenyi-\(document.videoID)-\(document.targetLanguage).srt"
+        do { try Self.exportSRT(document) }
+        catch { self.error = AppText.subtitleExportFailed }
+    }
+
+    static func exportSRT(_ document: VideoSubtitleDocument) throws {
+        let text = VideoSubtitleTimeline.srt(document.cues)
+        guard !text.isEmpty else { throw VideoSubtitleError.noSubtitles }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "Wenyi-\(document.videoID)-\(document.targetLanguage).srt"
+        if let srtType = UTType(filenameExtension: "srt") {
+            panel.allowedContentTypes = [srtType]
+        }
         guard panel.runModal() == .OK, let file = panel.url else { return }
-        do { try VideoSubtitleTimeline.srt(document.cues).write(to: file, atomically: true, encoding: .utf8) }
-        catch { self.error = AppText.ui("字幕导出失败，请检查保存位置。", "Caption export failed. Check the save location.", "字幕を書き出せませんでした。保存先を確認してください。") }
+        try text.write(to: file, atomically: true, encoding: .utf8)
     }
     private static func group(_ values: [VideoSubtitleCue]) -> [VideoSubtitleCue] {
         var result: [VideoSubtitleCue] = []

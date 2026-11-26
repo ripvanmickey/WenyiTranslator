@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.10 - Unreleased
 
+- Build 1278: show cached media subtitles in Saved Transcripts and add Download SRT to the media detail card. Export original captions, existing translations and their video timestamps from local storage. Older and partially prepared caches are available without reopening the video.
+
 - Build 1277: restore the saved-record editor's compact layout by moving selected-model and cloud-usage details into AI button help. Keep both AI buttons the same size while loading, retain the title field's space, and allow long results to scroll within the editor without changing the library window's minimum size. Restore the native SwiftPM build path and reject packaged executables whose linked SDK differs from the active Xcode SDK; build 1276 had incorrectly recorded SDK 14.0 despite using the macOS 27 SDK. Preserve selected-AI processing and the macOS 14 deployment floor.
 
 - Build 1276: use the currently selected text translation AI for saved-record formatting and title generation, including Media's translator selection. Preserve the chosen Index, Cloudflare account/model, OpenAI text model or local model instead of forcing a loopback service. Show the selected model and action results inside the record editor, honor Cloudflare text-sharing consent, and report unsupported audio-only/Apple translation models without selecting a fallback. Keep generated results as drafts until saved and preserve drafts on errors or cancellation. Request-routing and draft-protection tests use mocked services without uploading user transcripts.
