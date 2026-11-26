@@ -9,6 +9,98 @@ import AirTranslateCore
 @Suite(.serialized)
 @MainActor
 struct MediaWorkspaceTests {
+    @Test func currentTabDiscoveryFillsVideoURLAndRestoresCacheWithoutStartingPreparation() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let cache = VideoSubtitleCache(root: folder)
+        try await cache.save(.init(videoID: "PMGSdzyRZUw", title: "Cached video", sourceLanguage: "ja-JP",
+            targetLanguage: "zh-CN", provider: "index", input: "youtube",
+            cues: [.init(id: 0, start: 0, end: 3, source: "Cached source", translation: "Cached translation")], completed: true))
+        let tabs = ScriptedBrowserTabReader(url: "https://youtu.be/PMGSdzyRZUw?t=30")
+        let model = VideoSubtitlePreloadStore(cache: cache, browserTabs: tabs)
+        await model.refreshCurrentBrowserTab()
+        await model.restoreCachedSelection()
+        #expect(model.videoURL == "https://www.youtube.com/watch?v=PMGSdzyRZUw")
+        #expect(model.document?.completed == true)
+        #expect(model.document?.cues.first?.translation == "Cached translation")
+        #expect(!model.isPreparing && !model.isConnecting && !model.isConnected)
+        #expect(await tabs.requests == [.chrome])
+    }
+
+    @Test(arguments: ["preparing", "connecting", "playing", "paused"])
+    func tabDiscoveryCannotReplaceAnActiveVideo(phase: String) async {
+        let tabs = ScriptedBrowserTabReader(url: "https://www.youtube.com/watch?v=abcdefghijk")
+        let model = VideoSubtitlePreloadStore(browserTabs: tabs)
+        model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
+        model.isPreparing = phase == "preparing"
+        model.isConnecting = phase == "connecting"
+        model.isConnected = phase == "playing" || phase == "paused"
+        model.isPaused = phase == "paused"
+        await model.refreshCurrentBrowserTab()
+        #expect(model.videoURL.contains("PMGSdzyRZUw"))
+        #expect(await tabs.requests.isEmpty)
+    }
+
+    @Test(arguments: ["manual", "browser", "stopped"])
+    func lateTabReadsCannotOverrideANewerSelection(change: String) async throws {
+        let tabs = ScriptedBrowserTabReader(url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", holdResponse: true)
+        let model = VideoSubtitlePreloadStore(browserTabs: tabs)
+        let pending = Task { await model.refreshCurrentBrowserTab() }
+        try await waitForTabRequest(tabs)
+        if change == "manual" { model.setVideoURLManually("https://www.youtube.com/watch?v=abcdefghijk") }
+        if change == "browser" { model.browser = .safari }
+        if change == "stopped" { model.disconnect() }
+        let selectedURL = model.videoURL
+        await tabs.release()
+        await pending.value
+        #expect(model.videoURL == selectedURL)
+        if change == "manual" { #expect(!model.automaticallyReadsBrowserTab) }
+    }
+
+    @Test func permissionDenialEndsDiscoveryAndLeavingMediaDiscardsPendingReads() async throws {
+        let denied = ScriptedBrowserTabReader(url: nil, failure: .configuration("Permission denied"))
+        let blocked = VideoSubtitlePreloadStore(browserTabs: denied)
+        await blocked.monitorCurrentBrowserTab()
+        #expect(blocked.browserTabNeedsAttention)
+        #expect(blocked.browserTabStatus == "Permission denied")
+        #expect(await denied.requests.count == 1)
+
+        let tabs = ScriptedBrowserTabReader(url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", holdResponse: true)
+        let model = VideoSubtitlePreloadStore(browserTabs: tabs)
+        let monitoring = Task { await model.monitorCurrentBrowserTab() }
+        try await waitForTabRequest(tabs)
+        monitoring.cancel()
+        await tabs.release()
+        await monitoring.value
+        #expect(model.videoURL.isEmpty)
+        #expect(await tabs.requests.count == 1)
+    }
+
+    @Test(arguments: [nil, "https://example.com/watch?v=abcdefghijk", "https://youtube.com.evil.example/watch?v=abcdefghijk"] as [String?])
+    func unrelatedTabsKeepTheSelectedVideoAndCachedCaptions(url: String?) async {
+        let model = VideoSubtitlePreloadStore(browserTabs: ScriptedBrowserTabReader(url: url))
+        model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
+        model.document = .init(videoID: "PMGSdzyRZUw", title: "Cached", sourceLanguage: "ja-JP", targetLanguage: "zh-CN",
+            provider: "index", input: "youtube", cues: [.init(id: 0, start: 0, end: 3, source: "Retained")])
+        await model.refreshCurrentBrowserTab()
+        #expect(model.videoURL.contains("PMGSdzyRZUw"))
+        #expect(model.document?.cues.first?.source == "Retained")
+        model.automaticallyReadsBrowserTab = false
+        await model.refreshCurrentBrowserTab()
+        #expect(!model.isPreparing)
+    }
+
+    @Test func currentTabDiscoveryScriptsCompileWithoutJavaScriptAccess() {
+        for browser in VideoPlaybackBrowser.allCases {
+            let appPath = browser == .chrome ? "/Applications/Google Chrome.app" : "/Applications/Safari.app"
+            let source = VideoBrowserConnection.currentTabScriptSource(browser)
+                .replacingOccurrences(of: "tell application id \"\(browser.bundleID)\"", with: "tell application \"\(appPath)\"")
+            #expect(!source.localizedCaseInsensitiveContains("javascript"))
+            var details: NSDictionary?
+            #expect(NSAppleScript(source: source)?.compileAndReturnError(&details) == true, "\(details?.description ?? "")")
+        }
+    }
+
     @Test func localNemotronUsesSeparateCacheAndOnlyTextTranslationCredentials() {
         let model = VideoSubtitlePreloadStore()
         model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
@@ -359,6 +451,32 @@ private func waitForPlayback(_ condition: () -> Bool) async throws {
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(condition(), "Playback state did not arrive")
+}
+
+private actor ScriptedBrowserTabReader: VideoBrowserTabReading {
+    let url: String?
+    let failure: VideoPlaybackReadError?
+    var holdResponse: Bool
+    private var pending: CheckedContinuation<Void, Never>?
+    private(set) var requests: [VideoPlaybackBrowser] = []
+    init(url: String?, failure: VideoPlaybackReadError? = nil, holdResponse: Bool = false) {
+        self.url = url; self.failure = failure; self.holdResponse = holdResponse
+    }
+    func currentVideoURL(_ browser: VideoPlaybackBrowser) async throws -> String? {
+        requests.append(browser)
+        if holdResponse { await withCheckedContinuation { pending = $0 } }
+        if let failure { throw failure }
+        return url
+    }
+    func release() { holdResponse = false; pending?.resume(); pending = nil }
+}
+
+private func waitForTabRequest(_ reader: ScriptedBrowserTabReader) async throws {
+    for _ in 0..<200 {
+        if await !reader.requests.isEmpty { return }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    throw VideoPlaybackReadError.temporary("Tab read did not start")
 }
 
 private actor ScriptedPlaybackReader: VideoPlaybackReading {

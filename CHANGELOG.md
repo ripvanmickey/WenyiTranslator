@@ -2,6 +2,10 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.10 - Unreleased
+
+- Build 1274: move browser sync to the top of Media settings and automatically read the selected browser's current YouTube tab while idle. Fill the canonical video link and reuse the existing local-cache lookup without starting downloads, recognition or translation. Manual link edits pause discovery; preparation and playback sync pin the selected video. Cancel discovery when leaving Media and ignore stale browser reads after edits, browser changes or stop actions. Read tab metadata without requiring Apple-event JavaScript; keep actual playback sync behind the existing Connect action.
+
 ## 1.16.9 - 2026-11-26
 
 - Build 1273: keep floating-caption placement fixed while waiting, discard stale queued layout updates, and retain the user-selected anchor when temporary screen-edge corrections are needed during automatic resizing.

@@ -35,10 +35,47 @@ protocol VideoPlaybackReading: Sendable {
     func setPaused(_ paused: Bool, browser: VideoPlaybackBrowser, videoID: String) async throws -> VideoPlaybackSnapshot
 }
 
+protocol VideoBrowserTabReading: Sendable {
+    func currentVideoURL(_ browser: VideoPlaybackBrowser) async throws -> String?
+}
+
 /// Read the selected browser and control playback only on explicit user actions. After the first successful read, follow the
 /// linked video rather than whichever window becomes frontmost during fullscreen.
-actor VideoBrowserConnection: VideoPlaybackReading {
+actor VideoBrowserConnection: VideoPlaybackReading, VideoBrowserTabReading {
     private var chromeTabID: Int32?
+
+    /// Discovery uses tab metadata only; it does not execute JavaScript or search other tabs.
+    static func currentTabScriptSource(_ browser: VideoPlaybackBrowser) -> String {
+        let selectedTab = browser == .chrome ? "active tab of front window" : "current tab of front window"
+        return """
+        with timeout of 3 seconds
+          tell application id "\(browser.bundleID)"
+            if (count of windows) is 0 then return ""
+            return URL of \(selectedTab)
+          end tell
+        end timeout
+        """
+    }
+
+    func currentVideoURL(_ browser: VideoPlaybackBrowser) async throws -> String? {
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).isEmpty else { return nil }
+        guard let script = NSAppleScript(source: Self.currentTabScriptSource(browser)) else {
+            throw VideoPlaybackReadError.configuration(AppText.ui("无法读取浏览器标签页。", "Cannot read the browser tab.", "ブラウザのタブを読み取れません。"))
+        }
+        var details: NSDictionary?
+        let descriptor = script.executeAndReturnError(&details)
+        if let details {
+            let code = details[NSAppleScript.errorNumber] as? Int ?? 0
+            if code == -1743 || code == -10004 {
+                throw VideoPlaybackReadError.configuration(AppText.ui("请在系统设置 → 隐私与安全性 → 自动化中，允许文译访问 \(browser.title)。", "Allow Wenyi to access \(browser.title) in System Settings → Privacy & Security → Automation.", "「システム設定 → プライバシーとセキュリティ → オートメーション」で、文訳から \(browser.title) へのアクセスを許可してください。"))
+            }
+            throw VideoPlaybackReadError.temporary(AppText.ui("暂时无法读取当前标签页，请保持 YouTube 视频标签页打开。", "The current tab is temporarily unavailable. Keep the YouTube video tab open.", "現在のタブを一時的に読み取れません。YouTube 動画のタブを開いたままにしてください。"))
+        }
+        guard let value = descriptor.stringValue, value.utf8.count < 16_384,
+              let video = try? YouTubeVideoReference(value) else { return nil }
+        return video.url.absoluteString
+    }
+
     private static let probe = """
     (()=>{
       if(!['www.youtube.com','youtube.com','m.youtube.com'].includes(location.hostname))return JSON.stringify({unsupported:true});

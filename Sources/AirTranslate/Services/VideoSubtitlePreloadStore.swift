@@ -33,6 +33,18 @@ final class VideoSubtitlePreloadStore {
     var input = VideoSubtitleInput.youtube
     var translator = VideoSubtitleTranslator.index
     var browser = VideoPlaybackBrowser.chrome
+    var automaticallyReadsBrowserTab = true
+    private var browserTabStatusText = MediaLocalizedText("正在读取当前标签页…", "Reading the current tab…", "現在のタブを読み取り中…")
+    private(set) var browserTabNeedsAttention = false
+    var browserTabStatus: String {
+        if !automaticallyReadsBrowserTab {
+            return AppText.ui("自动读取已关闭，可手动输入视频链接。", "Automatic reading is off. You can enter a video link manually.", "自動読み取りはオフです。動画リンクを手動で入力できます。")
+        }
+        if isConfigurationLocked {
+            return AppText.ui("已固定当前视频，停止后继续自动读取。", "The current video is locked. Automatic reading resumes after stopping.", "現在の動画を固定しています。停止後に自動読み取りを再開します。")
+        }
+        return browserTabStatusText.value
+    }
     private var statusText = MediaLocalizedText("输入 YouTube 链接，先准备字幕，再连接浏览器播放。", "Enter a YouTube link, prepare captions, then connect your browser.", "YouTube リンクを入力し、字幕を準備してからブラウザに接続してください。")
     var status: String { statusText.value }
     var connectionStatus: String { connectionStatusText.value }
@@ -61,13 +73,64 @@ final class VideoSubtitlePreloadStore {
     @ObservationIgnored private var connectionGeneration = UUID()
     @ObservationIgnored private let cache: VideoSubtitleCache
     @ObservationIgnored private let connection: any VideoPlaybackReading
+    @ObservationIgnored private let browserTabs: any VideoBrowserTabReading
     @ObservationIgnored private let audio = VideoAudioTranscription()
     @ObservationIgnored private let openAI = OpenAITranslationService()
     @ObservationIgnored private var overlay: VideoSubtitleOverlayController?
 
-    init(connection: any VideoPlaybackReading = VideoBrowserConnection(), cache: VideoSubtitleCache = VideoSubtitleCache()) {
+    init(connection: any VideoPlaybackReading = VideoBrowserConnection(), cache: VideoSubtitleCache = VideoSubtitleCache(),
+         browserTabs: any VideoBrowserTabReading = VideoBrowserConnection()) {
         self.connection = connection
         self.cache = cache
+        self.browserTabs = browserTabs
+    }
+
+    func setVideoURLManually(_ value: String) {
+        guard !isConfigurationLocked else { return }
+        automaticallyReadsBrowserTab = false
+        videoURL = value
+    }
+
+    /// The view owns this task, so leaving Media or changing browsers cancels discovery.
+    func monitorCurrentBrowserTab() async {
+        guard automaticallyReadsBrowserTab else { return }
+        browserTabNeedsAttention = false
+        browserTabStatusText = MediaLocalizedText("正在读取当前标签页…", "Reading the current tab…", "現在のタブを読み取り中…")
+        while !Task.isCancelled, automaticallyReadsBrowserTab {
+            guard await refreshCurrentBrowserTab() else { return }
+            do { try await Task.sleep(for: .seconds(1)) }
+            catch { return }
+        }
+    }
+
+    /// Return false for permission failures so a denied Automation prompt is not repeated.
+    @discardableResult
+    func refreshCurrentBrowserTab() async -> Bool {
+        guard automaticallyReadsBrowserTab, !isConfigurationLocked, !Task.isCancelled else { return true }
+        let selectedBrowser = browser, originalURL = videoURL
+        let connectionToken = connectionGeneration, preparationToken = generation
+        func requestIsCurrent() -> Bool {
+            !Task.isCancelled && automaticallyReadsBrowserTab && !isConfigurationLocked
+                && browser == selectedBrowser && videoURL == originalURL
+                && connectionGeneration == connectionToken && generation == preparationToken
+        }
+        do {
+            let url = try await browserTabs.currentVideoURL(selectedBrowser)
+            guard requestIsCurrent() else { return true }
+            browserTabNeedsAttention = false
+            if let url, let video = try? YouTubeVideoReference(url) {
+                videoURL = video.url.absoluteString
+                browserTabStatusText = MediaLocalizedText("已读取当前 YouTube 视频链接。", "The current YouTube video link has been filled in.", "現在の YouTube 動画リンクを入力しました。")
+            } else {
+                browserTabStatusText = MediaLocalizedText("请在 \(selectedBrowser.title) 的当前标签页打开 YouTube 视频，也可手动输入链接。", "Open a YouTube video in the current \(selectedBrowser.title) tab, or enter a link manually.", "\(selectedBrowser.title) の現在のタブで YouTube 動画を開くか、リンクを手動で入力してください。")
+            }
+            return true
+        } catch {
+            guard requestIsCurrent() else { return true }
+            browserTabNeedsAttention = true
+            browserTabStatusText = MediaLocalizedText(verbatim: Self.message(for: error))
+            return (error as? VideoPlaybackReadError)?.canRetry ?? false
+        }
     }
 
     var translatedCount: Int { document?.cues.filter { !$0.translation.isEmpty }.count ?? 0 }

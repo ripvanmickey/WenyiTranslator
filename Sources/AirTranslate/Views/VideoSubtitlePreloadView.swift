@@ -22,9 +22,11 @@ struct VideoSubtitlePreloadView: View {
                 }
                 note(AppText.ui("继续在 Chrome／Safari 播放 YouTube，字幕跟随视频时间显示。", "Play YouTube in Chrome or Safari. Captions follow the video timeline.", "Chrome／Safari で YouTube を再生すると、動画の時刻に合わせて字幕を表示します。"))
 
+                browserSyncSection
+                Divider()
                 VStack(alignment: .leading, spacing: 8) {
                     Text(AppText.ui("视频链接", "Video link", "動画リンク")).font(.system(size: 13, weight: .semibold))
-                    TextField("https://www.youtube.com/watch?v=…", text: $model.videoURL)
+                    TextField("https://www.youtube.com/watch?v=…", text: Binding(get: { model.videoURL }, set: { model.setVideoURLManually($0) }))
                         .textFieldStyle(.roundedBorder).accessibilityLabel(AppText.ui("YouTube 视频链接", "YouTube video link", "YouTube 動画リンク"))
                 }.disabled(model.isConfigurationLocked)
 
@@ -116,23 +118,6 @@ struct VideoSubtitlePreloadView: View {
                     Label(error, systemImage: "info.circle").font(.system(size: 12)).foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Divider()
-                Text(AppText.ui("浏览器同步", "Browser sync", "ブラウザ同期")).font(.system(size: 15, weight: .semibold))
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) { browserPicker; connectionButton }.fixedSize(horizontal: true, vertical: false)
-                    VStack(alignment: .leading, spacing: 8) { browserPicker; connectionButton }
-                }
-                Text(model.isConnected ? AppText.ui("\(model.connectionStatus)。暂停、拖动和倍速时，左侧字幕随播放时间更新。", "\(model.connectionStatus). Captions follow pauses, seeking, and playback speed.", "\(model.connectionStatus)。一時停止、シーク、再生速度の変更に合わせて字幕を更新します。") : model.connectionStatus)
-                    .font(.system(size: 12)).foregroundStyle(model.isConnected ? Color.secondary : .orange)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 10) {
-                    Text(AppText.ui("字幕延后", "Caption delay", "字幕の遅延"))
-                    Stepper(value: $model.timingOffset, in: -5...5, step: 0.1) {
-                        Text(String(format: AppText.ui("%+.1f 秒", "%+.1f s", "%+.1f 秒"), model.timingOffset)).monospacedDigit()
-                    }.fixedSize()
-                }
-                BrowserSyncSetupGuide(browser: model.browser)
-
             }
             .font(.system(size: 13))
             .padding(.horizontal, 28).padding(.vertical, 26)
@@ -140,8 +125,36 @@ struct VideoSubtitlePreloadView: View {
         }
         .background(AirTranslateDesign.Palette.canvas)
         .accessibilityIdentifier("mediaSettingsSidebar")
+        .task(id: "\(model.browser.rawValue):\(model.automaticallyReadsBrowserTab)") { await model.monitorCurrentBrowserTab() }
         .task(id: model.cacheSelectionKey) { await model.restoreCachedSelection() }
         .onChange(of: model.timingOffset) { _, _ in model.refreshCue() }
+    }
+
+    private var browserSyncSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(AppText.ui("浏览器同步", "Browser sync", "ブラウザ同期")).font(.system(size: 15, weight: .semibold))
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { browserPicker; connectionButton }.fixedSize(horizontal: true, vertical: false)
+                VStack(alignment: .leading, spacing: 8) { browserPicker; connectionButton }
+            }
+            Toggle(AppText.ui("自动读取当前标签页", "Read the current tab automatically", "現在のタブを自動で読み取る"), isOn: $model.automaticallyReadsBrowserTab)
+                .toggleStyle(.checkbox).disabled(model.isConfigurationLocked)
+                .accessibilityIdentifier("mediaReadCurrentTabAutomatically")
+            Text(model.browserTabStatus).font(.system(size: 12))
+                .foregroundStyle(model.browserTabNeedsAttention && model.automaticallyReadsBrowserTab ? Color.orange : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(model.isConnected ? AppText.ui("\(model.connectionStatus)。暂停、拖动和倍速时，左侧字幕随播放时间更新。", "\(model.connectionStatus). Captions follow pauses, seeking, and playback speed.", "\(model.connectionStatus)。一時停止、シーク、再生速度の変更に合わせて字幕を更新します。") : model.connectionStatus)
+                .font(.system(size: 12)).foregroundStyle(model.isConnected ? Color.secondary : .orange)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                Text(AppText.ui("字幕延后", "Caption delay", "字幕の遅延"))
+                Stepper(value: $model.timingOffset, in: -5...5, step: 0.1) {
+                    Text(String(format: AppText.ui("%+.1f 秒", "%+.1f s", "%+.1f 秒"), model.timingOffset)).monospacedDigit()
+                }.fixedSize()
+            }
+            BrowserSyncSetupGuide(browser: model.browser)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var prepareButton: some View {
@@ -161,7 +174,7 @@ struct VideoSubtitlePreloadView: View {
     private var browserPicker: some View {
         Picker(AppText.ui("浏览器", "Browser", "ブラウザ"), selection: $model.browser) {
             ForEach(VideoPlaybackBrowser.allCases) { Text($0.title).tag($0) }
-        }.pickerStyle(.menu).labelsHidden().disabled(model.isConnected || model.isConnecting)
+        }.pickerStyle(.menu).labelsHidden().disabled(model.isConfigurationLocked)
     }
     private var connectionButton: some View {
         Button(model.isConnected || model.isConnecting ? AppText.ui("断开连接", "Disconnect", "接続を解除") : AppText.ui("连接当前视频", "Connect video", "動画に接続")) {
