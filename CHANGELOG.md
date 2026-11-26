@@ -2,7 +2,7 @@
 
 All notable changes to AirTranslate are documented in this file.
 
-## 1.16.10 - Unreleased
+## 1.16.10 - 2026-11-26
 
 - Build 1278: show cached media subtitles in Saved Transcripts and add Download SRT to the media detail card. Export original captions, existing translations and their video timestamps from local storage. Older and partially prepared caches are available without reopening the video.
 

@@ -1,4 +1,4 @@
-**1.16.10 / test build 1277:** Restore the compact saved-record layout and stable AI button sizing. AI actions continue to follow the currently selected text translation model, including the translator selected in Media. [Usage and test limits](docs/saved-record-ai.md).
+**1.16.10 (build 1278):** Download SRT files from cached media in Saved Transcripts, including any subtitles already prepared for unfinished videos. Record formatting and title generation follow the selected text translation model. [Release notes](docs/releases/1.16.10.md) · [Saved-record AI](docs/saved-record-ai.md).
 
 **1.16.6 / build 1268:** Cloudflare Workers AI translates on-device recognition and media captions, with separate Account ID, Token and model settings. Provider logos are bundled offline. [Setup and test limits](docs/cloudflare-workers-ai.md).
 
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.4 (build 1249)
+  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.10 (build 1278)
 </p>
 
 <p align="center">
@@ -106,7 +106,7 @@ On a fresh development Mac, prepare the runtime and libraries manually before pa
 
 ## Verification and limits
 
-Build 1249 passed signature, archive integrity and minimum macOS checks for 156 native components. Automatic cache loading was verified on macOS 27.2.1. Chrome playback synchronization was tested with the preceding build. macOS 14 startup, Safari synchronization, ads and the full OpenAI audio workflow still need separate testing.
+Build 1278 passed signature and minimum macOS checks for 156 native components. A partial cached subtitle track was exported through Saved Transcripts on the macOS 27 test Mac, and all 38 cues matched the cache. Startup on a Mac running macOS 14 remains unverified for this build.
 
 ```sh
 bash script/verify_caption_context_correction.sh

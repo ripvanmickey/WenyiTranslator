@@ -1,4 +1,4 @@
-**1.16.10 / 测试构建 1277：** 恢复已保存记录的紧凑布局，AI 按钮加载时保持尺寸稳定。「AI 整理正文」和「AI 生成标题」继续使用当前选择的文字翻译模型；媒体模式跟随媒体栏的翻译模型。[使用方法与实测限制](docs/saved-record-ai.md)。
+**1.16.10（构建 1278）** 已保存记录支持从媒体缓存下载 SRT，未完成的视频可导出已准备的字幕。「AI 整理正文」和「AI 生成标题」使用当前选中的文字翻译模型。[发布说明](docs/releases/1.16.10.md) · [记录 AI 使用方法](docs/saved-record-ai.md)。
 
 **1.16.6 / build 1268：** 新增 Cloudflare Workers AI，本地识别和媒体字幕均可使用其文字翻译；独立配置 Account ID、Token 与模型，内置各服务 Logo。[配置与验证范围](docs/cloudflare-workers-ai.md)。
 
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 支持 macOS 27 · 1.16.4（构建 1249）
+  <strong>Apple Silicon</strong> · macOS 14+ · 支持 macOS 27 · 1.16.10（构建 1278）
 </p>
 
 <p align="center">
@@ -106,7 +106,7 @@ Swift 主程序可独立编译。完整安装包还需要准备 Python/MLX 运�
 
 ## 验证与限制
 
-构建 1249 已通过签名、安装包完整性及 156 个原生组件的最低系统版本检查，并在 macOS 27.2.1 上验证自动读取缓存。Chrome 同步已在上一构建实测。macOS 14 实机启动、Safari 同步、广告切换和 OpenAI 音轨识别完整流程仍需单独验证。
+构建 1278 已通过签名和 156 个原生组件的最低系统版本检查。在 macOS 27 上通过「已保存记录」导出未完成的字幕缓存，导出的 38 条字幕与缓存一致。本构建尚未在 macOS 14 实机验证启动。
 
 ```sh
 bash script/verify_caption_context_correction.sh

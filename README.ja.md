@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14 以降 · macOS 27 対応 · 1.16.4（ビルド 1249）
+  <strong>Apple Silicon</strong> · macOS 14 以降 · macOS 27 対応 · 1.16.10（ビルド 1278）
 </p>
 
 <p align="center">
@@ -104,7 +104,7 @@ Swift のメイン実行ファイルは単独でビルドできます。完全�
 
 ## 検証状況と制限
 
-ビルド 1249 は、署名、アーカイブの整合性、156 個のネイティブコンポーネントの最低 OS バージョン検査に合格しました。macOS 27.2.1 でキャッシュの自動読み込みを確認しました。Chrome 同期は直前のビルドで検証済みです。macOS 14 実機起動、Safari 同期、広告切り替え、OpenAI 音声処理の全工程は別途検証が必要です。
+ビルド 1278 は、署名と 156 個のネイティブコンポーネントの最低 OS バージョン検査に合格しました。macOS 27 で保存済みの記録から準備途中の字幕を書き出し、38 件の字幕がキャッシュと一致することを確認しました。このビルドの macOS 14 実機起動は未検証です。
 
 ```sh
 bash script/verify_caption_context_correction.sh
