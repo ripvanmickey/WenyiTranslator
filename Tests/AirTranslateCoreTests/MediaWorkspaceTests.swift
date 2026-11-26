@@ -9,6 +9,106 @@ import AirTranslateCore
 @Suite(.serialized)
 @MainActor
 struct MediaWorkspaceTests {
+    @Test(arguments: [
+        ("How to understand the world through stories and everyday conversations - YouTube", "en-US"),
+        ("これからの社会で私たちはどのように暮らしていけばよいのでしょうか - YouTube", "ja-JP"),
+        ("우리는 앞으로 어떻게 살아가야 하는지 함께 이야기해 봅니다", "ko-KR"),
+        ("我们如何在不断变化的世界中寻找生活的意义和方向", "zh-CN"),
+        ("Cómo podemos comprender mejor el mundo y aprender de nuestras experiencias", "es-ES"),
+        ("Comment comprendre le monde qui nous entoure et apprendre de nos expériences", "fr-FR"),
+        ("Wie können wir die Welt besser verstehen und aus unseren Erfahrungen lernen", "de-DE")
+    ])
+    func titleLanguageRecognizesClearSupportedTitles(example: (String, String)) {
+        #expect(VideoTitleLanguage.infer(from: example.0)?.id == example.1)
+    }
+
+    @Test(arguments: ["", "YouTube", "2026 🔥", "AI", "Christopher Nolan", "Episode 12",
+        "English conversation 日本語の会話", "Как лучше понять окружающий нас мир и научиться жить вместе"])
+    func uncertainAndUnsupportedTitlesDoNotForceALanguage(title: String) {
+        #expect(VideoTitleLanguage.infer(from: title) == nil)
+    }
+
+    @Test func titleHintSelectsOriginalLanguageBeforeRestoringTheMatchingCache() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let cache = VideoSubtitleCache(root: folder)
+        try await cache.save(.init(videoID: "PMGSdzyRZUw", title: "Cached video", sourceLanguage: "en-US",
+            targetLanguage: "zh-CN", provider: "index", input: "youtube",
+            cues: [.init(id: 0, start: 0, end: 3, source: "Cached source", translation: "Cached translation")], completed: true))
+        let model = VideoSubtitlePreloadStore(cache: cache, browserTabs: ScriptedBrowserTabReader(
+            url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", title: "How to understand the world through stories and everyday conversations"))
+        await model.refreshCurrentBrowserTab()
+        await model.restoreCachedSelection()
+        #expect(model.sourceLanguage.id == "en-US")
+        #expect(model.targetLanguage.id == "zh-CN")
+        #expect(model.document?.sourceLanguage == "en-US")
+        #expect(model.document?.completed == true)
+        #expect(!model.isPreparing)
+    }
+
+    @Test func manualLanguageChoiceSurvivesTitleRefreshUntilExplicitlyReenabled() async {
+        let tabs = ScriptedBrowserTabReader(url: "https://www.youtube.com/watch?v=PMGSdzyRZUw",
+            title: "How to understand the world through stories and everyday conversations")
+        let model = VideoSubtitlePreloadStore(browserTabs: tabs)
+        let japanese = LanguageOption.supported.first { $0.id == "ja-JP" }!
+        model.setSourceLanguageManually(japanese)
+        await model.refreshCurrentBrowserTab()
+        #expect(model.sourceLanguage == japanese)
+        #expect(!model.automaticallySelectsSourceLanguageFromTitle)
+        model.setTitleLanguageSelectionEnabled(true)
+        #expect(model.sourceLanguage == .english)
+        model.setVideoURLManually("https://www.youtube.com/watch?v=abcdefghijk")
+        model.setSourceLanguageManually(japanese)
+        model.setTitleLanguageSelectionEnabled(true)
+        #expect(model.sourceLanguage == japanese)
+    }
+
+    @Test func firstConnectedTitleSelectsLanguageBeforeCachedPreparation() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let cache = VideoSubtitleCache(root: folder)
+        try await cache.save(.init(videoID: "PMGSdzyRZUw", title: "Cached video", sourceLanguage: "en-US",
+            targetLanguage: "zh-CN", provider: "index", input: "youtube",
+            cues: [.init(id: 0, start: 0, end: 10, source: "Cached source", translation: "Cached translation")], completed: true))
+        let reader = ScriptedPlaybackReader(steps: [.snapshot(.init(
+            url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", time: 3, paused: true, rate: 1, ad: false, unsupported: false,
+            title: "How to understand the world through stories and everyday conversations"))])
+        let model = VideoSubtitlePreloadStore(connection: reader, cache: cache)
+        model.connect(prepareCaptions: true)
+        defer { model.disconnect(); model.cancel() }
+        try await waitForPlayback { model.document?.completed == true && !model.isPreparing }
+        #expect(model.sourceLanguage == .english)
+        #expect(model.document?.sourceLanguage == "en-US")
+        #expect(model.activeCue?.translation == "Cached translation")
+    }
+
+    @Test func lateTitleReadRespectsManualLanguageChoice() async throws {
+        let tabs = ScriptedBrowserTabReader(url: "https://www.youtube.com/watch?v=PMGSdzyRZUw",
+            title: "How to understand the world through stories and everyday conversations", holdResponse: true)
+        let model = VideoSubtitlePreloadStore(browserTabs: tabs)
+        let pending = Task { await model.refreshCurrentBrowserTab() }
+        try await waitForTabRequest(tabs)
+        model.setSourceLanguageManually(.korean)
+        await tabs.release()
+        await pending.value
+        #expect(model.sourceLanguage == .korean)
+        #expect(model.titleLanguageSuggestion == .english)
+    }
+
+    @Test func uncertainTitleKeepsExistingSourceAndLockedSelectionIgnoresManualChanges() async {
+        let model = VideoSubtitlePreloadStore(browserTabs: ScriptedBrowserTabReader(
+            url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", title: "AI"))
+        model.sourceLanguage = .korean
+        await model.refreshCurrentBrowserTab()
+        #expect(model.sourceLanguage == .korean)
+        #expect(model.titleLanguageSuggestion == nil)
+        model.isConnected = true
+        model.setSourceLanguageManually(.english)
+        model.setTitleLanguageSelectionEnabled(false)
+        #expect(model.sourceLanguage == .korean)
+        #expect(model.automaticallySelectsSourceLanguageFromTitle)
+    }
+
     @Test func currentTabDiscoveryFillsVideoURLAndRestoresCacheWithoutStartingPreparation() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -455,18 +555,19 @@ private func waitForPlayback(_ condition: () -> Bool) async throws {
 
 private actor ScriptedBrowserTabReader: VideoBrowserTabReading {
     let url: String?
+    let title: String
     let failure: VideoPlaybackReadError?
     var holdResponse: Bool
     private var pending: CheckedContinuation<Void, Never>?
     private(set) var requests: [VideoPlaybackBrowser] = []
-    init(url: String?, failure: VideoPlaybackReadError? = nil, holdResponse: Bool = false) {
-        self.url = url; self.failure = failure; self.holdResponse = holdResponse
+    init(url: String?, title: String = "", failure: VideoPlaybackReadError? = nil, holdResponse: Bool = false) {
+        self.url = url; self.title = title; self.failure = failure; self.holdResponse = holdResponse
     }
-    func currentVideoURL(_ browser: VideoPlaybackBrowser) async throws -> String? {
+    func currentVideoTab(_ browser: VideoPlaybackBrowser) async throws -> VideoBrowserTabSnapshot? {
         requests.append(browser)
         if holdResponse { await withCheckedContinuation { pending = $0 } }
         if let failure { throw failure }
-        return url
+        return url.map { VideoBrowserTabSnapshot(url: $0, title: title) }
     }
     func release() { holdResponse = false; pending?.resume(); pending = nil }
 }
@@ -505,7 +606,7 @@ private actor ScriptedPlaybackReader: VideoPlaybackReading {
         let step = steps[min(cursor, steps.count - 1)]
         cursor += 1
         switch step {
-        case .snapshot(let snapshot): return .init(url: snapshot.url, time: snapshot.time, paused: controlledPaused ?? snapshot.paused, rate: snapshot.rate, ad: snapshot.ad, unsupported: snapshot.unsupported)
+        case .snapshot(let snapshot): return .init(url: snapshot.url, time: snapshot.time, paused: controlledPaused ?? snapshot.paused, rate: snapshot.rate, ad: snapshot.ad, unsupported: snapshot.unsupported, title: snapshot.title)
         case .failure(let error): throw error
         }
     }

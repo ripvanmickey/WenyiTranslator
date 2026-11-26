@@ -44,6 +44,13 @@ struct VideoSubtitlePreloadView: View {
                     }
                 }.font(.system(size: 12)).disabled(model.isConfigurationLocked)
 
+                Toggle(AppText.ui("根据标题自动选择原文语言", "Select original language from the title", "タイトルから原文言語を自動選択"),
+                       isOn: Binding(get: { model.automaticallySelectsSourceLanguageFromTitle }, set: { model.setTitleLanguageSelectionEnabled($0) }))
+                    .toggleStyle(.checkbox).disabled(model.isConfigurationLocked)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("mediaSourceLanguageFromTitle")
+                note(model.titleLanguageStatus)
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text(AppText.ui("字幕来源", "Caption source", "字幕ソース")).font(.system(size: 13, weight: .semibold))
                     HStack(spacing: 8) {
@@ -187,7 +194,7 @@ struct VideoSubtitlePreloadView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
     private func languagePicker(source: Bool) -> some View {
-        Picker(source ? AppText.ui("原文", "Original", "原文") : AppText.ui("译文", "Translation", "訳文"), selection: source ? $model.sourceLanguage : $model.targetLanguage) {
+        Picker(source ? AppText.ui("原文", "Original", "原文") : AppText.ui("译文", "Translation", "訳文"), selection: source ? Binding(get: { model.sourceLanguage }, set: { model.setSourceLanguageManually($0) }) : $model.targetLanguage) {
             ForEach(LanguageOption.supported) { Text($0.localizedTitle).tag($0) }
         }.pickerStyle(.menu).labelsHidden().controlSize(.small)
             .frame(width: InterfaceLocalization.interfaceLanguage == .english ? (source ? 110 : 150) : (source ? 86 : 120))
@@ -214,7 +221,7 @@ struct MediaCaptionBoardView: View {
                     .padding(.horizontal, 10).padding(.vertical, 4)
                     .background(AirTranslateDesign.Palette.raised, in: Capsule())
                 Menu {
-                    Picker(AppText.ui("原文", "Original", "原文"), selection: $model.sourceLanguage) {
+                    Picker(AppText.ui("原文", "Original", "原文"), selection: Binding(get: { model.sourceLanguage }, set: { model.setSourceLanguageManually($0) })) {
                         ForEach(LanguageOption.supported) { Text($0.localizedTitle).tag($0) }
                     }
                     Picker(AppText.ui("译文", "Translation", "訳文"), selection: $model.targetLanguage) {

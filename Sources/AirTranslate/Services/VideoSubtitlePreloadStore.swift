@@ -29,6 +29,22 @@ enum VideoSubtitleTranslator: String, CaseIterable, Identifiable {
 final class VideoSubtitlePreloadStore {
     var videoURL = ""
     var sourceLanguage = LanguageOption.supported.first { $0.id == "ja-JP" }!
+    private(set) var automaticallySelectsSourceLanguageFromTitle = true
+    private(set) var detectedVideoTitle = ""
+    private(set) var titleLanguageSuggestion: LanguageOption?
+    @ObservationIgnored private var titleVideoID: String?
+    var titleLanguageStatus: String {
+        if !automaticallySelectsSourceLanguageFromTitle {
+            return AppText.ui("已手动选择原文语言；重新勾选可恢复标题推测。", "Original language selected manually. Re-enable this option to use title hints.", "原文言語を手動で選択しました。再度オンにするとタイトルから推測します。")
+        }
+        guard titleVideoID == (try? YouTubeVideoReference(videoURL))?.id, !detectedVideoTitle.isEmpty else {
+            return AppText.ui("读取视频标题后推测原文语言，可手动更改。", "The video title suggests the original language. You can change it manually.", "動画タイトルから原文言語を推測します。手動でも変更できます。")
+        }
+        if let language = titleLanguageSuggestion {
+            return AppText.ui("按标题推测：\(language.localizedTitle)。标题可能与实际语音不同，可手动更改。", "Title hint: \(language.localizedTitle). The spoken language may differ; you can change it manually.", "タイトルからの推測：\(language.localizedTitle)。実際の音声と異なる場合は手動で変更できます。")
+        }
+        return AppText.ui("标题语言不明确或暂不支持，保留当前原文语言。", "The title language is unclear or unsupported. Keeping the current original language.", "タイトルの言語が不明確または未対応のため、現在の原文言語を維持します。")
+    }
     var targetLanguage = LanguageOption.supported.first { $0.id == "zh-CN" }!
     var input = VideoSubtitleInput.youtube
     var translator = VideoSubtitleTranslator.index
@@ -91,6 +107,31 @@ final class VideoSubtitlePreloadStore {
         videoURL = value
     }
 
+    func setSourceLanguageManually(_ language: LanguageOption) {
+        guard !isConfigurationLocked else { return }
+        automaticallySelectsSourceLanguageFromTitle = false
+        sourceLanguage = language
+    }
+
+    func setTitleLanguageSelectionEnabled(_ enabled: Bool) {
+        guard !isConfigurationLocked else { return }
+        automaticallySelectsSourceLanguageFromTitle = enabled
+        if enabled, titleVideoID == (try? YouTubeVideoReference(videoURL))?.id,
+           let language = titleLanguageSuggestion { sourceLanguage = language }
+    }
+
+    private func updateVideoTitle(_ title: String, video: YouTubeVideoReference) {
+        let boundedTitle = String(title.prefix(512))
+        if titleVideoID != video.id || detectedVideoTitle != boundedTitle {
+            titleVideoID = video.id
+            detectedVideoTitle = boundedTitle
+            titleLanguageSuggestion = VideoTitleLanguage.infer(from: boundedTitle)
+        }
+        if automaticallySelectsSourceLanguageFromTitle, let language = titleLanguageSuggestion {
+            sourceLanguage = language
+        }
+    }
+
     /// The view owns this task, so leaving Media or changing browsers cancels discovery.
     func monitorCurrentBrowserTab() async {
         guard automaticallyReadsBrowserTab else { return }
@@ -115,11 +156,12 @@ final class VideoSubtitlePreloadStore {
                 && connectionGeneration == connectionToken && generation == preparationToken
         }
         do {
-            let url = try await browserTabs.currentVideoURL(selectedBrowser)
+            let tab = try await browserTabs.currentVideoTab(selectedBrowser)
             guard requestIsCurrent() else { return true }
             browserTabNeedsAttention = false
-            if let url, let video = try? YouTubeVideoReference(url) {
+            if let tab, let video = try? YouTubeVideoReference(tab.url) {
                 videoURL = video.url.absoluteString
+                updateVideoTitle(tab.title, video: video)
                 browserTabStatusText = MediaLocalizedText("已读取当前 YouTube 视频链接。", "The current YouTube video link has been filled in.", "現在の YouTube 動画リンクを入力しました。")
             } else {
                 browserTabStatusText = MediaLocalizedText("请在 \(selectedBrowser.title) 的当前标签页打开 YouTube 视频，也可手动输入链接。", "Open a YouTube video in the current \(selectedBrowser.title) tab, or enter a link manually.", "\(selectedBrowser.title) の現在のタブで YouTube 動画を開くか、リンクを手動で入力してください。")
@@ -436,6 +478,7 @@ final class VideoSubtitlePreloadStore {
                     let currentVideo = try YouTubeVideoReference(snapshot.url ?? "")
                     if shouldPrepare {
                         videoURL = currentVideo.url.absoluteString
+                        if !isPreparing { updateVideoTitle(snapshot.title ?? "", video: currentVideo) }
                         if !hasMatchingDocument { document = nil; activeCue = nil }
                     } else if videoURL.isEmpty { videoURL = currentVideo.url.absoluteString }
                     connectedVideoID = currentVideo.id

@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.10 - Unreleased
 
+- Build 1275: read YouTube tab titles alongside URLs and use on-device language recognition to suggest and select the media source language. Leave short, mixed, uncertain and unsupported titles unchanged. Show that this is a title-based hint, preserve manual choices until re-enabled, and pin language during preparation and sync. Restore caches using the inferred source language; re-check the first connected video's title before starting a new preparation.
+
 - Build 1274: move browser sync to the top of Media settings and automatically read the selected browser's current YouTube tab while idle. Fill the canonical video link and reuse the existing local-cache lookup without starting downloads, recognition or translation. Manual link edits pause discovery; preparation and playback sync pin the selected video. Cancel discovery when leaving Media and ignore stale browser reads after edits, browser changes or stop actions. Read tab metadata without requiring Apple-event JavaScript; keep actual playback sync behind the existing Connect action.
 
 ## 1.16.9 - 2026-11-26

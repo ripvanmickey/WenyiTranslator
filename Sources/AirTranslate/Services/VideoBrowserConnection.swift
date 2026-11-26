@@ -16,6 +16,7 @@ struct VideoPlaybackSnapshot: Decodable, Sendable {
     let rate: Double?
     let ad: Bool?
     let unsupported: Bool?
+    var title: String? = nil
 }
 
 enum VideoPlaybackReadError: LocalizedError, Sendable {
@@ -35,8 +36,13 @@ protocol VideoPlaybackReading: Sendable {
     func setPaused(_ paused: Bool, browser: VideoPlaybackBrowser, videoID: String) async throws -> VideoPlaybackSnapshot
 }
 
+struct VideoBrowserTabSnapshot: Sendable {
+    let url: String
+    let title: String
+}
+
 protocol VideoBrowserTabReading: Sendable {
-    func currentVideoURL(_ browser: VideoPlaybackBrowser) async throws -> String?
+    func currentVideoTab(_ browser: VideoPlaybackBrowser) async throws -> VideoBrowserTabSnapshot?
 }
 
 /// Read the selected browser and control playback only on explicit user actions. After the first successful read, follow the
@@ -47,17 +53,22 @@ actor VideoBrowserConnection: VideoPlaybackReading, VideoBrowserTabReading {
     /// Discovery uses tab metadata only; it does not execute JavaScript or search other tabs.
     static func currentTabScriptSource(_ browser: VideoPlaybackBrowser) -> String {
         let selectedTab = browser == .chrome ? "active tab of front window" : "current tab of front window"
+        let titleProperty = browser == .chrome ? "title" : "name"
         return """
         with timeout of 3 seconds
           tell application id "\(browser.bundleID)"
-            if (count of windows) is 0 then return ""
-            return URL of \(selectedTab)
+            if (count of windows) is 0 then return {}
+            set selectedTab to \(selectedTab)
+            set candidateURL to URL of selectedTab
+            if candidateURL is missing value then return {}
+            if not ((candidateURL starts with "https://www.youtube.com/") or (candidateURL starts with "https://youtube.com/") or (candidateURL starts with "https://m.youtube.com/") or (candidateURL starts with "https://youtu.be/") or (candidateURL starts with "https://www.youtu.be/")) then return {}
+            return {candidateURL, \(titleProperty) of selectedTab}
           end tell
         end timeout
         """
     }
 
-    func currentVideoURL(_ browser: VideoPlaybackBrowser) async throws -> String? {
+    func currentVideoTab(_ browser: VideoPlaybackBrowser) async throws -> VideoBrowserTabSnapshot? {
         guard !NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).isEmpty else { return nil }
         guard let script = NSAppleScript(source: Self.currentTabScriptSource(browser)) else {
             throw VideoPlaybackReadError.configuration(AppText.ui("无法读取浏览器标签页。", "Cannot read the browser tab.", "ブラウザのタブを読み取れません。"))
@@ -71,9 +82,9 @@ actor VideoBrowserConnection: VideoPlaybackReading, VideoBrowserTabReading {
             }
             throw VideoPlaybackReadError.temporary(AppText.ui("暂时无法读取当前标签页，请保持 YouTube 视频标签页打开。", "The current tab is temporarily unavailable. Keep the YouTube video tab open.", "現在のタブを一時的に読み取れません。YouTube 動画のタブを開いたままにしてください。"))
         }
-        guard let value = descriptor.stringValue, value.utf8.count < 16_384,
+        guard let value = descriptor.atIndex(1)?.stringValue, value.utf8.count < 16_384,
               let video = try? YouTubeVideoReference(value) else { return nil }
-        return video.url.absoluteString
+        return .init(url: video.url.absoluteString, title: String((descriptor.atIndex(2)?.stringValue ?? "").prefix(512)))
     }
 
     private static let probe = """
@@ -81,7 +92,7 @@ actor VideoBrowserConnection: VideoPlaybackReading, VideoBrowserTabReading {
       if(!['www.youtube.com','youtube.com','m.youtube.com'].includes(location.hostname))return JSON.stringify({unsupported:true});
       const v=document.querySelector('video.html5-main-video')||document.querySelector('video');
       if(!v)return JSON.stringify({unsupported:true});
-      return JSON.stringify({url:location.href,time:v.currentTime,paused:v.paused,rate:v.playbackRate,
+      return JSON.stringify({url:location.href,title:document.title.slice(0,512),time:v.currentTime,paused:v.paused,rate:v.playbackRate,
         ad:!!document.querySelector('.html5-video-player.ad-showing')});
     })()
     """
