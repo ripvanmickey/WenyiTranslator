@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TranscriptLibraryView: View {
     @Bindable var session: TranslationSessionStore
+    var mediaTranslator: VideoSubtitleTranslator? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDeleteSelectedConfirmationPresented = false
@@ -53,6 +54,11 @@ struct TranscriptLibraryView: View {
             ensureSelection()
         }
         .onDisappear { session.cancelSavedTitleGeneration(); session.cancelTranscriptCleanup() }
+        .onChange(of: selectedAI) { _, _ in
+            session.cancelSavedTitleGeneration()
+            session.cancelTranscriptCleanup()
+            session.savedTitleMessage = nil
+        }
         .onChange(of: session.savedTranscripts.count) { _, _ in
             ensureSelection()
         }
@@ -235,20 +241,20 @@ struct TranscriptLibraryView: View {
                     Spacer(minLength: 0)
 
                     Button {
-                        session.polishSelectedTranscriptDraftWithLocalModel()
+                        session.polishSelectedTranscriptDraft(using: selectedAI)
                     } label: {
-                        if session.isLocalTranscriptCleanupRunning {
+                        if session.isTranscriptCleanupRunning {
                             ProgressView()
                                 .controlSize(.small)
                                 .frame(width: 28, height: 28)
                         } else {
-                            Label(AppText.localModelCleanupShort, systemImage: "sparkles")
+                            Label(AppText.transcriptCleanupShort, systemImage: "sparkles")
                                 .font(AirTranslateDesign.Typography.meta.weight(.semibold))
                         }
                     }
-                    .disabled(!canCopyDraft || session.isLocalTranscriptCleanupRunning || session.isGeneratingSavedTitle || session.isRunning || session.isStarting)
-                    .help(AppText.localModelCleanupHelp)
-                    .accessibilityLabel(AppText.localModelCleanup)
+                    .disabled(!canCopyDraft || session.isTranscriptCleanupRunning || session.isGeneratingSavedTitle || session.isRunning || session.isStarting)
+                    .help(AppText.transcriptCleanupHelp)
+                    .accessibilityLabel(AppText.transcriptCleanupShort)
 
                     Button {
                         if copyDraftText() {
@@ -267,6 +273,17 @@ struct TranscriptLibraryView: View {
                     .disabled(!canCopyDraft)
                 }
 
+                Text(AppText.ui("当前 AI：\(selectedAI.title)", "Selected AI: \(selectedAI.title)", "現在の AI：\(selectedAI.title)"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if selectedAI.sendsTextToCloud {
+                    Text(AppText.ui("点击 AI 按钮后，将记录文字发送给当前所选服务处理，产生相应 API 用量。", "AI actions send transcript text to the selected service and use its API allowance.", "AI ボタンを押すと、記録のテキストを現在のサービスへ送信し、API 利用量が発生します。"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text(AppText.title).font(.headline)
                     HStack(spacing: 12) {
@@ -275,13 +292,13 @@ struct TranscriptLibraryView: View {
                             .controlSize(.large)
                             .accessibilityLabel(AppText.title)
                         Button {
-                            session.generateSavedTranscriptTitle()
+                            session.generateSavedTranscriptTitle(using: selectedAI)
                         } label: {
                             if session.isGeneratingSavedTitle { ProgressView().controlSize(.small) }
                             else { Label(AppText.ui("AI 生成标题", "Generate Title with AI", "AI でタイトルを生成"), systemImage: "sparkles") }
                         }
-                        .disabled(session.isGeneratingSavedTitle || session.isRunning || session.isStarting)
-                        .help(AppText.ui("使用已配置的本地模型生成标题，停止监听后可用。", "Use the configured local model to generate a title after stopping capture.", "聞き取りを停止した後、設定済みのローカルモデルでタイトルを生成できます。"))
+                        .disabled(session.isGeneratingSavedTitle || session.isTranscriptCleanupRunning || session.isRunning || session.isStarting)
+                        .help(AppText.ui("使用当前选择的 AI 总结记录并生成标题，停止监听后可用。", "Use the selected AI to summarize the transcript into a title after stopping capture.", "聞き取りを停止した後、現在の AI で記録を要約してタイトルを生成します。"))
                     }
                     Text(AppText.ui("保存修改时同步更新 TXT 文件名；原文和译文保留配对，重名时自动编号。", "Saving also renames the TXT files. Source and translation stay paired, and duplicate names are numbered.", "保存時に TXT ファイル名も更新します。原文と訳文の対応を保ち、同名の場合は番号を付けます。"))
                         .font(.caption).foregroundStyle(.secondary)
@@ -333,6 +350,10 @@ struct TranscriptLibraryView: View {
         [session.savedDraftSourceText, session.savedDraftTranslationText].contains {
             $0.rangeOfCharacter(from: .whitespacesAndNewlines.inverted) != nil
         }
+    }
+
+    private var selectedAI: TranscriptAIModel {
+        session.savedTranscriptAIModel(mediaTranslator: mediaTranslator)
     }
 
     private func copyDraftText() -> Bool {

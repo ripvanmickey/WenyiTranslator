@@ -1358,46 +1358,39 @@ enum AppText {
             japanese: "Apple Intelligence 作文ツール", chineseSimplified: "Apple Intelligence 写作工具"
         )
     }
-    static var localModelCleanup: String {
+    static var transcriptCleanupShort: String {
         localized(
-            english: "Punctuate and format with local model",
-            korean: "Foundation Model로 전체 정리",
-            japanese: "ローカルモデルで句読点と段落を整える", chineseSimplified: "使用本地模型整理正文"
+            english: "Format with AI",
+            korean: "AI로 본문 정리",
+            japanese: "AI で本文を整形", chineseSimplified: "AI 整理正文"
         )
     }
-    static var localModelCleanupShort: String {
+    static var transcriptCleanupHelp: String {
         localized(
-            english: "Format with local model",
-            korean: "Foundation 정리",
-            japanese: "ローカルモデルで整形", chineseSimplified: "本地模型整理正文"
+            english: "Use the selected AI to restore punctuation and paragraphs while preserving the language and content. Review the draft, then save edits.",
+            korean: "현재 선택한 AI로 언어와 내용을 유지하면서 구두점과 문단을 정리합니다. 결과를 확인한 뒤 변경 사항을 저장하세요.",
+            japanese: "現在の AI で言語と内容を保ったまま句読点と段落を整えます。下書きを確認してから変更を保存してください。", chineseSimplified: "使用当前选择的 AI 补标点、分段，并修正明显的转写错误。保留原语言和内容，检查后再保存。"
         )
     }
-    static var localModelCleanupHelp: String {
+    static func transcriptCleanupRunning(_ model: String) -> String {
         localized(
-            english: "Use the configured local model to restore punctuation and paragraphs. Review the draft, then save edits.",
-            korean: "Apple 온디바이스 Foundation Model로 선택한 저장 기록 draft 전체를 정리합니다. 결과를 확인한 뒤 수정 저장하세요.",
-            japanese: "設定済みのローカルモデルで句読点と段落を整えます。下書きを確認してから変更を保存してください。", chineseSimplified: "使用通用设置中已配置的本地模型补标点、分段，并修正明显的转写错误。保留原语言和内容，检查后再保存。"
+            english: "Formatting transcript with \(model)…",
+            korean: "\(model)로 본문 정리 중…",
+            japanese: "\(model) で本文を整形中…", chineseSimplified: "正在使用 \(model) 整理正文…"
         )
     }
-    static var localModelCleanupRunning: String {
-        localized(
-            english: "Formatting transcript with local model...",
-            korean: "Foundation Model로 기록 정리 중...",
-            japanese: "ローカルモデルで記録を整形中…", chineseSimplified: "正在使用本地模型补标点和分段…"
-        )
-    }
-    static var localModelCleanupComplete: String {
+    static var transcriptCleanupComplete: String {
         localized(
             english: "Formatting complete. Review and save edits.",
-            korean: "Foundation Model 정리가 완료되었습니다. 확인 후 수정 저장하세요.",
-            japanese: "整形が完了しました。確認して変更を保存してください。", chineseSimplified: "本地模型整理正文完成，请检查并保存修改。"
+            korean: "본문 정리가 완료되었습니다. 확인 후 변경 사항을 저장하세요.",
+            japanese: "整形が完了しました。確認して変更を保存してください。", chineseSimplified: "AI 整理正文完成，请检查并保存修改。"
         )
     }
-    static func localModelCleanupFailed(_ reason: String) -> String {
+    static func transcriptCleanupFailed(_ model: String, reason: String) -> String {
         localized(
-            english: "Local model formatting failed: \(reason)",
-            korean: "Foundation Model 정리 실패: \(reason)",
-            japanese: "ローカルモデルでの整形に失敗しました：\(reason)", chineseSimplified: "本地模型整理正文失败：\(reason)"
+            english: "Formatting with \(model) failed: \(reason)",
+            korean: "\(model) 본문 정리 실패: \(reason)",
+            japanese: "\(model) による整形に失敗しました：\(reason)", chineseSimplified: "\(model) 整理正文失败：\(reason)"
         )
     }
     static func copyTranscriptPane(_ title: String) -> String {

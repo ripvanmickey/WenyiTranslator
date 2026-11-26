@@ -1021,11 +1021,32 @@ final class TranslationSessionStore {
         localTranslation.onlineIndex = true
     }
 
-    private var savedRecordLocalTranslation: LocalTranslationConfiguration {
-        var configuration = localTranslation
-        configuration.onlineIndex = nil
-        configuration.cloudflare = nil
-        return configuration
+    func savedTranscriptAIModel(mediaTranslator: VideoSubtitleTranslator? = nil) -> TranscriptAIModel {
+        if let mediaTranslator {
+            switch mediaTranslator {
+            case .index: return .index
+            case .openAI: return .openAI
+            case .cloudflare: return .cloudflare(localTranslation.cloudflareConfiguration)
+            }
+        }
+        if isUsingLocalTranslation {
+            if localTranslation.usesCloudflare { return .cloudflare(localTranslation.cloudflareConfiguration) }
+            if localTranslation.usesOnlineIndex { return .index }
+            return .local(localTranslation)
+        }
+        switch ProcessingEngine.current(for: self) {
+        case .openAI:
+            if openAITranslationModel.usesTextTranslation { return .openAI }
+            return .unavailable("OpenAI · " + (openAITranscriptionModel.isEnabled ? openAITranscriptionModel.title : openAITranslationModel.title))
+        case .gemini: return .unavailable(geminiTranslationModel.title)
+        case .qwen: return .unavailable(qwenTranslationModel.title)
+        case .grok: return .unavailable(grokTranscriptionModel.title)
+        case .meta: return .unavailable(metaTranscriptionModel.title)
+        case .azure: return .unavailable(azureTranscriptionModel.title)
+        case .nari: return .unavailable(nariTranscriptionModel.title)
+        case .apple, .indexOnline, .cloudflare:
+            return .unavailable(isTranscribeOnlyMode ? recognitionEngineTitle : AppText.ui("Apple 翻译", "Apple Translation", "Apple 翻訳"))
+        }
     }
 
     private var storedAppleTranslationQuality: AppleTranslationQuality = .realtime
@@ -1294,7 +1315,11 @@ final class TranslationSessionStore {
     var savedDraftSourceText = ""
     var savedDraftTranslationText = ""
     var pendingAutoDetectionLanguageChange: AutoDetectionLanguageChangeConfirmation?
-    var isLocalTranscriptCleanupRunning = false
+    var isTranscriptCleanupRunning = false
+#if DEBUG
+    var transcriptAIServiceForTesting: TranscriptAIService?
+    var transcriptAIKeyReaderForTesting: ((TranscriptAIModel) throws -> String?)?
+#endif
     private(set) var latestAudioLevel: Float?
     var modelAvailabilityByModelID = Dictionary(
         uniqueKeysWithValues: IntelligenceModel.allCases.map {
@@ -3498,23 +3523,37 @@ final class TranslationSessionStore {
         savedTitleTask?.cancel(); savedTitleTask = nil; isGeneratingSavedTitle = false
     }
 
-    func generateSavedTranscriptTitle() {
-        guard !isRunning, !isStarting, !isGeneratingSavedTitle, !isLocalTranscriptCleanupRunning, let record = selectedSavedTranscript else { return }
+    private var transcriptAIService: TranscriptAIService {
+#if DEBUG
+        if let service = transcriptAIServiceForTesting { return service }
+#endif
+        return .shared
+    }
+
+    private func transcriptAIKey(for model: TranscriptAIModel) throws -> String? {
+#if DEBUG
+        if let reader = transcriptAIKeyReaderForTesting { return try reader(model) }
+#endif
+        return try model.readAPIKey()
+    }
+
+    func generateSavedTranscriptTitle(using selectedAI: TranscriptAIModel? = nil) {
+        guard !isRunning, !isStarting, !isGeneratingSavedTitle, !isTranscriptCleanupRunning, let record = selectedSavedTranscript else { return }
         let original = savedDraftSourceText
         let translation = savedDraftTranslationText
         let initialTitle = savedDraftTitle
         let text = translation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? original : translation + "\n原文参考：\n" + original
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let configuration = savedRecordLocalTranslation
-        do { try configuration.validateModel(); _ = try configuration.validatedBaseURL() }
-        catch { savedTitleMessage = AppText.ui("请先在通用设置中配置本地翻译模型，再生成标题。", "Configure a local model in General before generating a title.", "タイトルを生成する前に、「一般」でローカルモデルを設定してください。"); return }
+        let model = selectedAI ?? savedTranscriptAIModel()
+        do { try model.validate() }
+        catch { savedTitleMessage = error.localizedDescription; return }
         let requestID = UUID(); savedTitleRequestID = requestID
         isGeneratingSavedTitle = true; savedTitleMessage = nil
         savedTitleTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer { if self.savedTitleRequestID == requestID { self.isGeneratingSavedTitle = false; self.savedTitleTask = nil } }
             do {
-                let title = try await LocalTranslationService.shared.transcriptTitle(text, configuration: configuration, apiKey: LocalTranslationAPIKeyStore.readAPIKey())
+                let title = try await self.transcriptAIService.title(text, model: model, apiKey: self.transcriptAIKey(for: model))
                 try Task.checkCancellation()
                 guard self.savedTitleRequestID == requestID, self.selectedSavedTranscriptID == record.id else { return }
                 guard self.savedDraftTitle == initialTitle, self.savedDraftSourceText == original,
@@ -3522,47 +3561,47 @@ final class TranslationSessionStore {
                     self.savedTitleMessage = AppText.ui("草稿已修改，未覆盖当前标题。需要时可重新生成。", "The draft changed, so the current title was kept. You can generate a new title.", "下書きが変更されたため、現在のタイトルを保持しました。必要なら再生成できます。"); return
                 }
                 self.savedDraftTitle = SavedTranscriptTitleStore.normalized(title)
-                self.savedTitleMessage = AppText.ui("标题已生成，可修改后点击「保存修改」。", "Title generated. Edit it if needed and click Save Edits.", "タイトルを生成しました。必要に応じて編集し、「変更を保存」を押してください。")
+                self.savedTitleMessage = AppText.ui("已使用 \(model.title) 生成标题，可修改后点击「保存修改」。", "Title generated with \(model.title). Edit it if needed and click Save Edits.", "\(model.title) でタイトルを生成しました。必要に応じて編集し、「変更を保存」を押してください。")
             } catch is CancellationError { }
-            catch { if self.savedTitleRequestID == requestID { self.savedTitleMessage = AppText.ui("标题生成失败：", "Title generation failed: ", "タイトルの生成に失敗しました：") + error.localizedDescription } }
+            catch { if self.savedTitleRequestID == requestID { self.savedTitleMessage = AppText.ui("\(model.title) 标题生成失败：", "Title generation with \(model.title) failed: ", "\(model.title) によるタイトル生成に失敗しました：") + error.localizedDescription } }
         }
     }
 
     func cancelTranscriptCleanup() {
         transcriptCleanupRequestID = UUID()
         savedTranscriptPolishTask?.cancel(); savedTranscriptPolishTask = nil
-        isLocalTranscriptCleanupRunning = false
+        isTranscriptCleanupRunning = false
     }
 
-    func polishSelectedTranscriptDraftWithLocalModel() {
-        guard !isRunning, !isStarting, !isLocalTranscriptCleanupRunning, !isGeneratingSavedTitle,
+    func polishSelectedTranscriptDraft(using selectedAI: TranscriptAIModel? = nil) {
+        guard !isRunning, !isStarting, !isTranscriptCleanupRunning, !isGeneratingSavedTitle,
               let record = selectedSavedTranscript else { return }
         let source = savedDraftSourceText, translation = savedDraftTranslationText
         guard !(source + translation).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let configuration = savedRecordLocalTranslation
-        do { try configuration.validateModel(); _ = try configuration.validatedBaseURL() }
-        catch { statusMessage = AppText.ui("请先在通用设置中配置本地翻译模型，再整理正文。", "Configure a local model in General before formatting the transcript.", "記録を整形する前に、「一般」でローカルモデルを設定してください。"); return }
+        let model = selectedAI ?? savedTranscriptAIModel()
+        do { try model.validate() }
+        catch { savedTitleMessage = error.localizedDescription; return }
         let requestID = UUID(); transcriptCleanupRequestID = requestID
-        isLocalTranscriptCleanupRunning = true
-        statusMessage = AppText.localModelCleanupRunning
+        isTranscriptCleanupRunning = true
+        savedTitleMessage = AppText.transcriptCleanupRunning(model.title)
         savedTranscriptPolishTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { if self.transcriptCleanupRequestID == requestID { self.isLocalTranscriptCleanupRunning = false; self.savedTranscriptPolishTask = nil } }
+            defer { if self.transcriptCleanupRequestID == requestID { self.isTranscriptCleanupRunning = false; self.savedTranscriptPolishTask = nil } }
             do {
-                let key = try LocalTranslationAPIKeyStore.readAPIKey()
-                let cleanedSource = try await LocalTranslationService.shared.polishTranscript(source, configuration: configuration, apiKey: key)
+                let key = try self.transcriptAIKey(for: model)
+                let cleanedSource = try await self.transcriptAIService.polish(source, model: model, apiKey: key)
                 let cleanedTranslation = record.isOriginalAndTranslation
-                    ? try await LocalTranslationService.shared.polishTranscript(translation, configuration: configuration, apiKey: key) : translation
+                    ? try await self.transcriptAIService.polish(translation, model: model, apiKey: key) : translation
                 try Task.checkCancellation()
                 guard self.transcriptCleanupRequestID == requestID, self.selectedSavedTranscriptID == record.id else { return }
                 guard self.savedDraftSourceText == source, self.savedDraftTranslationText == translation else {
-                    self.statusMessage = AppText.ui("草稿已修改，未覆盖当前正文。需要时可重新整理。", "The draft changed, so its text was kept. You can format it again.", "下書きが変更されたため、現在の本文を保持しました。必要なら再度整形できます。"); return
+                    self.savedTitleMessage = AppText.ui("草稿已修改，未覆盖当前正文。需要时可重新整理。", "The draft changed, so its text was kept. You can format it again.", "下書きが変更されたため、現在の本文を保持しました。必要なら再度整形できます。"); return
                 }
                 self.savedDraftSourceText = cleanedSource
                 self.savedDraftTranslationText = cleanedTranslation
-                self.statusMessage = AppText.localModelCleanupComplete
+                self.savedTitleMessage = AppText.transcriptCleanupComplete
             } catch is CancellationError { }
-            catch { if self.transcriptCleanupRequestID == requestID { self.statusMessage = AppText.localModelCleanupFailed(error.localizedDescription) } }
+            catch { if self.transcriptCleanupRequestID == requestID { self.savedTitleMessage = AppText.transcriptCleanupFailed(model.title, reason: error.localizedDescription) } }
         }
     }
 

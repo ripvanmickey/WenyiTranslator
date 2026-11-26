@@ -1,3 +1,5 @@
+**1.16.10 / 测试构建 1276：** 已保存记录中的「AI 整理正文」和「AI 生成标题」使用当前选择的文字翻译模型；媒体模式跟随媒体栏的翻译模型。[使用方法与实测限制](docs/saved-record-ai.md)。
+
 **1.16.6 / build 1268：** 新增 Cloudflare Workers AI，本地识别和媒体字幕均可使用其文字翻译；独立配置 Account ID、Token 与模型，内置各服务 Logo。[配置与验证范围](docs/cloudflare-workers-ai.md)。
 
 **Build 1267：** 暂停 Azure／MAI、Nari 和 Jev，移除其配置入口。下方历史版本介绍中的相关配置不适用于当前构建。[变更说明](docs/paused-integrations.md)。
@@ -117,3 +119,4 @@ bash script/verify_transcript_rename.sh
 ## 来源与许可
 
 文译基于 himomohi 开发的 [AirTranslate 1.16.0](https://github.com/himomohi/AirTranslate) 开发，保留上游 [Apache-2.0 LICENSE](./LICENSE) 和 [NOTICE](./NOTICE)。第三方 SDK、运行环境及模型分别适用各自许可，详见 [Swift SDK 来源](./Vendor/PROVENANCE.md)、[ASR 运行环境说明](./Resources/ASR-Runtime-Notices.md)、[livecaption 来源](./Resources/ASRProject/UPSTREAM.txt) 和 [多人识别组件许可](./Resources/MultitalkerNative/THIRD-PARTY-LICENSES.md)。livecaption 源码的单独许可仍需确认。
+
