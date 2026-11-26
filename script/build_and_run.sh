@@ -32,7 +32,7 @@ if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
   exit 1
 fi
 
-SWIFT_BUILD_ARGUMENTS=(-c "$BUILD_CONFIGURATION")
+SWIFT_BUILD_ARGUMENTS=(-c "$BUILD_CONFIGURATION" --build-system native)
 if [[ -n "${SWIFT_BUILD_PATH:-}" ]]; then
   SWIFT_BUILD_ARGUMENTS+=(--scratch-path "$SWIFT_BUILD_PATH")
 fi

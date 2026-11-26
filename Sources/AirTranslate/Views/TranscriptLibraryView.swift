@@ -232,118 +232,133 @@ struct TranscriptLibraryView: View {
     @ViewBuilder
     private var editor: some View {
         if let selectedTranscript = session.selectedSavedTranscript {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Text(AppText.editSaved)
-                        .font(AirTranslateDesign.Typography.stageTitle)
-                        .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
-
-                    Spacer(minLength: 0)
-
-                    Button {
-                        session.polishSelectedTranscriptDraft(using: selectedAI)
-                    } label: {
-                        if session.isTranscriptCleanupRunning {
-                            ProgressView()
-                                .controlSize(.small)
-                                .frame(width: 28, height: 28)
-                        } else {
-                            Label(AppText.transcriptCleanupShort, systemImage: "sparkles")
-                                .font(AirTranslateDesign.Typography.meta.weight(.semibold))
-                        }
-                    }
-                    .disabled(!canCopyDraft || session.isTranscriptCleanupRunning || session.isGeneratingSavedTitle || session.isRunning || session.isStarting)
-                    .help(AppText.transcriptCleanupHelp)
-                    .accessibilityLabel(AppText.transcriptCleanupShort)
-
-                    Button {
-                        if copyDraftText() {
-                            showCopyFeedback()
-                        }
-                    } label: {
-                        Image(systemName: isCopyFeedbackVisible ? "checkmark" : "clipboard")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(isCopyFeedbackVisible ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
-                            .frame(width: 26, height: 26)
-                            .airTranslateInteractiveSurface(isSelected: isCopyFeedbackVisible)
-                    }
-                    .buttonStyle(AirTranslatePressButtonStyle())
-                    .help(isCopyFeedbackVisible ? AppText.copied : AppText.copy)
-                    .accessibilityLabel(AppText.copy)
-                    .disabled(!canCopyDraft)
+            GeometryReader { geometry in
+                ScrollView(.vertical) {
+                    editorCard(for: selectedTranscript)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: geometry.size.height, alignment: .center)
                 }
-
-                Text(AppText.ui("当前 AI：\(selectedAI.title)", "Selected AI: \(selectedAI.title)", "現在の AI：\(selectedAI.title)"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if selectedAI.sendsTextToCloud {
-                    Text(AppText.ui("点击 AI 按钮后，将记录文字发送给当前所选服务处理，产生相应 API 用量。", "AI actions send transcript text to the selected service and use its API allowance.", "AI ボタンを押すと、記録のテキストを現在のサービスへ送信し、API 利用量が発生します。"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(AppText.title).font(.headline)
-                    HStack(spacing: 12) {
-                        TextField(AppText.ui("输入记录标题…", "Enter a transcript title…", "記録のタイトルを入力…"), text: $session.savedDraftTitle)
-                            .textFieldStyle(.roundedBorder)
-                            .controlSize(.large)
-                            .accessibilityLabel(AppText.title)
-                        Button {
-                            session.generateSavedTranscriptTitle(using: selectedAI)
-                        } label: {
-                            if session.isGeneratingSavedTitle { ProgressView().controlSize(.small) }
-                            else { Label(AppText.ui("AI 生成标题", "Generate Title with AI", "AI でタイトルを生成"), systemImage: "sparkles") }
-                        }
-                        .disabled(session.isGeneratingSavedTitle || session.isTranscriptCleanupRunning || session.isRunning || session.isStarting)
-                        .help(AppText.ui("使用当前选择的 AI 总结记录并生成标题，停止监听后可用。", "Use the selected AI to summarize the transcript into a title after stopping capture.", "聞き取りを停止した後、現在の AI で記録を要約してタイトルを生成します。"))
-                    }
-                    Text(AppText.ui("保存修改时同步更新 TXT 文件名；原文和译文保留配对，重名时自动编号。", "Saving also renames the TXT files. Source and translation stay paired, and duplicate names are numbered.", "保存時に TXT ファイル名も更新します。原文と訳文の対応を保ち、同名の場合は番号を付けます。"))
-                        .font(.caption).foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        Text(selectedTranscript.sourceFileName)
-                            .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                            .help(selectedTranscript.sourceFileName)
-                        Button { session.revealSelectedTranscriptInFinder() } label: {
-                            Label(AppText.ui("在访达中显示", "Show in Finder", "Finder に表示"), systemImage: "folder")
-                        }
-                    }
-                    if let message = session.savedTitleMessage {
-                        Text(message).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 8)
-
-                HStack {
-                    Button {
-                        session.saveSelectedTranscriptEdits()
-                    } label: {
-                        Label(AppText.saveEdits, systemImage: "checkmark")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(AirTranslateDesign.Palette.accent)
-                    .keyboardShortcut("s", modifiers: [.command])
-                    .disabled(session.isRunning || session.isStarting)
-
-                    Spacer(minLength: 0)
-
-                    Button(role: .destructive) {
-                        isDeleteSelectedConfirmationPresented = true
-                    } label: {
-                        Label(AppText.deleteSavedTranscript, systemImage: "trash")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(AirTranslateDesign.Palette.danger)
-                }
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .padding(AirTranslateDesign.Spacing.md)
-            .airRaisedSurface()
-            .padding(AirTranslateDesign.Spacing.md)
         } else {
             ContentUnavailableView(AppText.noSavedTranscriptSelected, systemImage: "doc.text")
         }
+    }
+
+    private func editorCard(for selectedTranscript: SavedTranscript) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text(AppText.editSaved)
+                    .font(AirTranslateDesign.Typography.stageTitle)
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    session.polishSelectedTranscriptDraft(using: selectedAI)
+                } label: {
+                    Label(AppText.transcriptCleanupShort, systemImage: "sparkles")
+                        .font(AirTranslateDesign.Typography.meta.weight(.semibold))
+                        .opacity(session.isTranscriptCleanupRunning ? 0 : 1)
+                        .overlay {
+                            if session.isTranscriptCleanupRunning {
+                                ProgressView().controlSize(.small)
+                            }
+                        }
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                .disabled(!canCopyDraft || session.isTranscriptCleanupRunning || session.isGeneratingSavedTitle || session.isRunning || session.isStarting)
+                .help(AppText.transcriptCleanupHelp + "\n" + selectedAIHelp)
+                .accessibilityLabel(AppText.transcriptCleanupShort)
+                .accessibilityValue(selectedAI.title)
+
+                Button {
+                    if copyDraftText() {
+                        showCopyFeedback()
+                    }
+                } label: {
+                    Image(systemName: isCopyFeedbackVisible ? "checkmark" : "clipboard")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(isCopyFeedbackVisible ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
+                        .frame(width: 26, height: 26)
+                        .airTranslateInteractiveSurface(isSelected: isCopyFeedbackVisible)
+                }
+                .buttonStyle(AirTranslatePressButtonStyle())
+                .help(isCopyFeedbackVisible ? AppText.copied : AppText.copy)
+                .accessibilityLabel(AppText.copy)
+                .disabled(!canCopyDraft)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(AppText.title).font(.headline)
+                HStack(spacing: 12) {
+                    TextField(AppText.ui("输入记录标题…", "Enter a transcript title…", "記録のタイトルを入力…"), text: $session.savedDraftTitle)
+                        .textFieldStyle(.roundedBorder)
+                        .controlSize(.large)
+                        .accessibilityLabel(AppText.title)
+                        .frame(minWidth: 120, maxWidth: .infinity)
+                    Button {
+                        session.generateSavedTranscriptTitle(using: selectedAI)
+                    } label: {
+                        Label(AppText.ui("AI 生成标题", "Generate Title with AI", "AI でタイトルを生成"), systemImage: "sparkles")
+                            .opacity(session.isGeneratingSavedTitle ? 0 : 1)
+                            .overlay {
+                                if session.isGeneratingSavedTitle {
+                                    ProgressView().controlSize(.small)
+                                }
+                            }
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
+                    .disabled(session.isGeneratingSavedTitle || session.isTranscriptCleanupRunning || session.isRunning || session.isStarting)
+                    .help(AppText.ui("使用当前选择的 AI 总结记录并生成标题，停止监听后可用。", "Use the selected AI to summarize the transcript into a title after stopping capture.", "聞き取りを停止した後、現在の AI で記録を要約してタイトルを生成します。") + "\n" + selectedAIHelp)
+                    .accessibilityLabel(AppText.ui("AI 生成标题", "Generate Title with AI", "AI でタイトルを生成"))
+                    .accessibilityValue(selectedAI.title)
+                }
+                Text(AppText.ui("保存修改时同步更新 TXT 文件名；原文和译文保留配对，重名时自动编号。", "Saving also renames the TXT files. Source and translation stay paired, and duplicate names are numbered.", "保存時に TXT ファイル名も更新します。原文と訳文の対応を保ち、同名の場合は番号を付けます。"))
+                    .font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text(selectedTranscript.sourceFileName)
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        .help(selectedTranscript.sourceFileName)
+                    Button { session.revealSelectedTranscriptInFinder() } label: {
+                        Label(AppText.ui("在访达中显示", "Show in Finder", "Finder に表示"), systemImage: "folder")
+                    }
+                }
+                if let message = session.savedTitleMessage {
+                    Text(message)
+                        .font(.caption).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.vertical, 8)
+
+            HStack {
+                Button {
+                    session.saveSelectedTranscriptEdits()
+                } label: {
+                    Label(AppText.saveEdits, systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AirTranslateDesign.Palette.accent)
+                .keyboardShortcut("s", modifiers: [.command])
+                .disabled(session.isRunning || session.isStarting)
+
+                Spacer(minLength: 0)
+
+                Button(role: .destructive) {
+                    isDeleteSelectedConfirmationPresented = true
+                } label: {
+                    Label(AppText.deleteSavedTranscript, systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .tint(AirTranslateDesign.Palette.danger)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(AirTranslateDesign.Spacing.md)
+        .airRaisedSurface()
+        .padding(AirTranslateDesign.Spacing.md)
     }
 
     private var canCopyDraft: Bool {
@@ -354,6 +369,12 @@ struct TranscriptLibraryView: View {
 
     private var selectedAI: TranscriptAIModel {
         session.savedTranscriptAIModel(mediaTranslator: mediaTranslator)
+    }
+
+    private var selectedAIHelp: String {
+        let model = AppText.ui("当前 AI：\(selectedAI.title)", "Selected AI: \(selectedAI.title)", "現在の AI：\(selectedAI.title)")
+        guard selectedAI.sendsTextToCloud else { return model }
+        return model + "\n" + AppText.ui("点击后将记录文字发送给所选服务处理，产生相应 API 用量。", "Sends transcript text to the selected service and uses its API allowance.", "記録のテキストを選択中のサービスへ送信し、API 利用量が発生します。")
     }
 
     private func copyDraftText() -> Bool {

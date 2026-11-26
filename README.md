@@ -1,4 +1,4 @@
-**1.16.10 / test build 1276:** Saved-record AI actions follow the currently selected text translation model, including the translator selected in Media. [Usage and test limits](docs/saved-record-ai.md).
+**1.16.10 / test build 1277:** Restore the compact saved-record layout and stable AI button sizing. AI actions continue to follow the currently selected text translation model, including the translator selected in Media. [Usage and test limits](docs/saved-record-ai.md).
 
 **1.16.6 / build 1268:** Cloudflare Workers AI translates on-device recognition and media captions, with separate Account ID, Token and model settings. Provider logos are bundled offline. [Setup and test limits](docs/cloudflare-workers-ai.md).
 

@@ -65,8 +65,8 @@ rm -f \
   "$VERSIONED_DMG_PATH" \
   "$VERSIONED_DMG_SHA256_PATH"
 
-swift build -c release
-BUILD_BINARY="$(swift build -c release --show-bin-path)/$APP_NAME"
+swift build -c release --build-system native
+BUILD_BINARY="$(swift build -c release --build-system native --show-bin-path)/$APP_NAME"
 
 install -m 755 "$BUILD_BINARY" "$APP_BINARY"
 cp -R "$ROOT_DIR/Resources/ProviderLogos" "$APP_RESOURCES/"
