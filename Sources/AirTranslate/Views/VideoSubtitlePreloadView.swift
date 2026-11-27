@@ -369,7 +369,9 @@ struct VideoSubtitleTextView: View {
 final class VideoSubtitleOverlayController {
     private let panel: NSPanel
     init(store: VideoSubtitlePreloadStore) {
-        panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 760, height: 240),
+        let width = min(store.captionSession?.floatingCaptionWindowWidth ?? FloatingCaptionAppearance.defaultWindowWidth,
+            FloatingCaptionWindowController.maximumWindowSize(for: NSScreen.main).width)
+        panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: width, height: 240),
             styleMask: [.borderless, .nonactivatingPanel, .resizable], backing: .buffered, defer: false)
         panel.level = .floating; panel.isOpaque = false; panel.backgroundColor = .clear
         panel.isMovableByWindowBackground = true
@@ -378,7 +380,7 @@ final class VideoSubtitleOverlayController {
         panel.contentView = NSHostingView(rootView: VideoSubtitleOverlayView(model: store))
         panel.isReleasedWhenClosed = false
         if let screen = NSScreen.main {
-            panel.setFrameOrigin(NSPoint(x: screen.visibleFrame.midX - 380, y: screen.visibleFrame.minY + 70))
+            panel.setFrameOrigin(NSPoint(x: screen.visibleFrame.midX - width / 2, y: screen.visibleFrame.minY + 70))
         }
     }
     func show() { panel.orderFrontRegardless() }
@@ -412,8 +414,10 @@ private struct VideoSubtitleOverlayView: View {
         }
         .frame(maxHeight: .infinity, alignment: .bottom)
         .background(FloatingWindowConfigurator(preferredContentHeight: preferredHeight,
+            preferredWindowWidth: model.captionSession?.floatingCaptionWindowWidth ?? FloatingCaptionAppearance.defaultWindowWidth,
             minimumWindowSize: FloatingCaptionWindowController.minimumWindowSize,
             keepsAboveOtherWindows: model.captionSession?.keepsFloatingCaptionAboveOtherWindows ?? true,
-            hasCaptionText: model.activeCue != nil))
+            hasCaptionText: model.activeCue != nil,
+            onWidthChanged: { model.captionSession?.floatingCaptionWindowWidth = $0 }))
     }
 }

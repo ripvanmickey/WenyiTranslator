@@ -9,6 +9,8 @@ enum FloatingCaptionAppearance {
     static let defaultBackgroundColorHex = "#05080A"
     static let defaultBackgroundOpacity = 0.8
     static let defaultCustomPointSize: CGFloat = 0
+    static let defaultWindowWidth: CGFloat = 720
+    static let windowWidthRange: ClosedRange<CGFloat> = 420...3840
     static let customPointSizeRange: ClosedRange<CGFloat> = 18...72
     static let opacityRange: ClosedRange<Double> = 0...1
     static let captionLineSpacing: CGFloat = 5
@@ -32,6 +34,11 @@ enum FloatingCaptionAppearance {
     static func clampedCustomPointSize(_ value: CGFloat) -> CGFloat {
         guard value.isFinite, value > 0 else { return defaultCustomPointSize }
         return min(max(value, customPointSizeRange.lowerBound), customPointSizeRange.upperBound)
+    }
+
+    static func clampedWindowWidth(_ value: CGFloat) -> CGFloat {
+        guard value.isFinite, value > 0 else { return defaultWindowWidth }
+        return min(max(value.rounded(), windowWidthRange.lowerBound), windowWidthRange.upperBound)
     }
 
     static func clampedOpacity(_ value: Double) -> Double {
@@ -86,16 +93,27 @@ struct FloatingCaptionWindowPlacement {
 
     mutating func fittedFrame(current: NSRect, currentContentHeight: CGFloat,
                              targetContentHeight: CGFloat, visibleFrame: NSRect,
-                             minimumSize: NSSize, hasCaptionText: Bool) -> NSRect {
-        guard hasCaptionText else { return current }
-        if anchorOrigin == nil || lastAppliedFrame?.origin != current.origin {
-            anchorOrigin = current.origin
+                             minimumSize: NSSize, hasCaptionText: Bool,
+                             targetWindowWidth: CGFloat? = nil) -> NSRect {
+        let width = targetWindowWidth ?? current.width
+        guard hasCaptionText || width != current.width else { return current }
+        var origin = lastAppliedFrame?.origin == current.origin ? anchorOrigin ?? current.origin : current.origin
+        origin.x += (current.width - width) / 2
+        anchorOrigin = origin
+
+        var proposed = current
+        if hasCaptionText {
+            proposed = FloatingCaptionAppearance.fittedWindowFrame(current,
+                currentContentHeight: currentContentHeight, targetContentHeight: targetContentHeight)
         }
-        var proposed = FloatingCaptionAppearance.fittedWindowFrame(current,
-            currentContentHeight: currentContentHeight, targetContentHeight: targetContentHeight)
-        proposed.origin = anchorOrigin ?? current.origin
-        let result = FloatingCaptionWindowController.clampedFrame(proposed,
+        proposed.origin = origin
+        proposed.size.width = width
+        var result = FloatingCaptionWindowController.clampedFrame(proposed,
             within: visibleFrame, minimumSize: minimumSize)
+        if !hasCaptionText {
+            result.origin.y = current.minY
+            result.size.height = current.height
+        }
         lastAppliedFrame = result
         return result
     }

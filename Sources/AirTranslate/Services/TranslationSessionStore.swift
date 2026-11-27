@@ -131,6 +131,7 @@ private enum SettingsKey {
     static let floatingCaptionStability = "floatingCaptionStability"
     static let floatingCaptionTextAlignment = "floatingCaptionTextAlignment"
     static let floatingCaptionCustomPointSize = "floatingCaptionCustomPointSize"
+    static let floatingCaptionWindowWidth = "floatingCaptionWindowWidth"
     static let floatingCaptionTextColorHex = "floatingCaptionTextColorHex"
     static let floatingCaptionBackgroundColorHex = "floatingCaptionBackgroundColorHex"
     static let floatingCaptionBackgroundOpacity = "floatingCaptionBackgroundOpacity"
@@ -1157,6 +1158,13 @@ final class TranslationSessionStore {
                 return
             }
             persistSelectedSettings()
+        }
+    }
+    var floatingCaptionWindowWidth = FloatingCaptionAppearance.defaultWindowWidth {
+        didSet {
+            let width = FloatingCaptionAppearance.clampedWindowWidth(floatingCaptionWindowWidth)
+            if floatingCaptionWindowWidth != width { floatingCaptionWindowWidth = width }
+            if oldValue != width { persistSelectedSettings() }
         }
     }
     var floatingCaptionLineCount = FloatingCaptionLineCount.three {
@@ -3364,7 +3372,7 @@ final class TranslationSessionStore {
     }
 
     var floatingCaptionMinimumWindowSize: NSSize {
-        NSSize(width: 420, height: floatingCaptionMinimumWindowHeight)
+        NSSize(width: FloatingCaptionAppearance.windowWidthRange.lowerBound, height: floatingCaptionMinimumWindowHeight)
     }
 
     var floatingCaptionTextColor: Color {
@@ -3388,6 +3396,7 @@ final class TranslationSessionStore {
         floatingCaptionStability = .balanced
         floatingCaptionTextAlignment = .leading
         floatingCaptionCustomPointSize = FloatingCaptionAppearance.defaultCustomPointSize
+        floatingCaptionWindowWidth = FloatingCaptionAppearance.defaultWindowWidth
         floatingCaptionTextColorHex = FloatingCaptionAppearance.defaultTextColorHex
         floatingCaptionBackgroundColorHex = FloatingCaptionAppearance.defaultBackgroundColorHex
         floatingCaptionBackgroundOpacity = FloatingCaptionAppearance.defaultBackgroundOpacity
@@ -4997,6 +5006,11 @@ final class TranslationSessionStore {
         if defaults.object(forKey: SettingsKey.floatingCaptionCustomPointSize) != nil {
             floatingCaptionCustomPointSize = CGFloat(defaults.double(forKey: SettingsKey.floatingCaptionCustomPointSize))
         }
+        if defaults.object(forKey: SettingsKey.floatingCaptionWindowWidth) != nil {
+            floatingCaptionWindowWidth = CGFloat(defaults.double(forKey: SettingsKey.floatingCaptionWindowWidth))
+        } else if let frame = FloatingCaptionWindowController.persistedFrame(in: defaults) {
+            floatingCaptionWindowWidth = frame.width
+        }
         if let textColorHex = defaults.string(forKey: SettingsKey.floatingCaptionTextColorHex) {
             floatingCaptionTextColorHex = FloatingCaptionAppearance.normalizedHex(
                 textColorHex,
@@ -5208,6 +5222,7 @@ final class TranslationSessionStore {
             defaults.set(data, forKey: SettingsKey.floatingCaptionStyle)
         }
         defaults.set(Double(floatingCaptionCustomPointSize), forKey: SettingsKey.floatingCaptionCustomPointSize)
+        defaults.set(Double(floatingCaptionWindowWidth), forKey: SettingsKey.floatingCaptionWindowWidth)
         defaults.set(floatingCaptionTextColorHex, forKey: SettingsKey.floatingCaptionTextColorHex)
         defaults.set(floatingCaptionBackgroundColorHex, forKey: SettingsKey.floatingCaptionBackgroundColorHex)
         defaults.set(floatingCaptionBackgroundOpacity, forKey: SettingsKey.floatingCaptionBackgroundOpacity)

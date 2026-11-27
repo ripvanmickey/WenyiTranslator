@@ -104,7 +104,7 @@ struct FloatingCaptionWindowView: View {
             }
         }
         .frame(minWidth: FloatingCaptionWindowController.minimumWindowSize.width,
-            idealWidth: FloatingCaptionWindowController.defaultWindowSize.width,
+            idealWidth: session.floatingCaptionWindowWidth,
             maxWidth: .infinity, minHeight: FloatingCaptionWindowController.minimumWindowSize.height,
             idealHeight: preferredHeight, maxHeight: .infinity)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
@@ -125,9 +125,11 @@ struct FloatingCaptionWindowView: View {
         .onDisappear { stable.removeAll(); visibility = FloatingParagraphVisibility(); retainedTranslation = nil }
         .wenyiWindowActivationEvents()
         .background(FloatingWindowConfigurator(preferredContentHeight: preferredHeight,
+            preferredWindowWidth: session.floatingCaptionWindowWidth,
             minimumWindowSize: FloatingCaptionWindowController.minimumWindowSize,
             keepsAboveOtherWindows: session.keepsFloatingCaptionAboveOtherWindows,
-            hasCaptionText: hasText))
+            hasCaptionText: hasText,
+            onWidthChanged: { session.floatingCaptionWindowWidth = $0 }))
     }
 
     private func source(_ line: CaptionLine) -> String {

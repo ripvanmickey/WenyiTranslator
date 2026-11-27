@@ -68,6 +68,15 @@ struct FloatingCaptionSettingsView: View {
             Picker(AppText.ui("行间距", "Line spacing", "行間"), selection: $session.floatingCaptionStyle.lineSpacing) {
                 ForEach(FloatingCaptionLineSpacing.allCases) { Text($0.title).tag($0) }
             }
+            VStack(alignment: .leading, spacing: 8) {
+                let title = AppText.ui("窗口宽度", "Window width", "ウィンドウの幅")
+                Stepper(value: $session.floatingCaptionWindowWidth, in: windowWidthRange, step: 10) {
+                    Text(title + " · \(Int(session.floatingCaptionWindowWidth.rounded())) pt")
+                }
+                Slider(value: $session.floatingCaptionWindowWidth, in: windowWidthRange)
+                    .accessibilityLabel(title)
+                    .accessibilityIdentifier("floatingCaptionWindowWidth")
+            }
             Picker(AppText.ui("窗口高度参考", "Window height", "ウィンドウの高さ"), selection: $session.floatingCaptionLineCount) {
                 ForEach(FloatingCaptionLineCount.allCases) { Text($0.title).tag($0) }
             }
@@ -94,6 +103,13 @@ struct FloatingCaptionSettingsView: View {
         Binding(get: { Double(UnifiedFloatingCaptionStyle(session: session).pointSize) },
                 set: { session.floatingCaptionCustomPointSize = CGFloat($0) })
     }
+
+    private var windowWidthRange: ClosedRange<CGFloat> {
+        let screenWidth = NSScreen.screens.map { FloatingCaptionWindowController.maximumWindowSize(for: $0).width }.max()
+            ?? FloatingCaptionWindowController.maximumWindowSize(for: nil).width
+        let upperBound = FloatingCaptionAppearance.clampedWindowWidth(max(screenWidth, session.floatingCaptionWindowWidth))
+        return FloatingCaptionAppearance.windowWidthRange.lowerBound...upperBound
+    }
 }
 
 /// A 16:9 scene preview inspired by FluentRead's live preview arrangement.
@@ -102,6 +118,7 @@ private struct FloatingCaptionScenePreview: View {
     let session: TranslationSessionStore
     var body: some View {
         GeometryReader { geometry in
+            let captionWidth = max(0, geometry.size.width - 32) * min(1, session.floatingCaptionWindowWidth / 960)
             ZStack(alignment: .bottom) {
                 LinearGradient(colors: [Color(red: 0.12, green: 0.22, blue: 0.28), Color(red: 0.3, green: 0.39, blue: 0.38)],
                                startPoint: .top, endPoint: .bottom)
@@ -117,6 +134,7 @@ private struct FloatingCaptionScenePreview: View {
                             style: UnifiedFloatingCaptionStyle(session: session))
                             .padding(18)
                     }
+                    .frame(width: captionWidth)
                     .frame(maxHeight: max(80, geometry.size.height * 0.6))
                     .background(Color.black.opacity(UnifiedFloatingCaptionStyle(session: session).opacity),
                                 in: RoundedRectangle(cornerRadius: UnifiedFloatingCaptionStyle.cornerRadius))

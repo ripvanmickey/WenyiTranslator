@@ -265,7 +265,7 @@ struct TranscriptLibraryView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
+            .padding(AirTranslateDesign.Spacing.sm)
         }
         .background(AirTranslateDesign.Palette.canvas)
     }
@@ -273,20 +273,19 @@ struct TranscriptLibraryView: View {
     @ViewBuilder
     private var editor: some View {
         if selectedMedia != nil || session.selectedSavedTranscript != nil {
-            GeometryReader { geometry in
-                ScrollView(.vertical) {
-                    Group {
-                        if let selectedMedia {
-                            mediaCard(for: selectedMedia)
-                        } else if let transcript = session.selectedSavedTranscript {
-                            editorCard(for: transcript)
-                        }
+            ScrollView(.vertical) {
+                Group {
+                    if let selectedMedia {
+                        mediaCard(for: selectedMedia)
+                    } else if let transcript = session.selectedSavedTranscript {
+                        editorCard(for: transcript)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: geometry.size.height, alignment: .center)
                 }
-                .scrollBounceBehavior(.basedOnSize)
+                .padding(.horizontal, AirTranslateDesign.Spacing.md)
+                .padding(.top, AirTranslateDesign.Spacing.sm)
+                .padding(.bottom, AirTranslateDesign.Spacing.md)
             }
+            .scrollBounceBehavior(.basedOnSize)
         } else {
             ContentUnavailableView(AppText.noSavedTranscriptSelected, systemImage: "doc.text")
         }
@@ -405,7 +404,6 @@ struct TranscriptLibraryView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(AirTranslateDesign.Spacing.md)
         .airRaisedSurface()
-        .padding(AirTranslateDesign.Spacing.md)
     }
 
     private func mediaCard(for entry: VideoSubtitleHistoryEntry) -> some View {
@@ -454,7 +452,6 @@ struct TranscriptLibraryView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(AirTranslateDesign.Spacing.md)
         .airRaisedSurface()
-        .padding(AirTranslateDesign.Spacing.md)
     }
 
     private func loadMediaHistory() async {

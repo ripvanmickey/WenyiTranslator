@@ -52,6 +52,24 @@ struct FloatingCaptionCompactSizingTests {
         #expect(shrunk.origin == original.origin)
     }
 
+    @Test func widthChangeWhileWaitingPreservesBottomEdgeAndReflowsCaptions() {
+        var placement = FloatingCaptionWindowPlacement()
+        let screen = NSRect(x: 1920, y: 0, width: 1440, height: 900)
+        let minimum = NSSize(width: 420, height: 90)
+        let current = NSRect(x: 2150, y: 12, width: 760, height: 240)
+        let resized = placement.fittedFrame(current: current, currentContentHeight: 240,
+            targetContentHeight: 90, visibleFrame: screen, minimumSize: minimum,
+            hasCaptionText: false, targetWindowWidth: 540)
+        #expect(resized == NSRect(x: 2260, y: 12, width: 540, height: 240))
+
+        let fitted = placement.fittedFrame(current: resized, currentContentHeight: 240,
+            targetContentHeight: 180, visibleFrame: screen, minimumSize: minimum,
+            hasCaptionText: true, targetWindowWidth: 540)
+        #expect(fitted.width == resized.width)
+        #expect(fitted.midX == resized.midX)
+        #expect(fitted.height == 180)
+    }
+
     @Test func manualMoveAcrossDisplaysBecomesTheNewAnchor() {
         var placement = FloatingCaptionWindowPlacement()
         let original = NSRect(x: 500, y: 200, width: 720, height: 120)

@@ -46,21 +46,14 @@ final class FloatingCaptionWindowController: NSObject, NSWindowDelegate {
         shared.resetSize()
     }
 
-    static func setWidth(_ width: CGFloat) {
-        guard width.isFinite, let panel = shared.window else { return }
-        var frame = panel.frame
-        frame.origin.x = frame.midX - width / 2
-        frame.size.width = width
-        if let visibleFrame = (panel.screen ?? NSScreen.main)?.visibleFrame {
-            frame = clampedFrame(frame, within: visibleFrame, minimumSize: panel.minSize)
-        }
-        panel.setFrame(frame, display: true)
+    static func persistedFrame(in defaults: UserDefaults = .standard) -> NSRect? {
+        defaults.string(forKey: frameDefaultsKey).map(NSRectFromString)
     }
 
     private static let shared = FloatingCaptionWindowController()
     private static let frameDefaultsKey = "floatingCaptionWindowFrame"
-    nonisolated static let defaultWindowSize = NSSize(width: 720, height: 170)
-    nonisolated static let minimumWindowSize = NSSize(width: 420, height: 90)
+    nonisolated static let defaultWindowSize = NSSize(width: FloatingCaptionAppearance.defaultWindowWidth, height: 170)
+    nonisolated static let minimumWindowSize = NSSize(width: FloatingCaptionAppearance.windowWidthRange.lowerBound, height: 90)
     nonisolated static let screenInset: CGFloat = 16
 
     private var window: NSPanel?
@@ -125,8 +118,10 @@ final class FloatingCaptionWindowController: NSObject, NSWindowDelegate {
     }
 
     private func makeWindow(session: TranslationSessionStore) -> NSPanel {
+        var size = Self.defaultWindowSize
+        size.width = min(session.floatingCaptionWindowWidth, Self.maximumWindowSize(for: NSScreen.main).width)
         let panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: Self.defaultWindowSize),
+            contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
@@ -188,13 +183,8 @@ final class FloatingCaptionWindowController: NSObject, NSWindowDelegate {
     }
 
     private func restorePersistedFrame(_ panel: NSPanel) -> Bool {
-        guard let frameString = UserDefaults.standard.string(forKey: Self.frameDefaultsKey) else {
-            return false
-        }
-
-        let frame = NSRectFromString(frameString)
         let screenFrames = NSScreen.screens.map(\.visibleFrame)
-        guard Self.frameIsReasonablyVisible(frame, within: screenFrames) else {
+        guard let frame = Self.persistedFrame(), Self.frameIsReasonablyVisible(frame, within: screenFrames) else {
             return false
         }
 

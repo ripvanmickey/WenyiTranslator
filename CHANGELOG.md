@@ -2,6 +2,10 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.12 - Unreleased
+
+- Build 1282 aligns saved TXT and media subtitle details with the top of the record list. Add a shared floating-caption width setting for live and media windows, with immediate preview and width persistence.
+
 ## 1.16.11 - 2026-11-28
 
 - Build 1281 adds optional AI review after media audio captions are ready. Review neighboring source cues with the selected translation model, apply targeted context-supported ASR corrections, and translate the edited cues again. Review existing caption caches without processing audio again. Save bilingual changes and review progress together while keeping cue timings.

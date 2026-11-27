@@ -38,6 +38,28 @@ struct FloatingCaptionStyleTests {
         #expect(style.translationFirst)
     }
 
+    @Test func windowWidthMigratesPersistsAndRestoresDefault() {
+        withSession { _, defaults in
+            defaults.removeObject(forKey: "floatingCaptionWindowWidth")
+            defaults.set(NSStringFromRect(NSRect(x: 100, y: 120, width: 875, height: 170)),
+                         forKey: "floatingCaptionWindowFrame")
+            let migrated = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] }, settingsDefaults: defaults)
+            #expect(migrated.floatingCaptionWindowWidth == 875)
+
+            migrated.floatingCaptionWindowWidth = .infinity
+            #expect(migrated.floatingCaptionWindowWidth == FloatingCaptionAppearance.defaultWindowWidth)
+            migrated.floatingCaptionWindowWidth = 50
+            #expect(migrated.floatingCaptionWindowWidth == FloatingCaptionAppearance.windowWidthRange.lowerBound)
+            migrated.floatingCaptionWindowWidth = 1040
+            let restored = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] }, settingsDefaults: defaults)
+            #expect(restored.floatingCaptionWindowWidth == 1040)
+
+            restored.resetFloatingCaptionAppearance()
+            let reset = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] }, settingsDefaults: defaults)
+            #expect(reset.floatingCaptionWindowWidth == FloatingCaptionAppearance.defaultWindowWidth)
+        }
+    }
+
     @Test func presetDoesNotChangeSessionOrReadingPolicy() {
         withSession { session, _ in
             session.floatingCaptionDisplayMode = .translation
