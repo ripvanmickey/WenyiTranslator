@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 public struct YouTubeVideoReference: Equatable, Sendable {
     public let id: String
@@ -67,6 +68,70 @@ public enum VideoSubtitleTimeline {
     public static func activeCue(in cues: [VideoSubtitleCue], at time: Double) -> VideoSubtitleCue? {
         guard let cue = mostRecentCue(in: cues, at: time) else { return nil }
         return time < cue.end ? cue : nil
+    }
+
+    /// Show long cues in two parts timed within the original cue. The full cue is still used for storage and export.
+    public static func floatingText(for cue: VideoSubtitleCue, at time: Double,
+                                    showsSource: Bool = true, showsTranslation: Bool = true)
+        -> (source: String, translation: String) {
+        let source = showsSource ? cue.source : ""
+        let translation = showsTranslation ? cue.translation : ""
+        let duration = cue.end - cue.start
+        // Allow at least one second for each part. A wide character uses roughly twice the space of an ASCII character.
+        guard duration >= 2, max(floatingTextWidth(source), floatingTextWidth(translation)) > 60 else {
+            return (source, translation)
+        }
+        let sourceParts = splitFloatingText(source)
+        let translationParts = splitFloatingText(translation)
+        guard let fraction = sourceParts?.fraction ?? translationParts?.fraction else { return (source, translation) }
+        let switchTime = cue.start + min(duration - 1, max(1, duration * fraction))
+        if time < switchTime {
+            return (sourceParts?.first ?? source, translationParts?.first ?? translation)
+        }
+        return (sourceParts?.second ?? source, translationParts?.second ?? translation)
+    }
+
+    private static func floatingTextWidth(_ text: String) -> Int {
+        text.reduce(0) { width, character in width + (character.isASCII ? 1 : 2) }
+    }
+
+    private static func splitFloatingText(_ value: String) -> (first: String, second: String, fraction: Double)? {
+        let text = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard floatingTextWidth(text) >= 20 else { return nil }
+
+        let length = text.count
+        let midpoint = length / 2
+        // Limit the search to the middle third so a short introductory phrase cannot leave almost all the text on one page.
+        let lower = text.index(text.startIndex, offsetBy: (length + 2) / 3)
+        let upper = text.index(text.startIndex, offsetBy: length * 2 / 3)
+        let range = lower...upper
+
+        func tokenEnds(_ unit: NLTokenUnit) -> [String.Index] {
+            let tokenizer = NLTokenizer(unit: unit)
+            tokenizer.string = text
+            return tokenizer.tokens(for: text.startIndex..<text.endIndex).map(\.upperBound)
+        }
+
+        func nearestBoundary(_ boundaries: [String.Index]) -> String.Index? {
+            boundaries.filter { range.contains($0) }.min {
+                abs(text.distance(from: text.startIndex, to: $0) - midpoint)
+                    < abs(text.distance(from: text.startIndex, to: $1) - midpoint)
+            }
+        }
+
+        let phraseBreaks = text[range].indices.compactMap { index in
+            let character = text[index]
+            return character.isNewline || "、，；：,;:".contains(character) ? text.index(after: index) : nil
+        }
+        guard var boundary = nearestBoundary(tokenEnds(.sentence)) ?? nearestBoundary(phraseBreaks)
+                ?? nearestBoundary(tokenEnds(.word)) else { return nil }
+        while boundary < text.endIndex, "、。，！？；：,.!?;:…」』）】”’".contains(text[boundary]) {
+            boundary = text.index(after: boundary)
+        }
+        let first = text[..<boundary].trimmingCharacters(in: .whitespacesAndNewlines)
+        let second = text[boundary...].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !first.isEmpty, !second.isEmpty else { return nil }
+        return (first, second, Double(text.distance(from: text.startIndex, to: boundary)) / Double(length))
     }
 
     /// Main-window reading context remains visible in gaps; overlays use activeCue.

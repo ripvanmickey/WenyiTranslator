@@ -36,6 +36,7 @@ struct VideoSubtitleChecks {
         let srt = VideoSubtitleTimeline.srt(cues)
         let roundTrip = try VideoSubtitleTimeline.parse(Data(srt.utf8))
         precondition(roundTrip == cues)
+        floatingCaptionChecks()
         let rolling = """
         WEBVTT
 
@@ -72,6 +73,42 @@ struct VideoSubtitleChecks {
         }
         print("PASS YouTube URL validation, VTT/SRT parsing, overlap normalization, backward/forward seek, subtitle gaps, silence and bounded speech ranges")
     }
+
+    static func floatingCaptionChecks() {
+        let firstSource = "この車は発進するときの加速がとてもなめらかです。"
+        let secondSource = "高速道路に入ってからも車内はとても静かです。"
+        let firstTranslation = "这辆车刚开始起步时，加速的感觉非常平顺。"
+        let secondTranslation = "驶入高速公路以后，车内也依然十分安静。"
+        let cue = VideoSubtitleCue(id: 0, start: 10, end: 18,
+            source: firstSource + secondSource, translation: firstTranslation + secondTranslation)
+
+        let switchTime = cue.start + (cue.end - cue.start) * Double(firstSource.count) / Double(cue.source.count)
+        let later = VideoSubtitleTimeline.floatingText(for: cue, at: switchTime + 0.01)
+        let earlier = VideoSubtitleTimeline.floatingText(for: cue, at: switchTime - 0.01)
+        precondition(earlier.source == firstSource && earlier.translation == firstTranslation)
+        precondition(later.source == secondSource && later.translation == secondTranslation)
+        precondition(VideoSubtitleTimeline.floatingText(for: cue, at: switchTime + 0.01).source == secondSource)
+        let originalOnly = VideoSubtitleTimeline.floatingText(for: cue, at: 10, showsTranslation: false)
+        precondition(originalOnly.source == firstSource && originalOnly.translation.isEmpty)
+        let translationOnly = VideoSubtitleTimeline.floatingText(for: cue, at: 17.9, showsSource: false)
+        precondition(translationOnly.source.isEmpty && translationOnly.translation == secondTranslation)
+        let saved = VideoSubtitleTimeline.srt([cue])
+        precondition(saved.contains(cue.source + "\n" + cue.translation))
+
+        let short = VideoSubtitleCue(id: 1, start: 20, end: 24, source: "はい。", translation: "是的。")
+        precondition(VideoSubtitleTimeline.floatingText(for: short, at: 23.9).source == short.source)
+        var brief = cue
+        brief.end = 11.5
+        precondition(VideoSubtitleTimeline.floatingText(for: brief, at: 11.4).source == cue.source)
+
+        let english = "The cabin stays remarkably quiet while the driver accelerates smoothly onto the highway"
+        let englishCue = VideoSubtitleCue(id: 2, start: 25, end: 31, source: english)
+        let englishStart = VideoSubtitleTimeline.floatingText(for: englishCue, at: 25).source
+        let englishEnd = VideoSubtitleTimeline.floatingText(for: englishCue, at: 30.9).source
+        precondition(englishStart + " " + englishEnd == english)
+        print("PASS shorter floating cues, bilingual sentence boundaries, seek, single-language display and complete SRT export")
+    }
+
     @MainActor
     static func progressiveChecks() async throws {
         enum SimulatedFailure: Error { case translation }

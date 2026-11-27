@@ -369,8 +369,10 @@ private struct VideoSubtitleOverlayView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if let cue = model.activeCue {
-                        UnifiedFloatingCaptionBlock(source: cue.source,
-                            translation: model.showsTranslation ? cue.translation : "", style: style)
+                        let text = VideoSubtitleTimeline.floatingText(for: cue, at: model.playbackTime - model.timingOffset,
+                            showsSource: style.mode != .translation,
+                            showsTranslation: model.showsTranslation && style.mode != .original)
+                        UnifiedFloatingCaptionBlock(source: text.source, translation: text.translation, style: style)
                     } else {
                         Text(model.isConnected ? (model.isAd ? AppText.ui("广告播放中", "Ad playing", "広告再生中") : AppText.ui("等待当前时间段的字幕…", "Waiting for captions at this position…", "現在の区間の字幕を待機中…")) : AppText.ui("请在文译中连接浏览器", "Connect your browser in Wenyi.", "文訳でブラウザに接続してください。"))
                             .foregroundStyle(.white.opacity(0.7))
