@@ -1,4 +1,4 @@
-**1.16.10（构建 1278）** 已保存记录支持从媒体缓存下载 SRT，未完成的视频可导出已准备的字幕。「AI 整理正文」和「AI 生成标题」使用当前选中的文字翻译模型。[发布说明](docs/releases/1.16.10.md) · [记录 AI 使用方法](docs/saved-record-ai.md)。
+**1.16.11（构建 1281）** 支持媒体原文 AI 校对，悬浮字幕分批显示长段落，保存记录时跳过空字幕。[发布说明](docs/releases/1.16.11.md)。
 
 **1.16.6 / build 1268：** 新增 Cloudflare Workers AI，本地识别和媒体字幕均可使用其文字翻译；独立配置 Account ID、Token 与模型，内置各服务 Logo。[配置与验证范围](docs/cloudflare-workers-ai.md)。
 
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 支持 macOS 27 · 1.16.10（构建 1278）
+  <strong>Apple Silicon</strong> · macOS 14+ · 支持 macOS 27 · 1.16.11（构建 1281）
 </p>
 
 <p align="center">
@@ -32,17 +32,17 @@
 
 文译可以把 Mac 正在播放的声音或麦克风语音转成实时字幕。看外语视频、听播客或开会时，可以同时显示原文和译文，也可以将转写保存下来继续编辑。
 
-![文译在 macOS 27 上的主窗口，底部可切换音频来源和字幕输出](./docs/assets/wenyi-main-zh-CN.jpg)
+![文译在 macOS 27 上的主窗口，底部可切换 Mac 音频、麦克风和媒体](./docs/assets/wenyi-main-zh-CN.jpg)
 
 ## 界面语言
 
 在「**设置 → 通用**」底部的「**界面语言**」选择英语、日语、简体中文或跟随系统，界面会立即更新。字幕的原文和译文语言可单独设置。
 
-![简体中文通用设置，已选择 Index 在线翻译](./docs/assets/wenyi-settings-zh-CN.jpg)
+![简体中文通用设置，显示处理模式和语音识别选项](./docs/assets/wenyi-settings-zh-CN.jpg)
 
 ## YouTube 字幕预加载与同步
 
-视频继续在 Chrome 或 Safari 播放。点击首页右上角「视频字幕预加载」，输入链接并选择语言，即可自动载入匹配的本机缓存。完整缓存无需重新下载或翻译；点击「补齐缺失字幕」只继续未完成的翻译。可使用 YouTube 已有字幕、导入 SRT/VTT，或主动选择 OpenAI 音轨识别（会上传音频并产生 API 用量）。已在 macOS 27 的 Chrome 实测暂停、前后跳转和 2 倍速同步。连接浏览器需允许自动化访问，并开启「允许 Apple 事件中的 JavaScript」。详见[配置与限制](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md)。
+视频继续在 Chrome 或 Safari 播放。选择底部「媒体」，点击「连接当前视频」读取浏览器中的视频，也可以手动输入链接。完整的本机缓存载入后即可播放。字幕来源支持 YouTube 已有字幕、SRT/VTT 导入，以及 OpenAI、Gemini 或本机 Nemotron 音轨识别。使用音轨识别时，可勾选「加载后 AI 校对原文」，已有完整缓存可直接点「校对原文」。连接浏览器需允许自动化访问，并开启「允许 Apple 事件中的 JavaScript」。详见[配置与限制](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md)。
 
 ## 实时字幕与本地翻译
 
@@ -106,7 +106,7 @@ Swift 主程序可独立编译。完整安装包还需要准备 Python/MLX 运�
 
 ## 验证与限制
 
-构建 1278 已通过签名和 156 个原生组件的最低系统版本检查。在 macOS 27 上通过「已保存记录」导出未完成的字幕缓存，导出的 38 条字幕与缓存一致。本构建尚未在 macOS 14 实机验证启动。
+构建 1281 已通过签名和 156 个原生组件的最低系统版本检查。媒体回归用模拟模型响应验证了上下文校对和中断续跑。本构建尚未在 macOS 14 实机验证启动。
 
 ```sh
 bash script/verify_caption_context_correction.sh

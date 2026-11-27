@@ -2,7 +2,7 @@
 
 All notable changes to AirTranslate are documented in this file.
 
-## 1.16.11 - Unreleased
+## 1.16.11 - 2026-11-28
 
 - Build 1281 adds optional AI review after media audio captions are ready. Review neighboring source cues with the selected translation model, apply targeted context-supported ASR corrections, and translate the edited cues again. Review existing caption caches without processing audio again. Save bilingual changes and review progress together while keeping cue timings.
 

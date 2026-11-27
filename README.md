@@ -1,4 +1,4 @@
-**1.16.10 (build 1278):** Download SRT files from cached media in Saved Transcripts, including any subtitles already prepared for unfinished videos. Record formatting and title generation follow the selected text translation model. [Release notes](docs/releases/1.16.10.md) · [Saved-record AI](docs/saved-record-ai.md).
+**1.16.11 (build 1281)** adds optional AI review of media transcripts, splits long floating captions into shorter parts, and skips empty saved records. [Release notes](docs/releases/1.16.11.md).
 
 **1.16.6 / build 1268:** Cloudflare Workers AI translates on-device recognition and media captions, with separate Account ID, Token and model settings. Provider logos are bundled offline. [Setup and test limits](docs/cloudflare-workers-ai.md).
 
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.10 (build 1278)
+  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.11 (build 1281)
 </p>
 
 <p align="center">
@@ -32,17 +32,17 @@
 
 Wenyi turns Mac system audio or microphone input into live captions. Display the original and translated text together while watching a video, listening to a podcast, or joining a meeting, then save the transcript for editing.
 
-![Wenyi’s main window on macOS 27 with system audio, microphone, and caption output controls](./docs/assets/wenyi-main-en.jpg)
+![Wenyi’s main window on macOS 27 with Mac Audio, Microphone, and Media controls](./docs/assets/wenyi-main-en.jpg)
 
 ## App language
 
 Choose **English**, **日本語**, **简体中文**, or **System** under **Settings → General → App Language** at the bottom of the page, and the interface updates immediately. The source and target languages for captions are set separately.
 
-![Wenyi General settings in English with Index Online Translation selected](./docs/assets/wenyi-settings-en.jpg)
+![Wenyi General settings in English with processing mode and speech recognition controls](./docs/assets/wenyi-settings-en.jpg)
 
 ## YouTube subtitle preloading
 
-Keep watching YouTube in Chrome or Safari while Wenyi prepares timed captions. Open **Video Subtitle Preloading** from the main window, paste the video URL, and select the languages. Matching local caches load automatically; complete caches need no download or translation, and **Fill Missing Captions** resumes only unfinished translations. Use existing YouTube captions, import SRT/VTT, or explicitly choose OpenAI audio transcription (audio upload and API usage apply). Chrome pause, seek and 2× playback synchronization were tested on macOS 27. Browser automation permission and JavaScript from Apple Events must be enabled. See the [setup and limitations](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md).
+Keep watching YouTube in Chrome or Safari while Wenyi prepares timed captions. Select **Media** in the bottom bar and use **Connect video** to read the current video, or paste its link. A complete local cache is ready to play as soon as it loads. You can use YouTube captions, import SRT/VTT, or transcribe the audio with OpenAI, Gemini, or on-device Nemotron. With an audio transcription source, enable **Review original captions after loading** for context-based corrections, or select **Review original** on a completed cache. The browser needs automation permission and JavaScript from Apple Events. See the [setup and limitations](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md).
 
 ## Live captions and local translation
 
@@ -106,7 +106,7 @@ On a fresh development Mac, prepare the runtime and libraries manually before pa
 
 ## Verification and limits
 
-Build 1278 passed signature and minimum macOS checks for 156 native components. A partial cached subtitle track was exported through Saved Transcripts on the macOS 27 test Mac, and all 38 cues matched the cache. Startup on a Mac running macOS 14 remains unverified for this build.
+Build 1281 passed signature and minimum macOS checks for 156 native components. Media regression tests exercised contextual corrections and resuming a review with simulated model responses. Startup on a Mac running macOS 14 remains unverified for this build.
 
 ```sh
 bash script/verify_caption_context_correction.sh
