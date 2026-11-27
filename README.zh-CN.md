@@ -1,4 +1,4 @@
-**1.16.11（构建 1281）** 支持媒体原文 AI 校对，悬浮字幕分批显示长段落，保存记录时跳过空字幕。[发布说明](docs/releases/1.16.11.md)。
+**1.16.12（构建 1283）** 媒体默认使用本机 Nemotron 和 Index 在线翻译，支持自定义悬浮窗宽度，已保存记录的详情改为顶部对齐。[发布说明](docs/releases/1.16.12.md)。
 
 **1.16.6 / build 1268：** 新增 Cloudflare Workers AI，本地识别和媒体字幕均可使用其文字翻译；独立配置 Account ID、Token 与模型，内置各服务 Logo。[配置与验证范围](docs/cloudflare-workers-ai.md)。
 
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · 支持 macOS 27 · 1.16.11（构建 1281）
+  <strong>Apple Silicon</strong> · macOS 14+ · 支持 macOS 27 · 1.16.12（构建 1283）
 </p>
 
 <p align="center">
@@ -42,7 +42,7 @@
 
 ## YouTube 字幕预加载与同步
 
-视频继续在 Chrome 或 Safari 播放。选择底部「媒体」，点击「连接当前视频」读取浏览器中的视频，也可以手动输入链接。完整的本机缓存载入后即可播放。字幕来源支持 YouTube 已有字幕、SRT/VTT 导入，以及 OpenAI、Gemini 或本机 Nemotron 音轨识别。使用音轨识别时，可勾选「加载后 AI 校对原文」，已有完整缓存可直接点「校对原文」。连接浏览器需允许自动化访问，并开启「允许 Apple 事件中的 JavaScript」。详见[配置与限制](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md)。
+视频继续在 Chrome 或 Safari 播放。选择底部「媒体」，点击「连接当前视频」读取浏览器中的视频，也可以手动输入链接。默认使用本机 Nemotron 识别音轨，字幕文字由 Index 在线翻译。首次识别前需下载 Nemotron 模型，也可以选择 YouTube 已有字幕、SRT/VTT 导入、OpenAI 或 Gemini 音轨识别。字幕来源、翻译模型和语言与缓存一致时，可直接载入已有字幕。使用音轨识别时，可勾选「加载后 AI 校对原文」，已有完整缓存可直接点「校对原文」。连接浏览器需允许自动化访问，并开启「允许 Apple 事件中的 JavaScript」。详见[配置与限制](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md)。
 
 ## 实时字幕与本地翻译
 
@@ -106,7 +106,7 @@ Swift 主程序可独立编译。完整安装包还需要准备 Python/MLX 运�
 
 ## 验证与限制
 
-构建 1281 已通过签名和 156 个原生组件的最低系统版本检查。媒体回归用模拟模型响应验证了上下文校对和中断续跑。本构建尚未在 macOS 14 实机验证启动。
+构建 1283 已通过签名和 156 个原生组件的最低系统版本检查。媒体回归验证了默认选项和已有字幕缓存的载入。本构建尚未在 macOS 14 实机验证启动。
 
 ```sh
 bash script/verify_caption_context_correction.sh

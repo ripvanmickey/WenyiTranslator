@@ -2,7 +2,9 @@
 
 All notable changes to AirTranslate are documented in this file.
 
-## 1.16.12 - Unreleased
+## 1.16.12 - 2026-11-28
+
+- Build 1283 defaults Media to on-device Nemotron audio recognition and Index online translation. Existing caption caches can be reused by selecting the original source and translation model.
 
 - Build 1282 aligns saved TXT and media subtitle details with the top of the record list. Add a shared floating-caption width setting for live and media windows, with immediate preview and width persistence.
 

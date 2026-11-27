@@ -1,4 +1,4 @@
-**1.16.11 (build 1281)** adds optional AI review of media transcripts, splits long floating captions into shorter parts, and skips empty saved records. [Release notes](docs/releases/1.16.11.md).
+**1.16.12 (build 1283)** defaults Media to on-device Nemotron and Index online translation, adds a floating-caption width control, and aligns saved-record details to the top. [Release notes](docs/releases/1.16.12.md).
 
 **1.16.6 / build 1268:** Cloudflare Workers AI translates on-device recognition and media captions, with separate Account ID, Token and model settings. Provider logos are bundled offline. [Setup and test limits](docs/cloudflare-workers-ai.md).
 
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.11 (build 1281)
+  <strong>Apple Silicon</strong> · macOS 14+ · macOS 27 supported · 1.16.12 (build 1283)
 </p>
 
 <p align="center">
@@ -42,7 +42,7 @@ Choose **English**, **日本語**, **简体中文**, or **System** under **Setti
 
 ## YouTube subtitle preloading
 
-Keep watching YouTube in Chrome or Safari while Wenyi prepares timed captions. Select **Media** in the bottom bar and use **Connect video** to read the current video, or paste its link. A complete local cache is ready to play as soon as it loads. You can use YouTube captions, import SRT/VTT, or transcribe the audio with OpenAI, Gemini, or on-device Nemotron. With an audio transcription source, enable **Review original captions after loading** for context-based corrections, or select **Review original** on a completed cache. The browser needs automation permission and JavaScript from Apple Events. See the [setup and limitations](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md).
+Keep watching YouTube in Chrome or Safari while Wenyi prepares timed captions. Select **Media** in the bottom bar and use **Connect video** to read the current video, or paste its link. The default uses on-device Nemotron for audio recognition and sends caption text to Index for translation. Download the Nemotron model before recognizing audio. You can also use YouTube captions, import SRT/VTT, or choose OpenAI or Gemini recognition. Complete caches load when their caption source, translation model, and languages match. With an audio transcription source, enable **Review original captions after loading** for context-based corrections, or select **Review original** on a completed cache. The browser needs automation permission and JavaScript from Apple Events. See the [setup and limitations](./docs/VIDEO-SUBTITLE-PRELOAD.zh-CN.md).
 
 ## Live captions and local translation
 
@@ -106,7 +106,7 @@ On a fresh development Mac, prepare the runtime and libraries manually before pa
 
 ## Verification and limits
 
-Build 1281 passed signature and minimum macOS checks for 156 native components. Media regression tests exercised contextual corrections and resuming a review with simulated model responses. Startup on a Mac running macOS 14 remains unverified for this build.
+Build 1283 passed signature and minimum macOS checks for 156 native components. Media tests checked the default options and reuse of cached subtitles. Startup on a Mac running macOS 14 remains unverified for this build.
 
 ```sh
 bash script/verify_caption_context_correction.sh

@@ -55,7 +55,7 @@ final class VideoSubtitlePreloadStore {
         return AppText.ui("标题语言不明确或暂不支持，保留当前原文语言。", "The title language is unclear or unsupported. Keeping the current original language.", "タイトルの言語が不明確または未対応のため、現在の原文言語を維持します。")
     }
     var targetLanguage = LanguageOption.supported.first { $0.id == "zh-CN" }!
-    var input = VideoSubtitleInput.youtube
+    var input = VideoSubtitleInput.nemotron
     var translator = VideoSubtitleTranslator.index
     var automaticallyReviewsSource = false
     var browser = VideoPlaybackBrowser.chrome

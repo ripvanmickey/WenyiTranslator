@@ -92,7 +92,7 @@ struct MediaWorkspaceTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let cache = VideoSubtitleCache(root: folder)
         try await cache.save(.init(videoID: "PMGSdzyRZUw", title: "Cached video", sourceLanguage: "en-US",
-            targetLanguage: "zh-CN", provider: "index", input: "youtube",
+            targetLanguage: "zh-CN", provider: "index", input: "nemotron",
             cues: [.init(id: 0, start: 0, end: 3, source: "Cached source", translation: "Cached translation")], completed: true))
         let model = VideoSubtitlePreloadStore(cache: cache, browserTabs: ScriptedBrowserTabReader(
             url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", title: "How to understand the world through stories and everyday conversations"))
@@ -127,7 +127,7 @@ struct MediaWorkspaceTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let cache = VideoSubtitleCache(root: folder)
         try await cache.save(.init(videoID: "PMGSdzyRZUw", title: "Cached video", sourceLanguage: "en-US",
-            targetLanguage: "zh-CN", provider: "index", input: "youtube",
+            targetLanguage: "zh-CN", provider: "index", input: "nemotron",
             cues: [.init(id: 0, start: 0, end: 10, source: "Cached source", translation: "Cached translation")], completed: true))
         let reader = ScriptedPlaybackReader(steps: [.snapshot(.init(
             url: "https://www.youtube.com/watch?v=PMGSdzyRZUw", time: 3, paused: true, rate: 1, ad: false, unsupported: false,
@@ -180,6 +180,10 @@ struct MediaWorkspaceTests {
         await model.refreshCurrentBrowserTab()
         await model.restoreCachedSelection()
         #expect(model.videoURL == "https://www.youtube.com/watch?v=PMGSdzyRZUw")
+        #expect(model.document == nil)
+        model.input = .youtube
+        await model.restoreCachedSelection()
+        #expect(model.document?.input == "youtube")
         #expect(model.document?.completed == true)
         #expect(model.document?.cues.first?.translation == "Cached translation")
         #expect(!model.isPreparing && !model.isConnecting && !model.isConnected)
@@ -260,17 +264,20 @@ struct MediaWorkspaceTests {
         }
     }
 
-    @Test func localNemotronUsesSeparateCacheAndOnlyTextTranslationCredentials() {
+    @Test func mediaDefaultsToLocalNemotronAndIndexWithSeparateCloudCaches() {
         let model = VideoSubtitlePreloadStore()
         model.videoURL = "https://www.youtube.com/watch?v=PMGSdzyRZUw"
-        model.input = .openAI
-        let cloudKey = model.cacheSelectionKey
-        model.input = .nemotron
+        #expect(model.input == .nemotron)
+        #expect(model.translator == .index)
         #expect(model.input.requiresAudioRecognition)
         #expect(model.input.audioEngine == .nemotron)
-        #expect(model.cacheSelectionKey != cloudKey)
         #expect(!model.showsImportAction)
         #expect(!model.showsOpenAIConfiguration)
+        let localKey = model.cacheSelectionKey
+        model.input = .openAI
+        #expect(model.cacheSelectionKey != localKey)
+        #expect(model.showsOpenAIConfiguration)
+        model.input = .nemotron
         model.translator = .openAI
         #expect(model.showsOpenAIConfiguration)
     }
@@ -341,7 +348,7 @@ struct MediaWorkspaceTests {
         let cache = VideoSubtitleCache(root: folder)
         let id = "PMGSdzyRZUw"
         let saved = VideoSubtitleDocument(videoID: id, title: "Cached video", sourceLanguage: "ja-JP",
-            targetLanguage: "zh-CN", provider: "index", input: "youtube", cues: [
+            targetLanguage: "zh-CN", provider: "index", input: "nemotron", cues: [
                 .init(id: 0, start: 0, end: 10, source: "Cached source", translation: "缓存译文")])
         var completed = saved
         completed.completed = true
