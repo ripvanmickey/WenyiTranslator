@@ -51,6 +51,63 @@ struct TranscriptPersistenceTests {
         #expect(transcriptFiles(in: directory).isEmpty)
     }
 
+    @Test(arguments: [false, true])
+    @MainActor
+    func emptyOpenAIRealtimeCaptureDoesNotCreateARecord(stopsRecording: Bool) throws {
+        let (session, directory, defaults, suiteName) = try makeSession()
+        defer { cleanup(directory: directory, defaults: defaults, suiteName: suiteName) }
+
+        session.isRunning = false
+        session.useOpenAIMode(.translation)
+        session.isTranscriptPersistenceEnabled = true
+        session.savedTranscriptContentMode = .originalAndTranslation
+        #expect(session.isUsingOpenAIRealtimeTranslation)
+
+        if stopsRecording {
+            _ = session.activateLiveCallbackPipelineForTesting()
+            session.stop()
+        } else {
+            session.prepareForTermination()
+        }
+
+        #expect(transcriptFiles(in: directory).isEmpty)
+        #expect(session.savedTranscripts.isEmpty)
+    }
+
+    @Test(arguments: SavedTranscriptContentMode.allCases)
+    @MainActor
+    func openAIRealtimeSavesTranslationOnlyAccordingToContentSetting(mode: SavedTranscriptContentMode) async throws {
+        let (session, directory, defaults, suiteName) = try makeSession()
+        defer { cleanup(directory: directory, defaults: defaults, suiteName: suiteName) }
+
+        session.isRunning = false
+        session.useOpenAIMode(.translation)
+        session.isDubbingEnabled = false
+        session.isTranscriptPersistenceEnabled = true
+        session.savedTranscriptContentMode = mode
+        let pipeline = session.activateLiveCallbackPipelineForTesting()
+        let translation = "Translation with no source transcript."
+        session.liveSpeechTranscriber(pipeline.transcriber, didTranslate: translation, language: .english, confidence: 1)
+        for _ in 0..<50 {
+            if session.lines.last?.translatedText == translation { break }
+            await Task.yield()
+        }
+        try #require(session.lines.last?.translatedText == translation)
+
+        session.prepareForTermination()
+
+        let files = transcriptFiles(in: directory)
+        if mode == .original {
+            #expect(files.isEmpty)
+        } else {
+            #expect(files.count == 1)
+            let saved = try #require(files.first)
+            #expect(try String(contentsOf: saved, encoding: .utf8) == translation)
+            #expect(saved.lastPathComponent.hasSuffix("_translation.txt") == (mode == .originalAndTranslation))
+            #expect(session.savedTranscripts.first?.title == translation)
+        }
+    }
+
     @Test
     @MainActor
     func optInPersistenceStillWritesTheSelectedTranscriptContent() async throws {

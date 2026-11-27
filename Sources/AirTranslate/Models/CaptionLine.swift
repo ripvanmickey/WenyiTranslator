@@ -6,6 +6,7 @@ struct CaptionLine: Identifiable, Equatable {
 
     let id: UUID
     let sourceText: String
+    let isSourcePlaceholder: Bool
     var sourceDisplayText: String
     let translatedText: String
     let translatedDisplayText: String
@@ -37,6 +38,7 @@ struct CaptionLine: Identifiable, Equatable {
     init(
         id: UUID = UUID(),
         sourceText: String,
+        isSourcePlaceholder: Bool = false,
         translatedText: String,
         translatedSourceText: String = "",
         createdAt: Date,
@@ -48,6 +50,7 @@ struct CaptionLine: Identifiable, Equatable {
     ) {
         self.id = id
         self.sourceText = sourceText
+        self.isSourcePlaceholder = isSourcePlaceholder
         self.sourceDisplayText = Self.displayText(for: sourceText, usesLongSessionDisplay: usesLongSessionDisplay)
         self.translatedText = translatedText
         self.translatedDisplayText = Self.displayText(for: translatedText, usesLongSessionDisplay: usesLongSessionDisplay,

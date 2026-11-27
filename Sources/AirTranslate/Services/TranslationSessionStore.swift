@@ -5439,49 +5439,52 @@ final class TranslationSessionStore {
     ) -> Bool {
         guard isTranscriptPersistenceEnabled else { return false }
 
-        let currentSourceText = usesAppleCaptionRollover && lines.count > 1
-            ? appleSavedSourceTranscriptText
-            : visibleTranscript().trimmingCharacters(in: .whitespacesAndNewlines)
-        if !currentSourceText.isEmpty {
-            activeAutosaveSourceText = currentSourceText
-        }
-        if usesAppleCaptionRollover && lines.count > 1 {
-            let translatedText = appleSavedTranslatedTranscriptText
-            if !translatedText.isEmpty {
-                activeAutosaveTranslatedText = translatedText
-            }
-        }
-        if isUsingGrokSTT || isUsingNariSTT {
+        if isUsingQwenTranslation {
+            // Save only text confirmed by the provider, including periodic checkpoints.
+            activeAutosaveSourceText = qwenSourceTranscript.completed
+            activeAutosaveTranslatedText = qwenTranslationTranscript.completed
+        } else if isUsingOpenAIRealtimeTranslation || isUsingGeminiTranslation {
+            activeAutosaveSourceText = lines.lazy.filter { !$0.isSourcePlaceholder }
+                .map(\.sourceText).joined(separator: "\n\n")
+            activeAutosaveTranslatedText = lines.lazy.filter(\.hasUsableTranslation)
+                .map(\.translatedText).joined(separator: "\n\n")
+        } else if isUsingGrokSTT || isUsingNariSTT {
             activeAutosaveSourceText = isUsingGrokSTT ? grokSavedTranscriptText : nariSavedTranscriptText
             activeAutosaveTranslatedText = lines.filter {
                 $0.isFinal && $0.translatedSourceText == $0.sourceText
                     && !$0.translatedText.isEmpty && $0.translatedText != AppText.translating
                     && $0.translatedText != AppText.translationCancelled
             }.map(\.translatedText).joined(separator: "\n")
-        }
-
-        if isUsingOpenAIRealtimeTranslation {
-            stageOpenAIRealtimeTranscriptForSave()
-        }
-
-        if isUsingQwenTranslation {
-            // 어떤 저장 진입점에서도 아직 철회 가능한 delta를 파일에 확정하지 않는다.
-            activeAutosaveSourceText = qwenSourceTranscript.completed
-            activeAutosaveTranslatedText = qwenTranslationTranscript.completed
+        } else {
+            let usesCaptionParagraphs = usesAppleCaptionRollover && lines.count > 1
+            let currentSourceText = usesCaptionParagraphs
+                ? appleSavedSourceTranscriptText
+                : visibleTranscript().trimmingCharacters(in: .whitespacesAndNewlines)
+            if !currentSourceText.isEmpty {
+                activeAutosaveSourceText = currentSourceText
+            }
+            if usesCaptionParagraphs {
+                let translatedText = appleSavedTranslatedTranscriptText
+                if !translatedText.isEmpty {
+                    activeAutosaveTranslatedText = translatedText
+                }
+            }
         }
 
         let sourceText = activeAutosaveSourceText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !sourceText.isEmpty else { return false }
+        let translatedText = activeAutosaveTranslatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let filenameText = sourceText.isEmpty ? translatedText : sourceText
+        guard !filenameText.isEmpty else { return false }
 
-        let updatedAt = Date()
         let baseFileName = activeAutosaveBaseFileName
-            ?? makeTranscriptFileName(for: sourceText, date: updatedAt)
-        activeAutosaveBaseFileName = baseFileName
+            ?? makeTranscriptFileName(for: filenameText, date: Date())
         let savedFiles = savedTranscriptFiles(
             sourceText: sourceText,
-            translatedText: activeAutosaveTranslatedText,
+            translatedText: translatedText,
             baseFileName: baseFileName
         )
+        guard !savedFiles.isEmpty else { return false }
+        activeAutosaveBaseFileName = baseFileName
 
         for savedFile in savedFiles {
             guard writeTranscriptText(savedFile.text, fileName: savedFile.fileName) else {
@@ -5519,8 +5522,8 @@ final class TranslationSessionStore {
         translatedText: String,
         baseFileName: String
     ) -> [(fileName: String, text: String)] {
-        var sourceText = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
-        var translatedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        var sourceText = sourceText
+        var translatedText = translatedText
         if savesTranscriptTimestamps, let transcriptStartedAt {
             sourceText = SavedTranscriptTimestamp.annotate(sourceText, segments: lines.map { line in
                 let text = isUsingMetaScribe ? metaSavedSourceText(for: line) : line.sourceText
@@ -5534,19 +5537,13 @@ final class TranslationSessionStore {
 
         switch effectiveSavedTranscriptContentMode {
         case .original:
-            return [(baseFileName, sourceText)]
+            return sourceText.isEmpty ? [] : [(baseFileName, sourceText)]
         case .translation:
             return [(baseFileName, translatedText.isEmpty ? sourceText : translatedText)]
         case .originalAndTranslation:
-            var files = [
-                (transcriptVariantFileName(baseFileName, suffix: "original"), sourceText)
-            ]
-            if !translatedText.isEmpty {
-                files.append(
-                    (transcriptVariantFileName(baseFileName, suffix: "translation"), translatedText)
-                )
-            }
-            return files
+            return [(suffix: "original", text: sourceText), (suffix: "translation", text: translatedText)]
+                .filter { !$0.text.isEmpty }
+                .map { (transcriptVariantFileName(baseFileName, suffix: $0.suffix), $0.text) }
         }
     }
 
@@ -7368,8 +7365,7 @@ final class TranslationSessionStore {
             updateOpenAIRealtimeParagraph(pending, isFinal: false)
         }
 
-        stageTranscriptForSave(fullSource.isEmpty ? AppText.openAIRealtimeTranslationOnlySource : fullSource,
-            translatedText: fullTranslation)
+        scheduleTranscriptCheckpointIfNeeded()
         if !fullTranslation.isEmpty {
             speakTranslatedDeltaIfNeeded(fullTranslation)
         }
@@ -7392,23 +7388,14 @@ final class TranslationSessionStore {
         let index = currentLineID.flatMap { id in lines.firstIndex { $0.id == id } }
         let previous = index.map { lines[$0] }
         let line = CaptionLine(
-            id: previous?.id ?? UUID(), sourceText: source, translatedText: translation,
+            id: previous?.id ?? UUID(), sourceText: source, isSourcePlaceholder: paragraph.source.isEmpty,
+            translatedText: translation,
             translatedSourceText: source, createdAt: previous?.createdAt ?? Date(),
             isFinal: isFinal, isTranslationComplete: isFinal,
             revision: (previous?.revision ?? 0) + 1, usesLongSessionDisplay: usesLongSessionMode
         )
         if let index { lines[index] = line } else { lines.append(line) }
         currentLineID = line.id
-    }
-
-    private func stageOpenAIRealtimeTranscriptForSave() {
-        let source = lines.map(\.sourceText)
-            .filter { $0 != AppText.openAIRealtimeTranslationOnlySource }
-            .joined(separator: "\n\n")
-        let translation = lines.filter(\.hasUsableTranslation).map(\.translatedText)
-            .joined(separator: "\n\n")
-        stageTranscriptForSave(source.isEmpty ? AppText.openAIRealtimeTranslationOnlySource : source,
-            translatedText: translation)
     }
 
     private func updateGeminiLiveInputTranscript(_ text: String) {
@@ -7794,7 +7781,7 @@ final class TranslationSessionStore {
         if !pending.source.isEmpty || !pending.translation.isEmpty {
             updateGeminiLiveParagraph(pending, isFinal: false)
         }
-        stageGeminiLiveTranscriptForSave()
+        scheduleTranscriptCheckpointIfNeeded()
         if let latest = lines.last {
             if !latest.sourceText.isEmpty { presentFloatingSourceText(latest.sourceText, identity: floatingIdentity(for: latest.id)) }
             if latest.hasUsableTranslation {
@@ -7810,7 +7797,8 @@ final class TranslationSessionStore {
         let translatedText = paragraph.translation.isEmpty ? AppText.translating : paragraph.translation
         let index = currentLineID.flatMap { id in lines.firstIndex { $0.id == id } }
         let previous = index.map { lines[$0] }
-        let line = CaptionLine(id: previous?.id ?? UUID(), sourceText: sourceText, translatedText: translatedText,
+        let line = CaptionLine(id: previous?.id ?? UUID(), sourceText: sourceText,
+            isSourcePlaceholder: paragraph.source.isEmpty, translatedText: translatedText,
             translatedSourceText: sourceText, createdAt: previous?.createdAt ?? Date(), isFinal: isFinal,
             isTranslationComplete: isFinal && !interrupted && !paragraph.translation.isEmpty,
             revision: (previous?.revision ?? 0) + 1, usesLongSessionDisplay: usesLongSessionMode)
@@ -7830,14 +7818,6 @@ final class TranslationSessionStore {
         geminiLiveInputTranscriptText = ""
         geminiLiveOutputTranscriptText = ""
         geminiLiveParagraphs = RealtimeTranslationParagraphs()
-        stageGeminiLiveTranscriptForSave()
-    }
-
-    private func stageGeminiLiveTranscriptForSave() {
-        guard isTranscriptPersistenceEnabled else { return }
-        let source = lines.map(\.sourceText).filter { $0 != AppText.geminiLiveTranslationSource }.joined(separator: "\n\n")
-        let translation = lines.filter(\.hasUsableTranslation).map(\.translatedText).joined(separator: "\n\n")
-        stageTranscriptForSave(source.isEmpty ? AppText.geminiLiveTranslationSource : source, translatedText: translation)
     }
 
     private func requestTranslationForAppleRecognition(

@@ -2,6 +2,10 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.16.11 - Unreleased
+
+- Build 1279 skips empty transcript files during periodic saves, stop and quit. OpenAI Realtime and Gemini Live save available source and translation text according to the selected content setting and omit display placeholders.
+
 ## 1.16.10 - 2026-11-26
 
 - Build 1278: show cached media subtitles in Saved Transcripts and add Download SRT to the media detail card. Export original captions, existing translations and their video timestamps from local storage. Older and partially prepared caches are available without reopening the video.
