@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## 1.16.11 - Unreleased
 
+- Build 1281 adds optional AI review after media audio captions are ready. Review neighboring source cues with the selected translation model, apply targeted context-supported ASR corrections, and translate the edited cues again. Review existing caption caches without processing audio again. Save bilingual changes and review progress together while keeping cue timings.
+
 - Build 1280 shows long video captions in two shorter parts in the floating window. Prefer sentence, phrase or word boundaries and switch at the appropriate point in the video timeline. Cached captions and SRT exports retain the original text and timestamps.
 
 - Build 1279 skips empty transcript files during periodic saves, stop and quit. OpenAI Realtime and Gemini Live save available source and translation text according to the selected content setting and omit display placeholders.

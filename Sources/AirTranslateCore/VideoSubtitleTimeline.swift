@@ -53,13 +53,15 @@ public struct VideoSubtitleDocument: Codable, Sendable {
     public var cues: [VideoSubtitleCue]
     public var completed: Bool
     public var audioProgress: VideoAudioPreparationProgress?
+    public var reviewProgress: VideoSubtitleReviewProgress?
     public var updatedAt: Date
     public init(videoID: String, title: String, sourceLanguage: String, targetLanguage: String,
                 provider: String, input: String, cues: [VideoSubtitleCue], completed: Bool = false,
-                audioProgress: VideoAudioPreparationProgress? = nil) {
+                audioProgress: VideoAudioPreparationProgress? = nil, reviewProgress: VideoSubtitleReviewProgress? = nil) {
         self.videoID = videoID; self.title = title; self.sourceLanguage = sourceLanguage
         self.targetLanguage = targetLanguage; self.provider = provider; self.input = input
-        self.cues = cues; self.completed = completed; self.audioProgress = audioProgress; updatedAt = Date()
+        self.cues = cues; self.completed = completed; self.audioProgress = audioProgress
+        self.reviewProgress = reviewProgress; updatedAt = Date()
     }
 }
 

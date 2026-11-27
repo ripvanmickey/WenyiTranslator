@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import AirTranslateCore
 @testable import AirTranslate
 
 private final class TranscriptAIMock: URLProtocol, @unchecked Sendable {
@@ -160,6 +161,63 @@ struct TranscriptAIServiceTests {
         var local = LocalTranslationConfiguration(); local.modelID = "local-model"; local.baseURL = "https://example.invalid/v1"
         await #expect(throws: LocalTranslationError.self) { try await client.title("Example", model: .local(local), apiKey: nil) }
         #expect(TranscriptAIMock.calls == 0)
+    }
+
+    @Test @MainActor func mediaReviewUsesTheSelectedModelAndCanCorrectAnExistingCache() async throws {
+        let japanese = try #require(LanguageOption.supported.first { $0.id == "ja-JP" })
+        for wasPrepared in [true, false] {
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: folder) }
+            let cache = VideoSubtitleCache(root: folder)
+            let videoID = "M7lc1UVf-VE"
+            let initial = VideoSubtitleDocument(videoID: videoID, title: "Synthetic media review", sourceLanguage: japanese.id,
+                targetLanguage: japanese.id, provider: "index", input: "nemotron", cues: [
+                    .init(id: 0, start: 0, end: 3, source: "4駆と2駆モデルを比べます。", translation: "既存の訳文"),
+                    .init(id: 2, start: 3, end: 7, source: "肉モデルに乗りました。", translation: "既存の訳文")
+                ], completed: wasPrepared)
+            try await cache.save(initial)
+            let model = VideoSubtitlePreloadStore(cache: cache, reviewService: service())
+            model.input = .nemotron
+            model.setSourceLanguageManually(japanese)
+            model.targetLanguage = japanese
+            model.setVideoURLManually("https://www.youtube.com/watch?v=\(videoID)")
+            model.automaticallyReviewsSource = true
+            TranscriptAIMock.handler = { request in
+                let body = try requestBody(request)
+                #expect(request.url?.absoluteString == LocalTranslationConfiguration.indexBaseURL + "/chat/completions")
+                #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+                let messages = try #require(body["messages"] as? [[String: String]])
+                let input = try #require(messages.last?["content"])
+                #expect(input.contains("肉モデル") && input.contains("4駆と2駆モデル"))
+                #expect(!input.contains("既存の訳文") && !input.contains(videoID))
+                let response = """
+                {"corrections":[{"index":1,"original":"肉","replacement":"2駆","evidenceIndex":0,"evidence":"4駆と2駆モデル"}]}
+                """
+                return (200, try completion(response))
+            }
+            await model.restoreCachedSelection()
+            #expect(!model.isReviewingSource && TranscriptAIMock.calls == 0)
+            if wasPrepared {
+                #expect(model.canReviewSource)
+                model.reviewSource()
+            } else {
+                #expect(!model.canReviewSource)
+                model.prepare()
+            }
+            let deadline = ContinuousClock.now + .seconds(5)
+            while (model.isPreparing || model.isReviewingSource) && ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(TranscriptAIMock.calls == 1)
+            #expect(!model.canReviewSource && !model.isReviewingSource)
+            #expect(model.document?.reviewProgress == .init(nextCue: 2, correctedCues: 1))
+            let updated = try await cache.load(videoID: videoID, source: japanese.id, target: japanese.id,
+                                               provider: "index", input: "nemotron")
+            #expect(updated?.completed == true)
+            #expect(updated?.cues[0] == initial.cues[0])
+            #expect(updated?.cues[1] == .init(id: 2, start: 3, end: 7,
+                source: "2駆モデルに乗りました。", translation: "2駆モデルに乗りました。"))
+        }
     }
 
     @Test @MainActor func selectedModelFollowsLiveAndMediaTranslationChoices() throws {

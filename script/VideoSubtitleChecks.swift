@@ -66,12 +66,94 @@ struct VideoSubtitleChecks {
         let paused = VideoSpeechSegmentation.ranges(energies: Array(repeating: 0.1, count: 40) + Array(repeating: 0, count: 50) + Array(repeating: 0.1, count: 40), frameDuration: 0.02, duration: 2.6)
         precondition(paused.count == 2 && paused[0].upperBound < paused[1].lowerBound)
         try await progressiveChecks()
+        try await sourceReviewChecks()
         if CommandLine.arguments.count > 1 {
             let real = try VideoSubtitleTimeline.parse(Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])))
             precondition(!real.isEmpty)
             print("PASS public YouTube VTT: \(real.count) timed cues")
         }
         print("PASS YouTube URL validation, VTT/SRT parsing, overlap normalization, backward/forward seek, subtitle gaps, silence and bounded speech ranges")
+    }
+
+    @MainActor
+    static func sourceReviewChecks() async throws {
+        enum SimulatedFailure: Error { case interrupted }
+        struct Line: Decodable { let index: Int; let text: String; let editable: Bool }
+        struct Request: Decodable { let lines: [Line] }
+        let phrases = ["試乗車には4駆と2駆モデルがあります。", "肉モデルを試乗しました。", "出力は150kWです。",
+                       "肉料理と鶏肉料理を選びました。"] + Array(repeating: "試乗の感想を話します。", count: 8)
+        let initial = VideoSubtitleDocument(videoID: "M7lc1UVf-VE", title: "Synthetic test", sourceLanguage: "ja-JP",
+            targetLanguage: "zh-CN", provider: "openAI", input: "openAI",
+            cues: phrases.enumerated().map { index, text in
+                .init(id: index * 2, start: Double(index * 3), end: Double(index * 3 + 2),
+                      source: text, translation: "已有译文 \(index)")
+            }, completed: true)
+        // Legacy cache files have no review checkpoint.
+        let oldCache = try JSONEncoder().encode(initial)
+        let decoded = try JSONDecoder().decode(VideoSubtitleDocument.self, from: oldCache)
+        precondition(decoded.reviewProgress == nil)
+
+        let response = """
+        {"corrections":[
+          {"index":1,"original":"肉","replacement":"2駆","evidenceIndex":0,"evidence":"4駆と2駆モデル"},
+          {"index":2,"original":"150kW","replacement":"160kW","evidenceIndex":0,"evidence":"4駆と2駆モデル"},
+          {"index":3,"original":"肉","replacement":"2駆","evidenceIndex":0,"evidence":"4駆と2駆モデル"},
+          {"index":10,"original":"試乗","replacement":"試作","evidenceIndex":0,"evidence":"4駆と2駆モデル"}
+        ]}
+        """
+        var saved = decoded
+        var translated: [String] = []
+        var requests = 0
+        do {
+            try await VideoSubtitleReviewPipeline.run(document: decoded) { batch in
+                requests += 1
+                let payload = try JSONDecoder().decode(Request.self, from: JSONEncoder().encode(batch))
+                if requests > 1 {
+                    precondition(payload.lines.first?.index == 7 && payload.lines.first?.editable == false)
+                    throw SimulatedFailure.interrupted
+                }
+                precondition(payload.lines.count == 12 && payload.lines.filter(\.editable).count == 10)
+                return response
+            } translate: { corrected in
+                translated.append(corrected)
+                return "试驾了两驱车型。"
+            } commit: { document in saved = document }
+            preconditionFailure("Expected interruption after one committed batch")
+        } catch SimulatedFailure.interrupted { }
+
+        precondition(translated == ["2駆モデルを試乗しました。"])
+        precondition(saved.reviewProgress == .init(nextCue: 10, correctedCues: 1))
+        precondition(saved.cues[1].source == translated[0] && saved.cues[1].translation == "试驾了两驱车型。")
+        precondition(saved.cues[2...] == initial.cues[2...])
+        precondition(saved.cues.map(\.id) == initial.cues.map(\.id))
+        precondition(saved.cues.map(\.start) == initial.cues.map(\.start))
+        precondition(saved.cues.map(\.end) == initial.cues.map(\.end))
+        precondition(VideoSubtitleTimeline.srt(saved.cues).contains("2駆モデルを試乗しました。\n试驾了两驱车型。"))
+
+        let resumed = try JSONDecoder().decode(VideoSubtitleDocument.self, from: JSONEncoder().encode(saved))
+        try await VideoSubtitleReviewPipeline.run(document: resumed) { batch in
+            let payload = try JSONDecoder().decode(Request.self, from: JSONEncoder().encode(batch))
+            precondition(payload.lines.filter(\.editable).map(\.index) == [10, 11])
+            return "{\"corrections\":[]}"
+        } translate: { _ in
+            preconditionFailure("Unchanged captions must not be translated again")
+        } commit: { document in saved = document }
+        precondition(saved.reviewProgress == .init(nextCue: 12, correctedCues: 1))
+        try await VideoSubtitleReviewPipeline.run(document: saved) { _ in
+            preconditionFailure("A finished cache must not request a second review")
+        } translate: { _ in
+            preconditionFailure("A finished cache must not request translation")
+        } commit: { _ in
+            preconditionFailure("A finished cache must not be written again")
+        }
+
+        do {
+            try await VideoSubtitleReviewPipeline.run(document: initial) { _ in response } translate: { _ in "" } commit: { _ in
+                preconditionFailure("Do not commit a correction without its replacement translation")
+            }
+            preconditionFailure("Expected an empty translation error")
+        } catch VideoSubtitleReviewError.emptyTranslation { }
+        print("PASS preceding context corrections, changed-cue translation, original timings, legacy cache and review resume")
     }
 
     static func floatingCaptionChecks() {

@@ -104,6 +104,10 @@ struct VideoSubtitlePreloadView: View {
                     }
                 }.disabled(model.isConfigurationLocked)
 
+                if model.input.requiresAudioRecognition {
+                    sourceReviewControls
+                }
+
                 Divider()
                 ViewThatFits(in: .horizontal) {
                     preparationActions.fixedSize(horizontal: true, vertical: false)
@@ -167,6 +171,29 @@ struct VideoSubtitlePreloadView: View {
     private var prepareButton: some View {
         Button(model.prepareTitle, systemImage: "arrow.down.circle") { model.prepare() }
             .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).disabled(!model.canPrepare)
+    }
+    private var sourceReviewControls: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Toggle(AppText.ui("加载后 AI 校对原文", "Review original captions after loading", "字幕の準備後に AI で原文を校正"),
+                   isOn: $model.automaticallyReviewsSource)
+                .toggleStyle(.checkbox)
+                .disabled(model.isConfigurationLocked)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("mediaReviewSourceAutomatically")
+            note(AppText.ui("用所选翻译模型复核前后字幕。校对仅发送文字，改动的段落会重新翻译，可能产生额外 API 用量。",
+                "The selected model reviews nearby captions. Review sends text and retranslates edited captions. Additional API usage may apply.",
+                "選択中の翻訳モデルで前後の字幕を確認します。校正にはテキストを送り、修正した区間を再翻訳します。API 利用量が増える場合があります。"))
+            if model.isReviewingSource {
+                Button(AppText.ui("停止校对", "Stop review", "校正を停止")) { model.cancel() }
+            } else if model.canReviewSource {
+                let title = model.document?.reviewProgress == nil
+                    ? AppText.ui("校对原文", "Review original", "原文を校正")
+                    : AppText.ui("继续校对", "Continue review", "校正を再開")
+                Button(title, systemImage: "sparkles") { model.reviewSource() }
+                    .accessibilityIdentifier("mediaReviewSource")
+            }
+            if let summary = model.sourceReviewSummary { note(summary) }
+        }
     }
     private var exportButton: some View {
         Button(AppText.ui("导出字幕…", "Export…", "書き出す…")) { model.export() }

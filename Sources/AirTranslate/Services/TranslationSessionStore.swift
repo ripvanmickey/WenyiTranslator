@@ -1023,11 +1023,7 @@ final class TranslationSessionStore {
 
     func savedTranscriptAIModel(mediaTranslator: VideoSubtitleTranslator? = nil) -> TranscriptAIModel {
         if let mediaTranslator {
-            switch mediaTranslator {
-            case .index: return .index
-            case .openAI: return .openAI
-            case .cloudflare: return .cloudflare(localTranslation.cloudflareConfiguration)
-            }
+            return mediaTranslator.textModel(cloudflare: localTranslation.cloudflareConfiguration)
         }
         if isUsingLocalTranslation {
             if localTranslation.usesCloudflare { return .cloudflare(localTranslation.cloudflareConfiguration) }

@@ -6,6 +6,7 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 xcrun swiftc -parse-as-library \
   "$ROOT_DIR/Sources/AirTranslateCore/VideoSubtitleTimeline.swift" \
   "$ROOT_DIR/Sources/AirTranslateCore/VideoSubtitlePreparation.swift" \
+  "$ROOT_DIR/Sources/AirTranslateCore/VideoSubtitleReview.swift" \
   "$ROOT_DIR/Sources/AirTranslateCore/VideoSpeechSegmentation.swift" \
   "$ROOT_DIR/script/VideoSubtitleChecks.swift" -o "$TEMP_DIR/checks"
 "$TEMP_DIR/checks" "$@"

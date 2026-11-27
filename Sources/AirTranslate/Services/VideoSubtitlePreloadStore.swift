@@ -24,6 +24,14 @@ enum VideoSubtitleTranslator: String, CaseIterable, Identifiable {
     case index, openAI, cloudflare
     var id: String { rawValue }
     var title: String { self == .cloudflare ? CloudflareCopy.title : self == .index ? AppText.ui("Index 在线翻译", "Index translation", "Index オンライン翻訳") : "OpenAI · GPT-4.1 mini" }
+
+    func textModel(cloudflare: CloudflareConfiguration) -> TranscriptAIModel {
+        switch self {
+        case .index: .index
+        case .openAI: .openAI
+        case .cloudflare: .cloudflare(cloudflare)
+        }
+    }
 }
 
 @Observable @MainActor
@@ -49,6 +57,7 @@ final class VideoSubtitlePreloadStore {
     var targetLanguage = LanguageOption.supported.first { $0.id == "zh-CN" }!
     var input = VideoSubtitleInput.youtube
     var translator = VideoSubtitleTranslator.index
+    var automaticallyReviewsSource = false
     var browser = VideoPlaybackBrowser.chrome
     var automaticallyReadsBrowserTab = true
     private var browserTabStatusText = MediaLocalizedText("正在读取当前标签页…", "Reading the current tab…", "現在のタブを読み取り中…")
@@ -67,6 +76,7 @@ final class VideoSubtitlePreloadStore {
     var connectionStatus: String { connectionStatusText.value }
     var error: String?
     var isPreparing = false
+    private(set) var isReviewingSource = false
     var progress = 0.0
     var document: VideoSubtitleDocument?
     var isConnected = false
@@ -91,15 +101,17 @@ final class VideoSubtitlePreloadStore {
     @ObservationIgnored let cache: VideoSubtitleCache
     @ObservationIgnored private let connection: any VideoPlaybackReading
     @ObservationIgnored private let browserTabs: any VideoBrowserTabReading
+    @ObservationIgnored private let reviewService: TranscriptAIService
     @ObservationIgnored private let audio = VideoAudioTranscription()
     @ObservationIgnored private let openAI = OpenAITranslationService()
     @ObservationIgnored private var overlay: VideoSubtitleOverlayController?
 
     init(connection: any VideoPlaybackReading = VideoBrowserConnection(), cache: VideoSubtitleCache = VideoSubtitleCache(),
-         browserTabs: any VideoBrowserTabReading = VideoBrowserConnection()) {
+         browserTabs: any VideoBrowserTabReading = VideoBrowserConnection(), reviewService: TranscriptAIService = .shared) {
         self.connection = connection
         self.cache = cache
         self.browserTabs = browserTabs
+        self.reviewService = reviewService
     }
 
     func setVideoURLManually(_ value: String) {
@@ -207,10 +219,38 @@ final class VideoSubtitlePreloadStore {
         }
         return AppText.ui("\(translatedCount) / \(document.cues.count) 段已准备", "\(translatedCount) / \(document.cues.count) captions ready", "\(translatedCount) / \(document.cues.count) 件準備済み")
     }
-    var isConfigurationLocked: Bool { isPreparing || isConnected || isConnecting }
+    var isConfigurationLocked: Bool { isPreparing || isReviewingSource || isConnected || isConnecting }
     var showsImportAction: Bool { input == .imported }
     var showsGeminiConfiguration: Bool { input == .gemini }
     var showsOpenAIConfiguration: Bool { input == .openAI || translator == .openAI }
+
+    var canReviewSource: Bool {
+        guard input.requiresAudioRecognition, !isPreparing, !isReviewingSource, hasMatchingDocument,
+              let document, document.completed, document.audioProgress?.isRecognitionComplete != false,
+              !document.cues.isEmpty else { return false }
+        return document.reviewProgress?.nextCue != document.cues.count
+    }
+
+    var sourceReviewSummary: String? {
+        guard hasMatchingDocument, let document else { return nil }
+        let count = document.cues.count
+        let reviewed = document.reviewProgress?.nextCue ?? 0
+        if isReviewingSource {
+            return AppText.ui("正在按上下文校对原文（\(reviewed) / \(count)）…",
+                "Reviewing the original with context (\(reviewed) / \(count))…",
+                "文脈から原文を校正中（\(reviewed) / \(count)）…")
+        }
+        guard let checkpoint = document.reviewProgress else { return nil }
+        if reviewed < count {
+            return AppText.ui("已校对 \(reviewed) / \(count) 段，可继续校对。",
+                "Reviewed \(reviewed) / \(count) captions. You can continue the review.",
+                "\(reviewed) / \(count) 件を校正しました。続行できます。")
+        }
+        let corrected = checkpoint.correctedCues
+        return AppText.ui("AI 校对完成，纠正了 \(corrected) 段原文。",
+            "AI review complete. Corrected \(corrected) original captions.",
+            "AI 校正が完了しました。原文 \(corrected) 件を修正しました。")
+    }
 
     /// Keep reading context on the main window during pauses and gaps between cues.
     /// Floating subtitles still use activeCue so expired text is not overlaid on video.
@@ -245,14 +285,14 @@ final class VideoSubtitlePreloadStore {
     var canPrepare: Bool { canStartPreparation(whileConnected: false) }
 
     private func canStartPreparation(whileConnected: Bool) -> Bool {
-        !isPreparing && (!isConfigurationLocked || (whileConnected && isConnected && !isConnecting)) && (try? YouTubeVideoReference(videoURL)) != nil
+        !isPreparing && !isReviewingSource && (!isConfigurationLocked || (whileConnected && isConnected && !isConnecting)) && (try? YouTubeVideoReference(videoURL)) != nil
             && (input != .imported || !imported.isEmpty)
             && !(hasMatchingDocument && document?.completed == true)
     }
 
     /// Selection changes only read local data; missing translations need an explicit start.
     func restoreCachedSelection() async {
-        guard !isPreparing else { return }
+        guard !isPreparing, !isReviewingSource else { return }
         let selection = cacheSelectionKey
         if hasMatchingDocument { return }
         document = nil; activeCue = nil; error = nil; progress = 0
@@ -263,7 +303,7 @@ final class VideoSubtitlePreloadStore {
         do {
             let saved = try await cache.load(videoID: video.id, source: source, target: target,
                                              provider: provider, input: selectedInput)
-            guard !Task.isCancelled, !isPreparing, cacheSelectionKey == selection else { return }
+            guard !Task.isCancelled, !isPreparing, !isReviewingSource, cacheSelectionKey == selection else { return }
             guard let saved else {
                 statusText = MediaLocalizedText("未找到匹配的本机缓存，可开始预加载。", "No matching cache found. You can prepare captions.", "一致するキャッシュがありません。字幕を準備できます。"); return
             }
@@ -278,7 +318,7 @@ final class VideoSubtitlePreloadStore {
             }
             refreshCue()
         } catch {
-            guard !Task.isCancelled, !isPreparing, cacheSelectionKey == selection else { return }
+            guard !Task.isCancelled, !isPreparing, !isReviewingSource, cacheSelectionKey == selection else { return }
             statusText = MediaLocalizedText("本机缓存无法读取，可重新预加载。", "The local cache could not be read. Prepare captions again.", "キャッシュを読み込めませんでした。字幕を再度準備してください。")
         }
     }
@@ -292,12 +332,17 @@ final class VideoSubtitlePreloadStore {
         let inputKey = selectedInput == .imported ? "import:" + importedHash : selectedInput.rawValue
         let providerKey = translationCacheProvider
         let importedCues = imported
+        let reviewAfterPreparation = selectedInput.requiresAudioRecognition && automaticallyReviewsSource
         let token = UUID(); generation = token
         preparation = Task {
             let folder = FileManager.default.temporaryDirectory.appendingPathComponent("wenyi-video-" + UUID().uuidString, isDirectory: true)
+            var finishedNewPreparation = false
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                if generation == token { isPreparing = false; preparation = nil }
+                if generation == token {
+                    isPreparing = false; preparation = nil
+                    if reviewAfterPreparation && finishedNewPreparation && !Task.isCancelled { reviewSource() }
+                }
             }
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -358,6 +403,7 @@ final class VideoSubtitlePreloadStore {
                     document?.completed = true
                     if let document { try await cache.save(document) }
                     statusText = MediaLocalizedText("字幕已准备完成，重播时可直接使用本机缓存。", "Captions are ready. Replay using the local cache.", "字幕の準備が完了しました。次回はキャッシュを利用できます。"); progress = 1
+                    finishedNewPreparation = true
                     return
                 }
                 if document == nil {
@@ -384,6 +430,7 @@ final class VideoSubtitlePreloadStore {
                 document?.completed = true
                 if let document { try await cache.save(document) }
                 statusText = MediaLocalizedText("字幕已准备完成，重播时可直接使用本机缓存。", "Captions are ready. Replay using the local cache.", "字幕の準備が完了しました。次回はキャッシュを利用できます。"); progress = 1
+                finishedNewPreparation = true
             } catch {
                 if let document { try? await cache.save(document) }
                 guard generation == token else { return }
@@ -392,6 +439,51 @@ final class VideoSubtitlePreloadStore {
                     self.error = Self.message(for: error)
                     statusText = MediaLocalizedText("准备未完成；可重试，已完成的译文会复用。", "Preparation is incomplete. Retry to reuse completed translations.", "準備は未完了です。再試行時には完了済みの翻訳を再利用します。")
                 }
+            }
+        }
+    }
+
+    func reviewSource() {
+        guard canReviewSource, let original = document else { return }
+        let source = sourceLanguage, target = targetLanguage, provider = translator
+        let model = provider.textModel(cloudflare: cloudflareConfiguration)
+        let selection = cacheSelectionKey
+        let token = UUID(); generation = token
+        error = nil; isReviewingSource = true
+        preparation = Task {
+            defer {
+                if generation == token { isReviewingSource = false; preparation = nil }
+            }
+            @MainActor func checkSelection() throws {
+                try Task.checkCancellation()
+                guard generation == token, cacheSelectionKey == selection else { throw CancellationError() }
+            }
+            do {
+                try checkSelection()
+                let key = try await Task.detached { try model.readAPIKey() }.value
+                try await VideoSubtitleReviewPipeline.run(document: original) { batch in
+                    try checkSelection()
+                    return try await self.reviewService.reviewVideoSubtitles(
+                        batch, sourceLanguage: source.id, model: model, apiKey: key)
+                } translate: { text in
+                    try checkSelection()
+                    return try await self.translatedText(text, source: source, target: target, provider: provider)
+                } commit: { corrected in
+                    try checkSelection()
+                    try await self.cache.save(corrected)
+                    guard self.generation == token, self.cacheSelectionKey == selection else { throw CancellationError() }
+                    self.document = corrected
+                    self.refreshCue()
+                }
+            } catch {
+                guard generation == token, !Task.isCancelled, !(error is CancellationError) else { return }
+                self.error = error is VideoSubtitleReviewError
+                    ? AppText.ui("校对未完成，模型未返回可用结果。现有字幕可继续播放和导出。",
+                        "Review stopped because the model returned no usable result. You can still play and export the captions.",
+                        "モデルから有効な結果が返らず校正が中断されました。現在の字幕は再生・書き出しできます。")
+                    : AppText.ui("原文校对未完成：\(Self.message(for: error))",
+                        "Original caption review stopped: \(Self.message(for: error))",
+                        "原文の校正が中断されました：\(Self.message(for: error))")
             }
         }
     }
@@ -415,27 +507,32 @@ final class VideoSubtitlePreloadStore {
         try Task.checkCancellation()
         guard generation == token else { throw CancellationError() }
         guard let cue = document?.cues[index], cue.translation.isEmpty else { return }
-        let translated: String
-        if source == target { translated = cue.source }
-        else if provider == .cloudflare {
-            let configuration = cloudflareConfiguration
-            let key = try await Task.detached { try CloudflareAPIKeyStore.readAPIKey() }.value
-            translated = try await CloudflareTranslationService.shared.translate(cue.source, source: source.id,
-                target: target.id, configuration: configuration, key: key)
-        } else if provider == .openAI {
-            translated = try await openAI.translate(cue.source, source: source, target: target, model: .gpt41Mini)
-        } else {
-            var configuration = LocalTranslationConfiguration()
-            configuration.enabled = true; configuration.onlineIndex = true
-            translated = try await LocalTranslationService.shared.translate(cue.source, source: source.id,
-                target: target.id, configuration: configuration, asSingleCaption: true)
-        }
+        let translated = try await translatedText(cue.source, source: source, target: target, provider: provider)
         try Task.checkCancellation()
         guard generation == token else { throw CancellationError() }
         document?.cues[index].translation = translated
         document?.updatedAt = Date()
         refreshCue()
         if let document { try await cache.save(document) }
+    }
+
+    private func translatedText(_ text: String, source: LanguageOption, target: LanguageOption,
+                                provider: VideoSubtitleTranslator) async throws -> String {
+        if source == target { return text }
+        switch provider {
+        case .cloudflare:
+            let configuration = cloudflareConfiguration
+            let key = try await Task.detached { try CloudflareAPIKeyStore.readAPIKey() }.value
+            return try await CloudflareTranslationService.shared.translate(text, source: source.id,
+                target: target.id, configuration: configuration, key: key)
+        case .openAI:
+            return try await openAI.translate(text, source: source, target: target, model: .gpt41Mini)
+        case .index:
+            var configuration = LocalTranslationConfiguration()
+            configuration.enabled = true; configuration.onlineIndex = true
+            return try await LocalTranslationService.shared.translate(text, source: source.id,
+                target: target.id, configuration: configuration, asSingleCaption: true)
+        }
     }
 
     static func timestamp(_ seconds: Double) -> String {
@@ -470,9 +567,13 @@ final class VideoSubtitlePreloadStore {
             var needsPreparation = prepareCaptions
             while !Task.isCancelled {
                 do {
-                    let snapshot = try await connection.read(selectedBrowser, initial: initial, videoID: needsPreparation ? nil : document?.videoID ?? connectedVideoID)
+                    let pinnedSelection = isPreparing || isReviewingSource
+                    let discoverVideo = needsPreparation && !pinnedSelection
+                    let preparingVideoID = pinnedSelection ? (try? YouTubeVideoReference(videoURL))?.id : nil
+                    let snapshot = try await connection.read(selectedBrowser, initial: initial,
+                        videoID: discoverVideo ? nil : document?.videoID ?? preparingVideoID ?? connectedVideoID)
                     guard connectionGeneration == token, !Task.isCancelled else { return }
-                    let shouldPrepare = needsPreparation
+                    let shouldPrepare = discoverVideo && !isPreparing && !isReviewingSource
                     needsPreparation = false
                     initial = false
                     isConnecting = false
